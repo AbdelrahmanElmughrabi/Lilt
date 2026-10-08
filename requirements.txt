@@ -1,0 +1,6 @@
+pywebview>=6.1,<7
+kokoro-onnx>=0.4.9,<0.7
+markdown-it-py>=3,<5
+soundfile>=0.13,<0.14
+pyinstaller>=6.16,<7
+psutil>=7,<8

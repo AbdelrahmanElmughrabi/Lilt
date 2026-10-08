@@ -1,0 +1,104 @@
+const {chromium} = require(process.env.FOLIO_PLAYWRIGHT);
+const fs = require('fs');
+const assert = require('assert');
+const delay = ms => new Promise(resolve => setTimeout(resolve,ms));
+async function until(fn, limit=60000) { const end=Date.now()+limit; while(Date.now()<end) { const value=await fn(); if(value) return value; await delay(150); } throw Error('Timed out'); }
+(async () => {
+  const browser = await chromium.connectOverCDP('http://127.0.0.1:9223');
+  const page = browser.contexts()[0].pages().find(p=>p.url().startsWith('http://127.0.0.1'));
+  const errors=[]; page.on('pageerror',e=>errors.push(String(e)));
+  await page.reload(); await page.waitForSelector('.generate-button');
+  await page.evaluate(() => {
+    window.__audioContexts=[]; window.__starts=[];
+    const Original=window.AudioContext;
+    window.AudioContext=class extends Original { constructor(...args) {super(...args); window.__audioContexts.push(this);}
+      createBufferSource() { const node=super.createBufferSource(); const start=node.start.bind(node); node.start=(...args)=>{window.__starts.push({at:args[0],offset:args[1]||0,duration:node.buffer.duration,rate:node.playbackRate.value,now:this.currentTime}); start(...args);}; return node; }
+    };
+  });
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByLabel('Processing device').selectOption('gpu');
+  await page.getByLabel('Listening buffer').selectOption('sooner');
+  await page.waitForTimeout(600);
+  await page.screenshot({path:'artifacts/ui-performance.png'});
+  await page.getByRole('button',{name:'Reading room',exact:true}).click();
+  const document=await page.evaluate(async()=>{
+    const api=window.pywebview.api;
+    const doc=await api.new_document();
+    await api.save_document(doc.id,'# A little more listening\n\n'+Array.from({length:24},(_,i)=>`Chapter ${i+1}. A long reading can begin with a small passage. Listen to the first words while the next part is prepared, and let each thought arrive at its own pace. There is room for a little curiosity in every quiet moment.`).join('\n\n'));
+    return doc;
+  });
+  await page.reload(); await page.waitForSelector('.generate-button');
+  await page.getByRole('button',{name:/A little more listening/}).first().click();
+  await page.getByRole('button',{name:'Create your audio'}).click();
+  const early=await until(async()=>{
+    const result=await page.evaluate(async()=>({state:await window.pywebview.api.get_state(),position:Number(document.querySelector('[aria-label="Seek audio"]').value),playing:document.querySelector('.play-button').title,contexts:(window.__audioContexts||[]).map(ctx=>ctx.state)}));
+    return result.position>.2 && result.playing==='Pause' && result.state.active ? result : null;
+  });
+  const key=early.state.active.id;
+  assert(early.state.active.completed < early.state.active.total);
+  await page.screenshot({path:'artifacts/ui-streaming.png'});
+  await page.getByTitle('Pause',{exact:true}).click();
+  const paused=Number(await page.getByLabel('Seek audio').inputValue());
+  await delay(1200);
+  assert(Math.abs(Number(await page.getByLabel('Seek audio').inputValue())-paused)<.1,'Pause moved');
+  await page.getByLabel('Seek audio').fill('1');
+  await page.getByTitle('Playback speed',{exact:true}).click();
+  await page.getByTitle('Play',{exact:true}).click();
+  await delay(1400);
+  const advanced=Number(await page.getByLabel('Seek audio').inputValue());
+  assert(advanced>2.3 && advanced<3.3,`Wrong playback rate: ${advanced}`);
+  const positions=[];
+  const finished=await until(async()=>{
+    const state=await page.evaluate(()=>window.pywebview.api.get_state());
+    positions.push(Number(await page.getByLabel('Seek audio').inputValue()));
+    const job=state.jobs.find(j=>j.id===key);
+    if(job.state==='failed') throw Error(job.message);
+    return job.state==='completed'?job:null;
+  },90000);
+  await delay(1200);
+  positions.push(Number(await page.getByLabel('Seek audio').inputValue()));
+  for(let i=1;i<positions.length;i++) assert(positions[i]>=positions[i-1]-.03,'Completion reset playback');
+  assert(await page.locator('audio').getAttribute('src')===null,'Live player switched to the final WAV');
+  await page.getByTitle('Pause',{exact:true}).click();
+  const saved=Number(await page.getByLabel('Seek audio').inputValue());
+  await delay(300); await page.reload(); await page.waitForSelector('.generate-button'); await delay(700);
+  const reopened=Number(await page.getByLabel('Seek audio').inputValue());
+  assert(Math.abs(reopened-saved)<.2,'Listening position lost on reload');
+  assert((await page.locator('audio').getAttribute('src')).includes(key));
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByLabel('Processing device').selectOption('cpu');
+  await page.getByLabel('Listening buffer').selectOption('sooner');
+  await page.getByRole('button',{name:'Quiet A lighter touch',exact:true}).click();
+  await page.evaluate(async()=>{
+    const api=window.pywebview.api; const doc=await api.new_document();
+    await api.save_document(doc.id,'# Waiting with a purpose\n\nA second section takes a little longer than its title. We will keep listening while it is prepared, and wait at the boundary when the available audio runs out.\n\nThe next paragraph gives us room to continue.');
+    const settings=await api.get_state(); await api.save_settings({...settings.settings,cache_enabled:false});
+  });
+  await page.reload(); await page.waitForSelector('.generate-button');
+  await page.getByRole('button',{name:/Waiting with a purpose/}).first().click();
+  await page.getByRole('button',{name:'Create your audio'}).click();
+  const waiting=await until(async()=>await page.locator('.play-button').getAttribute('data-buffering')==='true' && (await page.getByLabel('Seek audio').inputValue())>1);
+  assert(waiting);
+  const held=Number(await page.getByLabel('Seek audio').inputValue());
+  await delay(700); assert(Math.abs(Number(await page.getByLabel('Seek audio').inputValue())-held)<.1,'Buffering advanced past available speech');
+  await until(async()=>await page.locator('.play-button').getAttribute('data-buffering')==='false' && Number(await page.getByLabel('Seek audio').inputValue())>held+.2);
+  await page.getByRole('button',{name:'Stop generation',exact:true}).click();
+  const cancelled=await until(async()=>{const state=await page.evaluate(()=>window.pywebview.api.get_state()); return !state.active && state.jobs.find(j=>j.state==='cancelled');});
+  if(await page.getByTitle('Pause',{exact:true}).count()) await page.getByTitle('Pause',{exact:true}).click();
+  await page.getByLabel('Seek audio').fill('1');
+  await page.getByTitle('Play',{exact:true}).click(); await delay(1200); await page.getByTitle('Pause',{exact:true}).click();
+  const partialPosition=Number(await page.getByLabel('Seek audio').inputValue());
+  await delay(300); await page.reload(); await page.waitForSelector('.generate-button'); await delay(500);
+  assert(Math.abs(Number(await page.getByLabel('Seek audio').inputValue())-partialPosition)<.2,'Partial recording position lost');
+  await page.getByRole('button',{name:/Your recordings/}).click();
+  await page.getByRole('button',{name:'Continue',exact:true}).first().click();
+  await until(async()=>{const state=await page.evaluate(()=>window.pywebview.api.get_state());const job=state.jobs.find(j=>j.id===cancelled.id); if(job.state==='failed') throw Error(job.message);return job.state==='completed';},90000);
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByLabel('Processing device').selectOption('gpu');
+  await page.getByRole('button',{name:'Balanced Everyday reading',exact:true}).click();
+  await page.screenshot({path:'artifacts/ui-performance.png'});
+  assert.deepEqual(errors,[]);
+  fs.writeFileSync('artifacts/streaming-ui.json',JSON.stringify({success:true,early:{position:early.position,state:early.state.active.state,completed:early.state.active.completed,total:early.state.active.total},gpu:finished,paused,ratePosition:advanced,savedPosition:reopened,bufferHeld:held,partialPosition,errors},null,2));
+  console.log(JSON.stringify({success:true,early_audio_while_generating:true,pause_seek_rate:true,completion_preserved_position:true,buffer_recovery:true,partial_resume:true}));
+  await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});

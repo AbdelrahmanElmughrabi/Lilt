@@ -1,0 +1,16 @@
+.venv/
+node_modules/
+.npm-cache/
+.pip-cache/
+.gpu-probe/
+.cuda-probe/
+onnxruntime_profile_*.json
+.tmp/
+.app-data/
+__pycache__/
+*.pyc
+*.lnk
+build/
+dist/
+frontend/dist/
+artifacts/

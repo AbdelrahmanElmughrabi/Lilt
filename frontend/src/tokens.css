@@ -1,0 +1,36 @@
+:root, .app-shell {
+  --paper: #f7f5ef;
+  --panel: #f1efe7;
+  --surface: #fcfbf8;
+  --surface-alt: #eeece4;
+  --ink: #2e352c;
+  --prose: #616358;
+  --muted: #909184;
+  --faint: #b8b7aa;
+  --line: #e5e3d9;
+  --line-strong: #d8d7cb;
+  --accent: #b75c36;
+  --accent-hover: #a74e2c;
+  --accent-soft: #cc9b7d;
+  --art: #dbe3d5;
+  --error: #a84732;
+  --error-bg: #f5e8df;
+}
+.app-shell.dark {
+  --paper: #272a25;
+  --panel: #252822;
+  --surface: #2d302a;
+  --surface-alt: #363a31;
+  --ink: #e5e5d6;
+  --prose: #b5b9a8;
+  --muted: #949b86;
+  --faint: #66715c;
+  --line: #3b4134;
+  --line-strong: #4c5542;
+  --accent: #ca865f;
+  --accent-hover: #d79a72;
+  --accent-soft: #976f4c;
+  --art: #b1c2a5;
+  --error: #e8b297;
+  --error-bg: #433328;
+}

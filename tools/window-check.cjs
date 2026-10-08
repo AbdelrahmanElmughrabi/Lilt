@@ -1,0 +1,21 @@
+const { chromium } = require(process.env.FOLIO_PLAYWRIGHT || 'playwright');
+const path = require('node:path');
+(async () => {
+  const browser = await chromium.connectOverCDP('http://127.0.0.1:9223');
+  const page = browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith('http://127.0.0.1:'));
+  const session = await page.context().newCDPSession(page);
+  await session.send('Emulation.setDeviceMetricsOverride', { width: 1024, height: 681, deviceScaleFactor: 1, mobile: false });
+  const action = page.getByRole('button', {name:'Create your audio',exact:false});
+  const metrics = await page.evaluate(() => ({width:window.innerWidth,height:window.innerHeight,content:document.documentElement.scrollWidth}));
+  const box = await action.boundingBox();
+  if (metrics.content > metrics.width || !box || box.y + box.height > metrics.height - 80) throw new Error('The primary action does not fit the minimum window');
+  await page.screenshot({path:path.resolve('artifacts/ui-small-window.png'),animations:'disabled'});
+  await session.send('Emulation.clearDeviceMetricsOverride');
+  await page.evaluate(() => document.querySelector('audio').pause());
+  const dismiss = page.getByTitle('Dismiss notification');
+  if (await dismiss.count()) await dismiss.click();
+  await page.screenshot({path:path.resolve('artifacts/ui-studio.png'),animations:'disabled'});
+  console.log(JSON.stringify({success:true,minimumWindow:metrics,primaryAction:box}));
+  await session.detach();
+  await browser.close();
+})().catch(error => {console.error(error);process.exit(1);});
