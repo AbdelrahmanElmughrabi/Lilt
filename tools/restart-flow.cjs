@@ -1,4 +1,4 @@
-const {chromium}=require(process.env.FOLIO_PLAYWRIGHT);const fs=require('fs'),assert=require('assert');
+const {chromium}=require(process.env.LILT_PLAYWRIGHT);const fs=require('fs'),assert=require('assert');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn,limit=90000){const deadline=Date.now()+limit;while(Date.now()<deadline){const v=await fn();if(v)return v;await delay(100);}throw Error('Timed out');}
 (async()=>{
@@ -17,7 +17,7 @@ async function until(fn,limit=90000){const deadline=Date.now()+limit;while(Date.
     const manifest=await page.evaluate(id=>window.pywebview.api.get_stream(id),active.id);
     fs.writeFileSync('artifacts/restart-target.json',JSON.stringify({id:active.id,firstMtime,position:Number(await page.getByLabel('Seek audio').inputValue()),available:manifest.available}));
     console.log(JSON.stringify({prepared:true,id:active.id,completed:active.completed,total:active.total}));
-    require('child_process').execFileSync('.venv/Scripts/python.exe',['-c',"import ctypes; window=ctypes.windll.user32.FindWindowW(None,'Folio — your words, out loud'); ctypes.windll.user32.PostMessageW(window,0x0010,0,0) if window else None"]);
+    require('child_process').execFileSync('.venv/Scripts/python.exe',['-c',"import ctypes; window=ctypes.windll.user32.FindWindowW(None,'Lilt'); ctypes.windll.user32.PostMessageW(window,0x0010,0,0) if window else None"]);
   }else{
     const target=JSON.parse(fs.readFileSync('artifacts/restart-target.json','utf8'));const initial=await state();const job=initial.jobs.find(j=>j.id===target.id);
     assert(job.state==='interrupted',job.state);assert(job.available_duration>=target.available);

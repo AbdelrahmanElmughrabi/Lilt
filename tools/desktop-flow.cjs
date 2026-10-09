@@ -1,11 +1,11 @@
-const { chromium } = require(process.env.FOLIO_PLAYWRIGHT || 'playwright');
+const { chromium } = require(process.env.LILT_PLAYWRIGHT || 'playwright');
 const path = require('node:path');
 const fs = require('node:fs');
 
 (async () => {
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9223');
   const page = browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith('http://127.0.0.1:'));
-  if (!page) throw new Error('Folio desktop window was not found');
+  if (!page) throw new Error('Lilt desktop window was not found');
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.getByRole('heading', { name: 'Find your rhythm.' }).waitFor({ timeout: 15000 });
@@ -13,7 +13,7 @@ const fs = require('node:fs');
   if (initial.model.state !== 'ready') throw new Error('Bundled voice assets were not recognized');
   const started = Date.now();
   let jobId = initial.active?.id;
-  if (!jobId && process.env.FOLIO_REUSE_JOB) jobId = initial.jobs.find(job => !job.preview)?.id;
+  if (!jobId && process.env.LILT_REUSE_JOB) jobId = initial.jobs.find(job => !job.preview)?.id;
   if (!jobId) {
     await page.getByRole('button', { name: 'Create your audio', exact: false }).click();
     await page.getByRole('button', { name: 'Stop generation', exact: true }).waitFor();

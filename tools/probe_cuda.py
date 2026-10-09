@@ -33,5 +33,5 @@ if __name__ == '__main__':
     assert len(cuda_nodes) > 0, 'No operations actually ran on CUDA'
     result = {'success': True, 'runtime': ort.__version__, 'load_seconds': load, 'results': results, 'cuda_nodes': len(cuda_nodes)}
     (root / 'artifacts' / 'cuda-probe.json').write_text(json.dumps(result, indent=2))
-    (root / '.cuda-probe' / 'folio-runtime.json').write_text(json.dumps({'provider': 'CUDAExecutionProvider', 'runtime': ort.__version__, 'tested_model': GPU_FILE}))
+    (root / '.cuda-probe' / 'lilt-runtime.json').write_text(json.dumps({'provider': 'CUDAExecutionProvider', 'runtime': ort.__version__, 'tested_model': GPU_FILE}))
     print(json.dumps(result), flush=True)

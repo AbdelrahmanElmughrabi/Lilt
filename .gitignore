@@ -1,16 +1,65 @@
-.venv/
+# Dependencies and Python bytecode
+/.venv/
+/venv/
 node_modules/
-.npm-cache/
-.pip-cache/
-.gpu-probe/
-.cuda-probe/
-onnxruntime_profile_*.json
-.tmp/
-.app-data/
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Local downloads, models, and optional inference runtimes
+/.npm-cache/
+/.pip-cache/
+/.gpu-probe/
+/.cuda-probe/
+/gpu-runtime/
+/models/
+*.onnx
+voices-v*.bin
+
+# Personal app data and generated audio (also when exported into the project)
+/.app-data/
+/jobs/
+/previews/
+/section-cache/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.wav
+*.mp3
+*.log
+
+# Build output; keep packaging/Lilt.spec and dependency lockfiles in Git
+/build/
+/dist/
+/frontend/dist/
+*.tsbuildinfo
+
+# Local verification evidence, temporary files, profiles, and tool caches
+/artifacts/
+/.tmp/
+onnxruntime_profile_*.json
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+
+# Private local environment settings; templates remain shareable
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Generated Windows shortcuts, OS metadata, and editor swap files
 *.lnk
-build/
-dist/
-frontend/dist/
-artifacts/
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*.swo
+*~

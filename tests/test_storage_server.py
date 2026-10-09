@@ -16,7 +16,7 @@ class StorageServerTests(unittest.TestCase):
         self.store = Store(self.root / 'data')
         assets = self.root / 'assets'
         assets.mkdir()
-        (assets / 'index.html').write_text('Folio', encoding='utf-8')
+        (assets / 'index.html').write_text('Lilt', encoding='utf-8')
         self.server = AppServer(assets, self.store)
         self.server.start()
 

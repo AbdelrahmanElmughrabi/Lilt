@@ -1,1 +1,1 @@
-"""Folio desktop application."""
+"""Lilt desktop application."""

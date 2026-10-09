@@ -1,12 +1,12 @@
-# Folio
+# Lilt
 
-A Windows desktop reading room for turning English Markdown into local narration. Built with **pywebview + Svelte + Python + Kokoro-ONNX**. Folio is the working name; the warm paper, charcoal, copper, and sage theme is easy to customize.
+A Windows desktop reading room for turning English Markdown into local narration. Built with **pywebview + Svelte + Python + Kokoro-ONNX**. Lilt uses warm ivory, deep ink, muted lilac, and soft sage. Settings offers Lilt (default) and Classic palettes, each with light, dark, or Windows appearance.
 
 ## Open the app
 
-Double-click **`dist\Folio\Folio.exe`**. Keep the entire `Folio` folder together: the executable needs `_internal` and `models` next to it. Python, Node, a terminal, and a browser tab are not needed to run this build.
+Double-click **`dist\Lilt\Lilt.exe`**. Keep the entire `Lilt` folder together: the executable needs `_internal` and `models` next to it. Python, Node, a terminal, and a browser tab are not needed to run this build.
 
-The project folder also contains a **Folio shortcut** created by `build.ps1`. The CPU app is approximately 243 MB including its model/runtime. This build also includes an optional `gpu-runtime` folder (~2.9 GB) and GPU model (~177 MB), making the full folder about 3.35 GB. Keep `gpu-runtime` to use NVIDIA acceleration; the CPU app works without it.
+The project folder also contains a **Lilt shortcut** created by `build.ps1`. The CPU app is approximately 243 MB including its model/runtime. This build also includes an optional `gpu-runtime` folder (~2.9 GB) and GPU model (~177 MB), making the full folder about 3.35 GB. Keep `gpu-runtime` to use NVIDIA acceleration; the CPU app works without it.
 
 The build includes the local model and voice assets, so speech is ready immediately. Windows needs the Microsoft **WebView2 Evergreen Runtime**, normally already available on Windows 10/11. If it is missing, install it from [Microsoft](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
 
@@ -17,7 +17,9 @@ The build includes the local model and voice assets, so speech is ready immediat
 5. Listen in the bottom player as sections arrive. Seek within available audio; Export becomes available when the complete WAV is ready.
 6. Open **Settings → Less waiting. More listening.** to run a speed test, choose processing resources, or adjust buffering.
 
-Documents are working copies: editing or removing one does not change its original file. Removing a recording keeps its audio on disk unless you explicitly select deletion. Normal app data lives in `%LOCALAPPDATA%\Folio`: SQLite library/settings, model downloads, section audio, completed WAVs, and WebView cache. `FOLIO_DATA_DIR` overrides that location for development.
+Documents are working copies: editing or removing one does not change its original file. Removing a recording keeps its audio on disk unless you explicitly select deletion. Normal app data lives in `%LOCALAPPDATA%\Lilt`: SQLite library/settings, model downloads, section audio, completed WAVs, and WebView cache. `LILT_DATA_DIR` overrides that location for development.
+
+Existing users are migrated on first launch: Lilt copies the previous `%LOCALAPPDATA%\Folio` library, model downloads, section cache and saved audio into its new folder, leaving the old folder as a backup. Appearance and performance preferences are retained; Lilt becomes the default palette. Existing Lilt libraries are never replaced. Old `FOLIO_DATA_DIR` / `FOLIO_GPU_RUNTIME` overrides and GPU validation markers remain accepted for compatibility. See `LILT_BRANDING.md` for details and verification.
 
 ## Included
 
@@ -31,7 +33,7 @@ Documents are working copies: editing or removing one does not change its origin
 - Optional NVIDIA CUDA acceleration, startup voice preparation, and bounded reusable-passage cache.
 - Immutable text/settings snapshots, disk-based WAV assembly, persistent library and listening position.
 - Playback, seeking, skip controls, volume, playback speed, and native WAV export dialogs.
-- Daylight, After hours, and system appearance; keyboard shortcuts and visible focus.
+- Lilt and Classic palettes, each with Daylight, After hours, and system appearance; keyboard shortcuts and visible focus.
 - Visible model setup/download/import when assets are missing.
 
 There are no paid TTS APIs or app analytics. Model setup fetches assets from the Kokoro-ONNX project's GitHub release; generation uses local files. Imported Markdown cannot load remote images or execute scripts in the preview. The embedded Microsoft WebView2 runtime has its own [diagnostic behavior](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/data-privacy).
@@ -47,7 +49,7 @@ Push-Location frontend
 npm.cmd ci
 npm.cmd run build
 Pop-Location
-$env:FOLIO_DATA_DIR = Join-Path (Get-Location) '.app-data'
+$env:LILT_DATA_DIR = Join-Path (Get-Location) '.app-data'
 & .\.venv\Scripts\python.exe main.py
 ```
 
@@ -67,9 +69,9 @@ The frontend development preview is available through `npm run dev`; native file
 & .\.venv\Scripts\python.exe tools\smoke_test.py
 ```
 
-`build.ps1` runs Svelte checks, builds the frontend, freezes Python with PyInstaller, and copies available model files from `.app-data\models` into `dist\Folio\models`. Its output is a portable folder. Use `build.ps1 -IncludeGpu` to copy a previously validated `.cuda-probe` runtime and GPU model into the output. Pinning is captured in `requirements.lock.txt` and `frontend/package-lock.json`.
+`build.ps1` runs Svelte checks, builds the frontend, freezes Python with PyInstaller, and copies available model files from `.app-data\models` into `dist\Lilt\models`. Its output is a portable folder. Use `build.ps1 -IncludeGpu` to copy a previously validated `.cuda-probe` runtime and GPU model into the output. Pinning is captured in `requirements.lock.txt` and `frontend/package-lock.json`.
 
-Developer-only desktop checks in `tools/ui-check.cjs`, `tools/desktop-flow.cjs`, and `tools/long-reading.cjs` attach Playwright to the app's embedded WebView2 when explicitly launched with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`. Normal launches do not enable that debugging port. Set `FOLIO_PLAYWRIGHT` to a Playwright module location if it is not installed in the local Node environment.
+Developer-only desktop checks in `tools/ui-check.cjs`, `tools/desktop-flow.cjs`, and `tools/long-reading.cjs` attach Playwright to the app's embedded WebView2 when explicitly launched with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`. Normal launches do not enable that debugging port. Set `LILT_PLAYWRIGHT` to a Playwright module location if it is not installed in the local Node environment.
 
 ## Performance and local GPU setup
 
@@ -92,7 +94,7 @@ The bundled NVIDIA add-on is optional and requires a compatible NVIDIA driver. D
 & .\build.ps1 -IncludeGpu
 ```
 
-The probe verifies finite audible output and actual CUDA nodes before writing its validation marker. Generation refuses an unavailable requested GPU instead of silently running a different backend. `FOLIO_GPU_RUNTIME` can point to a validated runtime folder. Keep base CPU dependencies separate from the optional GPU installation.
+The probe verifies finite audible output and actual CUDA nodes before writing its validation marker. Generation refuses an unavailable requested GPU instead of silently running a different backend. `LILT_GPU_RUNTIME` can point to a validated runtime folder. Keep base CPU dependencies separate from the optional GPU installation.
 
 ## Current boundaries
 

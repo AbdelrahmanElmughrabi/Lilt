@@ -46,7 +46,7 @@ class Models:
         return self.status()
 
     def _open(self, url):
-        request = urllib.request.Request(url, headers={"User-Agent": "Folio-Desktop/0.1"})
+        request = urllib.request.Request(url, headers={"User-Agent": "Lilt-Desktop/0.1"})
         return urllib.request.urlopen(request, timeout=45)
 
     def _download(self):

@@ -95,6 +95,8 @@ class Bridge:
             settings = {key: value for key, value in settings.items() if key != 'benchmark_result'}
             if "theme" in settings and settings["theme"] not in {"light", "dark", "system"}:
                 raise ValueError("Unknown appearance setting.")
+            if "palette" in settings and settings["palette"] not in {"lilt", "classic"}:
+                raise ValueError("Unknown theme palette.")
             if "speed" in settings and not 0.5 <= float(settings["speed"]) <= 2:
                 raise ValueError("Choose a speed between 0.5× and 2×.")
             return self._store.save_settings(settings)
@@ -106,7 +108,7 @@ class Bridge:
             document = self._store.document(markdown, prepared["title"], key=key)
             return self._jobs.start(prepared, document, settings["voice"], settings["speed"])
 
-    def preview_voice(self, voice, speed, sample="Every good reading begins with a little curiosity. This is Folio: your words, out loud."):
+    def preview_voice(self, voice, speed, sample="Every good reading begins with a little curiosity. This is Lilt: your words, out loud."):
         document = {"id": "preview", "title": "A little voice preview", "markdown": sample[:350]}
         return self._jobs.start(prepare(document["markdown"]), document, voice, speed, preview=True)
 
@@ -127,7 +129,7 @@ class Bridge:
         if job["state"] != "completed":
             raise ValueError("Finish this recording before exporting it.")
         import re
-        filename = re.sub(r'[<>:"/\\|?*]', "", job["title"]).strip()[:100] or "Folio recording"
+        filename = re.sub(r'[<>:"/\\|?*]', "", job["title"]).strip()[:100] or "Lilt recording"
         path = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename=filename + ".wav",
                                                file_types=("WAV audio (*.wav)",))
         if not path:

@@ -1,4 +1,4 @@
-const {chromium}=require(process.env.FOLIO_PLAYWRIGHT);
+const {chromium}=require(process.env.LILT_PLAYWRIGHT);
 const fs=require('fs'); const assert=require('assert');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn,limit=120000) {const deadline=Date.now()+limit;while(Date.now()<deadline){const v=await fn();if(v)return v;await delay(200);}throw Error('Timed out');}

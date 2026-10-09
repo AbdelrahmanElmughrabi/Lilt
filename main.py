@@ -16,7 +16,7 @@ def main():
     from backend.server import AppServer
     from backend.storage import Store, data_directory
 
-    parser = argparse.ArgumentParser(description="Folio — local Markdown to speech")
+    parser = argparse.ArgumentParser(description="Lilt — local Markdown to speech")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--serve-preview", action="store_true", help="Serve UI for developer visual checks; no speech API is exposed")
     arguments = parser.parse_args()
@@ -25,7 +25,7 @@ def main():
     if not assets.is_dir():
         raise RuntimeError("Build the interface first: cd frontend && npm run build")
     store = Store(data_directory())
-    logging.basicConfig(filename=str(store.root / "folio.log"), level=logging.INFO,
+    logging.basicConfig(filename=str(store.root / "lilt.log"), level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
     bundled_models = Path(sys.executable).parent / "models" if getattr(sys, "frozen", False) else None
     models = Models(store.root / "models", bundled_models)
@@ -49,11 +49,14 @@ def main():
             server.close()
         return
     import webview
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Lilt.Desktop")
     # Both WebView cache and app data use explicit per-user locations.
     os.environ["WEBVIEW2_USER_DATA_FOLDER"] = str(store.root / "webview")
-    window = webview.create_window("Folio — your words, out loud", server.url, js_api=bridge,
+    window = webview.create_window("Lilt", server.url, js_api=bridge,
                                    width=1440, height=960, min_size=(1024, 720),
-                                   background_color="#f6f4ef", text_select=True)
+                                   background_color="#f7f5ef", text_select=True)
     bridge._window = window
     def prepare_startup():
         if store.settings().get('warm_start'):
@@ -64,7 +67,7 @@ def main():
     window.events.shown += prepare_startup
     try:
         webview.start(gui="edgechromium", debug=arguments.debug, private_mode=False,
-                      storage_path=str(store.root / "webview"))
+                      storage_path=str(store.root / "webview"), icon=str(root / "assets" / "lilt.ico"))
     finally:
         jobs.close()
         server.close()

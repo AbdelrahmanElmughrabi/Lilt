@@ -2,17 +2,49 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
+import tempfile
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 
 
 def data_directory():
-    if os.environ.get("FOLIO_DATA_DIR"):
-        return Path(os.environ["FOLIO_DATA_DIR"]).resolve()
-    return Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Folio"
+    # Keep the old override usable for existing development scripts.
+    override = os.environ.get("LILT_DATA_DIR") or os.environ.get("FOLIO_DATA_DIR")
+    if override:
+        return Path(override).resolve()
+    parent = Path(os.environ["LOCALAPPDATA"]) if os.environ.get("LOCALAPPDATA") else Path.home()
+    root, legacy = parent / "Lilt", parent / "Folio"
+    if (root / "library.sqlite3").is_file() or not (legacy / "library.sqlite3").is_file():
+        return root
+    if root.exists():
+        raise FileExistsError("The Lilt data folder already exists without a library. Move it aside before migrating your existing library.")
+    staging = Path(tempfile.mkdtemp(prefix=".lilt-migration-", dir=parent))
+    try:
+        # Stage a complete copy; the original remains available as a backup.
+        # WebView's expendable browser cache may contain locked files.
+        for source in legacy.iterdir():
+            if source.name in {"webview", "library.sqlite3", "library.sqlite3-wal", "library.sqlite3-shm", "library.sqlite3-journal"}:
+                continue
+            target = staging / ("lilt.log" if source.name == "folio.log" else source.name)
+            if source.is_dir():
+                shutil.copytree(source, target)
+            else:
+                shutil.copy2(source, target)
+        with closing(sqlite3.connect(f"{(legacy / 'library.sqlite3').as_uri()}?mode=ro", uri=True)) as source_db:
+            with closing(sqlite3.connect(staging / "library.sqlite3")) as target_db:
+                source_db.backup(target_db)
+                if target_db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                    raise RuntimeError("The existing library could not be migrated safely.")
+        (staging / "migration.json").write_text(json.dumps({"from": str(legacy), "completed": time.time()}), encoding="utf-8")
+        staging.rename(root)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+    return root
 
 
 class Store:
@@ -69,7 +101,7 @@ class Store:
 
     def settings(self):
         from .performance import DEFAULTS
-        defaults = {"theme": "light", "voice": "af_heart", "speed": 1.0, "include_code": False,
+        defaults = {"theme": "light", "palette": "lilt", "voice": "af_heart", "speed": 1.0, "include_code": False,
                     "heading_pause": 0.6, "paragraph_pause": 0.3} | DEFAULTS
         with self.connect() as connection:
             defaults.update({key: json.loads(value) for key, value in connection.execute("SELECT key, value FROM settings")})
@@ -77,7 +109,7 @@ class Store:
 
     def save_settings(self, settings):
         from .performance import DEFAULTS
-        allowed = {"theme", "voice", "speed", "include_code", "heading_pause", "paragraph_pause", 'benchmark_result'} | set(DEFAULTS)
+        allowed = {"theme", "palette", "voice", "speed", "include_code", "heading_pause", "paragraph_pause", 'benchmark_result'} | set(DEFAULTS)
         with self.connect() as connection:
             for key, value in settings.items():
                 if key in allowed:

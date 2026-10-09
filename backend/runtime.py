@@ -8,10 +8,10 @@ from pathlib import Path
 
 
 def gpu_runtime_directory():
-    explicit = os.environ.get('FOLIO_GPU_RUNTIME')
+    explicit = os.environ.get('LILT_GPU_RUNTIME') or os.environ.get('FOLIO_GPU_RUNTIME')
     root = Path(explicit) if explicit else (Path(sys.executable).parent / 'gpu-runtime' if getattr(sys, 'frozen', False)
                                            else Path(__file__).resolve().parents[1] / '.cuda-probe')
-    if (root / 'folio-runtime.json').is_file() and (root / 'onnxruntime' / '__init__.py').is_file():
+    if any((root / name).is_file() for name in ('lilt-runtime.json', 'folio-runtime.json')) and (root / 'onnxruntime' / '__init__.py').is_file():
         return root.resolve()
     return None
 
@@ -21,6 +21,9 @@ def gpu_runtime_info():
     if not directory:
         return None
     try:
-        return json.loads((directory / 'folio-runtime.json').read_text(encoding='utf-8'))
+        marker = directory / 'lilt-runtime.json'
+        if not marker.is_file():
+            marker = directory / 'folio-runtime.json'
+        return json.loads(marker.read_text(encoding='utf-8'))
     except (ValueError, OSError):
         return None

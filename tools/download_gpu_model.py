@@ -12,13 +12,13 @@ if __name__ == '__main__':
     name = sys.argv[1] if len(sys.argv) > 1 else GPU_FILE
     directory = Path(__file__).resolve().parents[1] / '.app-data' / 'models'
     directory.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(RELEASE, headers={'User-Agent': 'Folio-Desktop/0.2'})
+    request = urllib.request.Request(RELEASE, headers={'User-Agent': 'Lilt-Desktop/0.2'})
     with urllib.request.urlopen(request, timeout=30) as response:
         asset = next(item for item in json.load(response)['assets'] if item['name'] == name)
     target = directory / name
     if not target.is_file() or target.stat().st_size != asset['size']:
         temporary = target.with_suffix('.download')
-        request = urllib.request.Request(asset['browser_download_url'], headers={'User-Agent': 'Folio-Desktop/0.2'})
+        request = urllib.request.Request(asset['browser_download_url'], headers={'User-Agent': 'Lilt-Desktop/0.2'})
         with urllib.request.urlopen(request, timeout=45) as response, temporary.open('wb') as output:
             while block := response.read(1024 * 1024):
                 output.write(block)
