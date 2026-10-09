@@ -19,7 +19,7 @@ The build includes the local model and voice assets, so speech is ready immediat
 
 Documents are working copies: editing or removing one does not change its original file. Removing a recording keeps its audio on disk unless you explicitly select deletion. Normal app data lives in `%LOCALAPPDATA%\Lilt`: SQLite library/settings, model downloads, section audio, completed WAVs, and WebView cache. `LILT_DATA_DIR` overrides that location for development.
 
-Existing users are migrated on first launch: Lilt copies the previous `%LOCALAPPDATA%\Folio` library, model downloads, section cache and saved audio into its new folder, leaving the old folder as a backup. Appearance and performance preferences are retained; Lilt becomes the default palette. Existing Lilt libraries are never replaced. Old `FOLIO_DATA_DIR` / `FOLIO_GPU_RUNTIME` overrides and GPU validation markers remain accepted for compatibility. See `LILT_BRANDING.md` for details and verification.
+Existing users are migrated on first launch: Lilt copies the previous `%LOCALAPPDATA%\Folio` library, model downloads, section cache and saved audio into its new folder, leaving the old folder as a backup. Appearance and performance preferences are retained; Lilt becomes the default palette. Existing Lilt libraries are never replaced. Old `FOLIO_DATA_DIR` / `FOLIO_GPU_RUNTIME` overrides and GPU validation markers remain accepted for compatibility.
 
 ## Included
 
@@ -104,4 +104,4 @@ The executable is a portable development build, not a signed installer. It has b
 
 ## Source map
 
-`main.py` owns the desktop lifecycle. `backend/documents.py` prepares narration, `jobs.py` owns job state, `speech.py` runs inference, `server.py` serves local audio, `storage.py` persists the library, `models.py` handles assets, and `bridge.py` exposes desktop commands. `performance.py`, `cache.py`, and `sections.py` own tuning, reuse, and the published timeline. `frontend/src/App.svelte` contains the UI, `PerformanceSettings.svelte` the tuning panel, and `stream-player.ts` the bounded live player; `tokens.css` and `styles.css` define its theme. `APP_PLAN.md` records the product scope and remaining distribution work.
+`main.py` owns the desktop lifecycle. `backend/documents.py` prepares narration, `jobs.py` owns job state, `speech.py` runs inference, `server.py` serves local audio, `storage.py` persists the library, `models.py` handles assets, and `bridge.py` exposes desktop commands. `performance.py`, `cache.py`, and `sections.py` own tuning, reuse, and the published timeline. `frontend/src/App.svelte` contains the UI, `PerformanceSettings.svelte` the tuning panel, and `stream-player.ts` the bounded live player; `tokens.css` and `styles.css` define its theme.

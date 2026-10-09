@@ -63,3 +63,17 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Personal plans and notes are maintained in the separate Obsidian vault
+/APP_PLAN.md
+/PERFORMANCE_PLAN.md
+/LILT_BRANDING.md
+/*_PLAN.md
+/ROADMAP.md
+/WORK_LOG*.md
+/notes/
+/plans/
+/vault/
+/.obsidian/
+/tools/prepare_vault_handoff.py
+/tools/update_branding_notes.py
