@@ -4,7 +4,8 @@ from PyInstaller.utils.hooks import collect_all, copy_metadata
 root = Path(SPECPATH).parent
 datas = [(str(root / 'frontend' / 'dist'), 'frontend/dist'),
          (str(root / 'examples'), 'examples'),
-         (str(root / 'assets' / 'lilt.ico'), 'assets')]
+         (str(root / 'assets' / 'lilt.ico'), 'assets'),
+         (str(root / 'assets' / 'desktop-api.js'), 'assets')]
 binaries = []
 hiddenimports = ['backend.speech', 'backend.documents', 'backend.server']
 for package in ('kokoro_onnx', 'espeakng_loader', 'phonemizer', 'pythonnet', 'clr_loader'):

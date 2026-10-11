@@ -19,7 +19,7 @@ function contrast(a, b) {
   const page = await until(() => browser.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith('http://127.0.0.1:')));
   const errors=[]; page.on('pageerror', error => errors.push(error.message));
   const apiState=()=>page.evaluate(()=>window.pywebview.api.get_state());
-  await page.getByRole('heading',{name:'Find your rhythm.'}).waitFor({timeout:60000});
+  await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.getByRole('heading',{name:'Find your rhythm.'}).waitFor({timeout:60000});
   assert.equal(await page.title(),'Lilt');
   assert.equal(await page.getByText('Interface preview',{exact:true}).count(),0);
   const initial=await apiState();
@@ -61,7 +61,7 @@ function contrast(a, b) {
     await page.getByRole('button',{name:/^After hours/}).click();
     await until(async()=>(await apiState()).settings.theme==='dark');
     await page.reload();
-    await page.getByRole('heading',{name:'Find your rhythm.'}).waitFor({timeout:15000});
+    await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.getByRole('heading',{name:'Find your rhythm.'}).waitFor({timeout:15000});
     assert.equal(await page.locator('.app-shell').getAttribute('data-palette'),'lilt');
     assert(await page.locator('.app-shell').evaluate(el=>el.classList.contains('dark')));
     report.reloadPersistence=true;

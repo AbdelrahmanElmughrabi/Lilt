@@ -118,5 +118,12 @@ class Store:
 
     def document(self, markdown, title, source=None, key=None):
         old = self.get("documents", key) if key else {}
+        now = time.time()
         return self.put("documents", {"id": key or uuid.uuid4().hex, "markdown": markdown, "title": title,
-                                      "source": source or old.get("source"), "created": old.get("created", time.time())})
+                                      "source": source or old.get("source"), "created": old.get("created", now),
+                                      "opened": old.get("opened") if old else now})
+
+    def open_document(self, key):
+        document = self.get('documents', key)
+        document['opened'] = time.time()
+        return self.put('documents', document)

@@ -173,7 +173,10 @@ class Jobs:
             value = float(position)
             if not math.isfinite(value):
                 raise ValueError('Choose a valid listening position.')
+            previous = job.get('position', 0)
             job['position'] = max(0, min(value, job.get('available_duration', job.get('duration', 0))))
+            if abs(job['position'] - previous) >= 1:
+                job['last_listened'] = time.time()
             self.store.put('jobs', job)
         return True
 

@@ -4,7 +4,7 @@ async function until(fn,limit=60000){const deadline=Date.now()+limit;while(Date.
 (async()=>{
   const browser=await until(async()=>{try{return await chromium.connectOverCDP('http://127.0.0.1:9223');}catch{return null;}});
   const page=await until(()=>browser.contexts()[0].pages().find(p=>p.url().startsWith('http://127.0.0.1')));
-  await page.waitForSelector('.generate-button',{timeout:60000});
+  await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button',{timeout:60000});
   const state=()=>page.evaluate(()=>window.pywebview.api.get_state());
   assert(!(await state()).performance.gpu_ready);
   await page.getByRole('button',{name:'Listen to a sample'}).click();

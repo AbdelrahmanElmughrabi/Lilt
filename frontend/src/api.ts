@@ -6,11 +6,12 @@ export type Performance = { logical_processors: number; physical_cores: number; 
 export type Cache = { count: number; bytes: number; limit_mb: number };
 export type Section = { index: number; start: number; duration: number; pause: number };
 export type Stream = { id: string; state: string; sections: Section[]; available: number; total: number; complete: boolean; running: boolean; throughput: number };
-export type Document = { id: string; title: string; markdown: string; created: number; source?: string };
-export type Job = { id: string; title: string; document_id: string; voice: string; speed: number; words: number; preview: boolean; state: string; completed: number; total: number; duration: number; position: number; message: string; created: number; available_duration?: number; engine?: Configuration; throughput?: number; cache_hits?: number; first_audio_seconds?: number };
+export type Document = { id: string; title: string; markdown: string; created: number; opened?: number | null; source?: string };
+export type DocumentSummary = Omit<Document, 'markdown'> & { words?: number };
+export type Job = { id: string; title: string; document_id: string; voice: string; speed: number; words: number; preview: boolean; state: string; completed: number; total: number; duration: number; position: number; message: string; created: number; last_listened?: number; available_duration?: number; engine?: Configuration; throughput?: number; cache_hits?: number; first_audio_seconds?: number };
 export type Prepared = { title: string; text: string; words: number; chunks: { text: string; pause: number; block: number }[]; omissions: { code_blocks: number; metadata: number } };
 export type Model = { state: string; percent: number; message: string; voices: string[] };
-export type State = { documents: Omit<Document, 'markdown'>[]; jobs: Job[]; active: Job | null; model: Model; settings: Settings; storage: string; performance: Performance | null; cache: Cache };
+export type State = { documents: DocumentSummary[]; jobs: Job[]; active: Job | null; model: Model; settings: Settings; storage: string; performance: Performance | null; cache: Cache };
 export type API = {
   get_state(): Promise<State>;
   get_stream(id: string): Promise<Stream>;
@@ -62,9 +63,14 @@ This is a sample document for your first listen. Replace it with your own Markdo
 `;
 
 export async function getAPI(): Promise<{ api: API; preview: boolean }> {
-  for (let i = 0; i < 30; i++) {
-    if (window.pywebview?.api) return { api: window.pywebview.api, preview: false };
-    await new Promise(resolve => setTimeout(resolve, 100));
+  const previewMode = import.meta.env.DEV || new URLSearchParams(window.location.search).get('preview') === '1';
+  if (!previewMode) {
+    for (let i = 0; i < 120; i++) {
+      const api = window.pywebview?.api;
+      if (typeof api?.get_state === 'function' && typeof api?.save_settings === 'function' && typeof api?.generate === 'function') return { api, preview: false };
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('Lilt could not connect to its desktop service. Retry, or close and reopen Lilt. Your readings and recordings remain saved.');
   }
   // Only used for frontend development and visual verification. No simulated speech.
   let doc: Document = { id: 'preview-document', title: 'The art of paying attention', markdown: sampleText, created: Date.now() / 1000 };
@@ -84,4 +90,13 @@ export async function getAPI(): Promise<{ api: API; preview: boolean }> {
     save_position: async () => true, export_recording: unavailable, setup_model: unavailable, import_model: unavailable,
   };
   return { api, preview: true };
+}
+
+export async function withTimeout<T>(operation: Promise<T>, milliseconds = 10000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  try {
+    return await Promise.race([operation, new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('Your library is taking too long to respond. Retry, or close and reopen Lilt. Your saved files are kept.')), milliseconds);
+    })]);
+  } finally { clearTimeout(timer!); }
 }

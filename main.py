@@ -37,7 +37,7 @@ def main():
     server = AppServer(assets, store)
     server.start()
     if arguments.serve_preview:
-        print(server.url, flush=True)
+        print(server.url + '?preview=1', flush=True)
         try:
             import time
             while True:
@@ -49,6 +49,8 @@ def main():
             server.close()
         return
     import webview
+    from backend.desktop import install_csp_bridge
+    install_csp_bridge(root / 'assets' / 'desktop-api.js')
     if sys.platform == "win32":
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Lilt.Desktop")

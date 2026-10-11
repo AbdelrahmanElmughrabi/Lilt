@@ -17,7 +17,9 @@ class Bridge:
 
     def get_state(self):
         documents = [{"id": doc["id"], "title": doc["title"], "created": doc["created"],
+                      "opened": doc.get("opened"), "source": doc.get("source"),
                       "words": len(doc["markdown"].split())} for doc in self._store.all("documents")]
+        documents.sort(key=lambda doc: doc['opened'] or doc['created'], reverse=True)
         readings = sorted(self._store.all('jobs'), key=lambda job: job.get('created', 0), reverse=True)
         return {"documents": documents, "jobs": [public_job(job) for job in readings],
                 "active": self._jobs.state(), "model": self._models.status(), "settings": self._store.settings(),
@@ -40,7 +42,8 @@ class Bridge:
         return self._jobs.clear_cache()
 
     def get_document(self, key):
-        return self._store.get("documents", key)
+        with self._lock:
+            return self._store.open_document(key)
 
     def save_document(self, key, markdown):
         with self._lock:

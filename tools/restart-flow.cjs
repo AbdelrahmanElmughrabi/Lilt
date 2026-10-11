@@ -3,11 +3,11 @@ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn,limit=90000){const deadline=Date.now()+limit;while(Date.now()<deadline){const v=await fn();if(v)return v;await delay(100);}throw Error('Timed out');}
 (async()=>{
   const browser=await until(async()=>{try{return await chromium.connectOverCDP('http://127.0.0.1:9223');}catch{return null;}});const page=await until(()=>browser.contexts()[0].pages().find(p=>p.url().startsWith('http://127.0.0.1')));
-  await page.reload();await page.waitForSelector('.generate-button');
+  await page.reload();await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button');
   const state=()=>page.evaluate(()=>window.pywebview.api.get_state());
   if(process.argv[2]==='prepare'){
     await page.evaluate(async()=>{const api=window.pywebview.api;const s=await api.get_state();await api.save_settings({...s.settings,processing_device:'gpu',performance_mode:'balanced',cache_enabled:false,buffer_mode:'sooner',warm_start:true});const doc=await api.new_document();await api.save_document(doc.id,'# Across a fresh start\n\n'+Array.from({length:18},(_,i)=>`Part ${i+1}. A quiet thought is worth carrying into another day. We can stop this reading, close the application, and return to the same words without losing our place. The next sentence will be waiting when we are ready.`).join('\n\n'));});
-    await page.reload();await page.waitForSelector('.generate-button');await page.getByRole('button',{name:/Across a fresh start/}).first().click();await page.getByRole('button',{name:'Create your audio',exact:true}).click();
+    await page.reload();await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button');await page.getByRole('button',{name:/Across a fresh start/}).first().click();await page.getByRole('button',{name:'Create your audio',exact:true}).click();
     const active=await until(async()=>{const s=await state();return s.active?.completed>=2?s.active:null;});
     assert(active.completed<active.total);
     if(await page.getByTitle('Pause',{exact:true}).count())await page.getByTitle('Pause',{exact:true}).click();

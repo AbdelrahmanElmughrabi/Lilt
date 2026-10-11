@@ -3,6 +3,7 @@ import threading
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from backend.bridge import Bridge
 from backend.jobs import Jobs
@@ -100,6 +101,26 @@ class BridgeTests(unittest.TestCase):
             self.assertIsNone(jobs.state())
         finally:
             jobs.close()
+
+    def test_home_recent_readings_use_open_time_instead_of_last_edit(self):
+        models, jobs = Mock(), Mock()
+        models.status.return_value = {'state': 'missing'}
+        jobs.state.return_value = None
+        jobs.performance_state.return_value = None
+        jobs.cache_state.return_value = {}
+        bridge = Bridge(self.store, models, jobs)
+        with patch('backend.storage.time.time', return_value=100):
+            first = self.store.document('# First', 'First', 'C:/notes/first.md')
+        with patch('backend.storage.time.time', return_value=200):
+            second = self.store.document('# Second', 'Second')
+        with patch('backend.storage.time.time', return_value=300):
+            bridge.get_document(first['id'])
+        with patch('backend.storage.time.time', return_value=400):
+            bridge.save_document(second['id'], '# An edit')
+        state = bridge.get_state()
+        self.assertEqual([doc['id'] for doc in state['documents']], [first['id'], second['id']])
+        self.assertEqual(state['documents'][0]['source'], 'C:/notes/first.md')
+        self.assertNotIn('markdown', state['documents'][0])
 
 
 if __name__ == '__main__':

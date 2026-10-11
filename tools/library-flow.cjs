@@ -7,7 +7,7 @@ const fs = require('node:fs');
   const page = browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith('http://127.0.0.1:'));
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.getByRole('heading', {name:'Find your rhythm.'}).waitFor();
+  await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.getByRole('heading', {name:'Find your rhythm.'}).waitFor();
   await page.getByTitle('New reading', {exact:true}).click();
   await page.getByRole('textbox', {name:'Markdown editor'}).fill('# A temporary reading\n\nWords that save automatically.');
   await page.getByRole('button', {name:/^A temporary reading/}).waitFor();

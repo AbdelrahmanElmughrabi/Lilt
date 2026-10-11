@@ -7,7 +7,7 @@ async function until(fn, limit=60000) { const end=Date.now()+limit; while(Date.n
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9223');
   const page = browser.contexts()[0].pages().find(p=>p.url().startsWith('http://127.0.0.1'));
   const errors=[]; page.on('pageerror',e=>errors.push(String(e)));
-  await page.reload(); await page.waitForSelector('.generate-button');
+  await page.reload(); await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button');
   await page.evaluate(() => {
     window.__audioContexts=[]; window.__starts=[];
     const Original=window.AudioContext;
@@ -27,7 +27,7 @@ async function until(fn, limit=60000) { const end=Date.now()+limit; while(Date.n
     await api.save_document(doc.id,'# A little more listening\n\n'+Array.from({length:24},(_,i)=>`Chapter ${i+1}. A long reading can begin with a small passage. Listen to the first words while the next part is prepared, and let each thought arrive at its own pace. There is room for a little curiosity in every quiet moment.`).join('\n\n'));
     return doc;
   });
-  await page.reload(); await page.waitForSelector('.generate-button');
+  await page.reload(); await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button');
   await page.getByRole('button',{name:/A little more listening/}).first().click();
   await page.getByRole('button',{name:'Create your audio'}).click();
   const early=await until(async()=>{
@@ -61,7 +61,7 @@ async function until(fn, limit=60000) { const end=Date.now()+limit; while(Date.n
   assert(await page.locator('audio').getAttribute('src')===null,'Live player switched to the final WAV');
   await page.getByTitle('Pause',{exact:true}).click();
   const saved=Number(await page.getByLabel('Seek audio').inputValue());
-  await delay(300); await page.reload(); await page.waitForSelector('.generate-button'); await delay(700);
+  await delay(300); await page.reload(); await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button'); await delay(700);
   const reopened=Number(await page.getByLabel('Seek audio').inputValue());
   assert(Math.abs(reopened-saved)<.2,'Listening position lost on reload');
   assert((await page.locator('audio').getAttribute('src')).includes(key));
@@ -74,7 +74,7 @@ async function until(fn, limit=60000) { const end=Date.now()+limit; while(Date.n
     await api.save_document(doc.id,'# Waiting with a purpose\n\nA second section takes a little longer than its title. We will keep listening while it is prepared, and wait at the boundary when the available audio runs out.\n\nThe next paragraph gives us room to continue.');
     const settings=await api.get_state(); await api.save_settings({...settings.settings,cache_enabled:false});
   });
-  await page.reload(); await page.waitForSelector('.generate-button');
+  await page.reload(); await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button');
   await page.getByRole('button',{name:/Waiting with a purpose/}).first().click();
   await page.getByRole('button',{name:'Create your audio'}).click();
   const waiting=await until(async()=>await page.locator('.play-button').getAttribute('data-buffering')==='true' && (await page.getByLabel('Seek audio').inputValue())>1);
@@ -88,7 +88,7 @@ async function until(fn, limit=60000) { const end=Date.now()+limit; while(Date.n
   await page.getByLabel('Seek audio').fill('1');
   await page.getByTitle('Play',{exact:true}).click(); await delay(1200); await page.getByTitle('Pause',{exact:true}).click();
   const partialPosition=Number(await page.getByLabel('Seek audio').inputValue());
-  await delay(300); await page.reload(); await page.waitForSelector('.generate-button'); await delay(500);
+  await delay(300); await page.reload(); await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button'); await delay(500);
   assert(Math.abs(Number(await page.getByLabel('Seek audio').inputValue())-partialPosition)<.2,'Partial recording position lost');
   await page.getByRole('button',{name:/Your recordings/}).click();
   await page.getByRole('button',{name:'Continue',exact:true}).first().click();

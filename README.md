@@ -10,6 +10,8 @@ The project folder also contains a **Lilt shortcut** created by `build.ps1`. The
 
 The build includes the local model and voice assets, so speech is ready immediately. Windows needs the Microsoft **WebView2 Evergreen Runtime**, normally already available on Windows 10/11. If it is missing, install it from [Microsoft](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
 
+Lilt opens on **Home**, with recent readings, saved recordings, and **Continue listening** from your saved position. Completed audio is saved automatically as WAV; reopening or playing it does not generate it again. Use the recording's download button to export a copy for listening elsewhere.
+
 1. Import a UTF-8 `.md` / `.markdown` file, or add a reading and paste text in **Edit**.
 2. Use **Read** for formatted Markdown or **Spoken** to check the wording sent to the voice.
 3. Choose an English voice, try its sample, and adjust narration speed and paragraph pauses.
@@ -24,6 +26,7 @@ Existing users are migrated on first launch: Lilt copies the previous `%LOCALAPP
 ## Included
 
 - Local English narration with 28 bundled American and British voices.
+- Home with recent-open times, saved WAV playback/export, listening-position recovery, and unfinished recordings.
 - Markdown editing and automatic working-copy saves; formatted and spoken previews.
 - Headings, paragraphs, lists, quotes, link labels, image alt text, and tables.
 - Code blocks omitted by default, with a toggle to include them; document front matter omitted.
@@ -61,17 +64,22 @@ Use the app's Settings to download the model, or run:
 
 The frontend development preview is available through `npm run dev`; native file dialogs and real speech are available in the desktop app. Production uses the compiled local frontend, with no development server dependency. A read-only server on a random loopback port supplies UI files and audio seeking; application commands go through the pywebview bridge.
 
+`main.py --serve-preview` prints an explicit `?preview=1` URL for interface checks. A failed desktop connection shows a retry screen; the normal application never substitutes preview/sample data for your library. The pinned pywebview version uses an application-owned CSP adapter to build API methods and deliver native callbacks without `eval` or `new Function` execution. The strict script policy stays enabled.
+
 ## Build and checks
 
 ```powershell
 & .\build.ps1
 & .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 & .\.venv\Scripts\python.exe tools\smoke_test.py
+& .\.venv\Scripts\python.exe tools\native-startup-check.py
 ```
 
 `build.ps1` runs Svelte checks, builds the frontend, freezes Python with PyInstaller, and copies available model files from `.app-data\models` into `dist\Lilt\models`. Its output is a portable folder. Use `build.ps1 -IncludeGpu` to copy a previously validated `.cuda-probe` runtime and GPU model into the output. Pinning is captured in `requirements.lock.txt` and `frontend/package-lock.json`.
 
 Developer-only desktop checks in `tools/ui-check.cjs`, `tools/desktop-flow.cjs`, and `tools/long-reading.cjs` attach Playwright to the app's embedded WebView2 when explicitly launched with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`. Normal launches do not enable that debugging port. Set `LILT_PLAYWRIGHT` to a Playwright module location if it is not installed in the local Node environment.
+
+`tools/native-startup-check.py` checks normal WebView2 startup with debugging off, isolated data, Home, native commands, WAV playback, and position recovery. `node tools/home-flow.cjs` checks the production CSP, late/missing bridge connections, stalled startup and retry, empty libraries, Home navigation, and light/dark/small-window layouts using fixture data. It requires Microsoft Edge and Playwright, plus the local Python environment's pywebview JS assets.
 
 ## Performance and local GPU setup
 
@@ -104,4 +112,4 @@ The executable is a portable development build, not a signed installer. It has b
 
 ## Source map
 
-`main.py` owns the desktop lifecycle. `backend/documents.py` prepares narration, `jobs.py` owns job state, `speech.py` runs inference, `server.py` serves local audio, `storage.py` persists the library, `models.py` handles assets, and `bridge.py` exposes desktop commands. `performance.py`, `cache.py`, and `sections.py` own tuning, reuse, and the published timeline. `frontend/src/App.svelte` contains the UI, `PerformanceSettings.svelte` the tuning panel, and `stream-player.ts` the bounded live player; `tokens.css` and `styles.css` define its theme.
+`main.py` owns the desktop lifecycle. `backend/documents.py` prepares narration, `jobs.py` owns job state, `speech.py` runs inference, `server.py` serves local audio, `storage.py` persists the library, `models.py` handles assets, and `bridge.py` exposes desktop commands. `performance.py`, `cache.py`, and `sections.py` own tuning, reuse, and the published timeline. `backend/desktop.py` adapts the native bridge for strict CSP. `frontend/src/App.svelte` contains the UI shell, `Home.svelte` the landing page, `PerformanceSettings.svelte` the tuning panel, and `stream-player.ts` the bounded live player; `tokens.css` and `styles.css` define its theme.

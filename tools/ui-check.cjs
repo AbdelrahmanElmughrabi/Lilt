@@ -10,6 +10,8 @@ const fs = require('node:fs');
   await page.reload();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  await page.locator('.home-page').waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: 'Reading room', exact: true }).first().click();
   await page.getByRole('heading', { name: 'Find your rhythm.' }).waitFor({ timeout: 15000 });
   if (await page.getByText('Interface preview', { exact: true }).count()) throw new Error('The desktop bridge did not initialize');
   await page.getByRole('button', { name: /^The art of paying attention/ }).click();

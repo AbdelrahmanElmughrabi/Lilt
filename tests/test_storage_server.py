@@ -3,6 +3,7 @@ import unittest
 import urllib.error
 import urllib.request
 import uuid
+from unittest.mock import patch
 from pathlib import Path
 
 from backend.storage import Store
@@ -37,6 +38,40 @@ class StorageServerTests(unittest.TestCase):
     def test_settings_remembered(self):
         self.store.save_settings({'theme': 'dark', 'speed': 1.2, 'include_code': True})
         self.assertEqual(Store(self.store.root).settings()['speed'], 1.2)
+
+    def test_open_time_survives_edits_and_restart(self):
+        with patch('backend.storage.time.time', return_value=100):
+            doc = self.store.document('# Reading', 'Reading')
+        with patch('backend.storage.time.time', return_value=200):
+            opened = self.store.open_document(doc['id'])
+        with patch('backend.storage.time.time', return_value=300):
+            self.store.document('# Edited', 'Edited', key=doc['id'])
+        saved = Store(self.store.root).get('documents', doc['id'])
+        self.assertEqual(opened['opened'], 200)
+        self.assertEqual(saved['opened'], 200)
+        self.assertEqual(saved['created'], 100)
+
+    def test_older_document_without_open_time_can_be_opened(self):
+        self.store.put('documents', {'id': 'legacy', 'title': 'Legacy', 'markdown': '# Legacy', 'created': 100})
+        with patch('backend.storage.time.time', return_value=200):
+            opened = self.store.open_document('legacy')
+        self.assertEqual(opened['opened'], 200)
+        self.assertEqual(opened['markdown'], '# Legacy')
+
+    def test_existing_completed_audio_is_available_after_restart(self):
+        key = uuid.uuid4().hex
+        folder = self.store.root / 'jobs' / key
+        folder.mkdir()
+        saved = b'RIFF-existing-recording'
+        (folder / 'recording.wav').write_bytes(saved)
+        self.store.put('jobs', {'id': key, 'state': 'completed', 'position': 12})
+        self.server.store = Store(self.store.root)
+        request = urllib.request.Request(f'{self.server.url}/media/{key}.wav', method='HEAD')
+        with urllib.request.urlopen(request) as response:
+            self.assertEqual(response.headers['Content-Length'], str(len(saved)))
+        with urllib.request.urlopen(f'{self.server.url}/media/{key}.wav') as response:
+            self.assertEqual(response.read(), saved)
+        self.assertEqual(self.server.store.get('jobs', key)['position'], 12)
 
     def test_media_range_for_seeking_and_unknown_recording(self):
         key = uuid.uuid4().hex

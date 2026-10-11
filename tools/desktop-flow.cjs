@@ -8,6 +8,8 @@ const fs = require('node:fs');
   if (!page) throw new Error('Lilt desktop window was not found');
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  await page.locator('.home-page').waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: 'Reading room', exact: true }).first().click();
   await page.getByRole('heading', { name: 'Find your rhythm.' }).waitFor({ timeout: 15000 });
   const initial = await page.evaluate(() => window.pywebview.api.get_state());
   if (initial.model.state !== 'ready') throw new Error('Bundled voice assets were not recognized');

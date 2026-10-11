@@ -5,6 +5,7 @@ const path = require('node:path');
   const page = browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith('http://127.0.0.1:'));
   const session = await page.context().newCDPSession(page);
   await session.send('Emulation.setDeviceMetricsOverride', { width: 1024, height: 681, deviceScaleFactor: 1, mobile: false });
+  await page.getByRole('button',{name:'Reading room',exact:true}).first().click();
   const action = page.getByRole('button', {name:'Create your audio',exact:false});
   const metrics = await page.evaluate(() => ({width:window.innerWidth,height:window.innerHeight,content:document.documentElement.scrollWidth}));
   const box = await action.boundingBox();

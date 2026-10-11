@@ -404,3 +404,7 @@ kbd { font: 9px 'Segoe UI', sans-serif; color: var(--ink); border: 1px solid var
 .app-shell { color-scheme: light; }
 .app-shell.dark { color-scheme: dark; }
 @media (max-width: 850px) { .palette-choices { grid-template-columns: 1fr; } }
+
+.loading-screen h2 { font: 27px Georgia, serif; color: var(--ink); margin: 10px 0 0; }
+.loading-screen .startup-message { max-width: 430px; line-height: 1.8; margin: 0; text-align: center; }
+.loading-screen .primary-button { margin-top: 8px; }

@@ -5,7 +5,7 @@ async function until(fn,limit=120000) {const deadline=Date.now()+limit;while(Dat
 (async()=>{
   const browser=await chromium.connectOverCDP('http://127.0.0.1:9223');
   const page=browser.contexts()[0].pages().find(p=>p.url().startsWith('http://127.0.0.1'));
-  await page.reload();await page.waitForSelector('.generate-button');
+  await page.reload();await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button');
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));
   const state=()=>page.evaluate(()=>window.pywebview.api.get_state());
   assert((await state()).performance.gpu_ready,'Packaged GPU runtime missing');
@@ -39,7 +39,7 @@ async function until(fn,limit=120000) {const deadline=Date.now()+limit;while(Dat
   await page.getByLabel('Seek audio').fill('3');
   await page.getByTitle('Play',{exact:true}).click();await delay(1200);await page.getByTitle('Pause',{exact:true}).click();
   const position=Number(await page.getByLabel('Seek audio').inputValue());
-  await delay(300); await page.reload();await page.waitForSelector('.generate-button'); await delay(500);
+  await delay(300); await page.reload();await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.waitForSelector('.generate-button'); await delay(500);
   assert(Math.abs(Number(await page.getByLabel('Seek audio').inputValue())-position)<.2);
   assert((await state()).performance.recommendation.best.provider==='CUDAExecutionProvider');
   await page.getByRole('button',{name:'Settings',exact:true}).click();

@@ -1,20 +1,25 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { House } from '@lucide/svelte';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
   import { BookOpen, Headphones, Library, Settings2, Plus, ArrowUpRight, FileText, FolderOpen, ChevronDown, Check, Play, Pause, SkipBack, SkipForward, Volume2, Download, SlidersHorizontal, X, LoaderCircle, Moon, Sun, Monitor, CircleHelp, RotateCcw, Pencil, AlignLeft, Eye, AlertCircle, Square, Search, PanelLeft, AudioLines, ArrowRight, Trash2 } from '@lucide/svelte';
-  import { getAPI, defaultSettings, type API, type Settings, type Document, type Job, type Prepared, type State } from './api';
+  import { getAPI, withTimeout, defaultSettings, type API, type Settings, type Document, type Job, type Prepared, type State } from './api';
+  import Home from './Home.svelte';
   import brandIcon from './assets/lilt.png';
   import PerformanceSettings from './PerformanceSettings.svelte';
   import { primeAudio, StreamPlayer } from './stream-player';
 
   let api: API;
   let ready = $state(false);
+  let startupError = $state('');
+  let starting = false;
+  let startupVersion = 0;
   let preview = $state(false);
   let appState = $state<State | null>(null);
   let document = $state<Document | null>(null);
   let settings = $state<Settings>({ ...defaultSettings });
-  let page = $state<'studio' | 'library' | 'settings'>('studio');
+  let page = $state<'home' | 'studio' | 'library' | 'settings'>('home');
   let tab = $state<'read' | 'edit' | 'spoken'>('read');
   let prepared = $state<Prepared | null>(null);
   let dirty = $state(false);
@@ -88,7 +93,7 @@
     if (!api || refreshing) return;
     refreshing = true;
     try {
-    const next = await api.get_state(); appState = next;
+    const next = await withTimeout(api.get_state()); appState = next;
     if (selectedJob) {
       const updated = next.jobs.find(job => job.id === selectedJob!.id);
       if (updated) selectedJob = updated;
@@ -118,7 +123,12 @@
   }
   async function selectDocument(id: string) {
     await flushSave();
-    await act(async () => { document = await api.get_document(id); dirty = false; page = 'studio'; shelf = false; tab = 'read'; await review(); });
+    await act(async () => { document = await api.get_document(id); dirty = false; page = 'studio'; shelf = false; tab = 'read'; await review(); await refresh(); });
+  }
+  async function showHome() { await act(async () => { await flushSave(); page = 'home'; shelf = false; await refresh(); }); }
+  function showStudio() {
+    if (!document && appState?.documents.length) void selectDocument(appState.documents[0].id);
+    else { page = 'studio'; shelf = false; }
   }
   function editChanged() {
     dirty = true;
@@ -177,8 +187,9 @@
     streamPlayer?.dispose(); streamPlayer = null; ++selectionVersion;
     if (audio) audio.pause();
     streaming = job.state !== 'completed'; buffering = false; wanted = false; ahead = 0;
-    selectedJob = job;
     position = job.position || 0;
+    if (job.state === 'completed' && position >= job.duration - .5) position = 0;
+    selectedJob = { ...job, position };
     duration = job.available_duration || job.duration;
     playing = false;
     lastPositionSaved = position;
@@ -192,7 +203,10 @@
       streamPlayer.preferences(settings.buffer_mode, playbackSpeed, volume);
       void api.get_stream(job.id).then(data => { if (version === selectionVersion) streamPlayer?.update(data); }).catch(e => error = String(e));
       if (autoplay) streamPlayer.play(true);
-    } else if (autoplay) setTimeout(() => { if (selectedJob?.id === job.id) void audio?.play().catch(() => notify('Your audio is ready. Press play to listen.')); }, 120);
+    } else {
+      if (audio?.readyState >= 1 && audio.currentSrc.endsWith(`/media/${job.id}.wav`)) loadedAudio();
+      if (autoplay) setTimeout(() => { if (selectedJob?.id === job.id) void audio?.play().catch(() => notify('Your audio is ready. Press play to listen.')); }, 120);
+    }
   }
   async function continueJob(job: Job) {
     if (settings.auto_listen) primeAudio();
@@ -234,6 +248,7 @@
     busy = false;
   }
   function keyboard(event: KeyboardEvent) {
+    if (!ready) return;
     const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName);
     if ((event.ctrlKey || event.metaKey) && event.key === 'o') { event.preventDefault(); void importDocument(); }
     if ((event.ctrlKey || event.metaKey) && event.key === 's') { event.preventDefault(); void act(flushSave); }
@@ -241,36 +256,50 @@
     if (event.key === 'Escape') { help = false; removal = null; voiceMenu = false; shelf = false; }
   }
 
+  async function initialize() {
+    if (starting) return;
+    starting = true; startupError = ''; error = '';
+    const version = ++startupVersion;
+    try {
+      const connection = await getAPI();
+      const state = await withTimeout(connection.api.get_state());
+      if (version !== startupVersion) return;
+      api = connection.api; preview = connection.preview;
+      appState = state; settings = { ...defaultSettings, ...state.settings };
+      completedSeen = new Set(state.jobs.filter(job => job.state === 'completed').map(job => job.id));
+      failuresSeen = new Set(state.jobs.filter(job => job.state === 'failed').map(job => job.id));
+      ready = true;
+      const available = state.jobs.filter(job => !job.preview && (job.state === 'completed' || (job.available_duration || 0) > 0));
+      const latest = [...available].filter(job => job.position > 0 && job.position < (job.duration || job.available_duration || 0) - 2).sort((a, b) => (b.last_listened || b.created) - (a.last_listened || a.created))[0] || available[0];
+      if (latest) selectRecording(latest);
+      clearInterval(poll);
+      poll = setInterval(() => { void refresh().catch(e => error = e instanceof Error ? e.message : String(e)); }, 900);
+    } catch (e) {
+      if (version === startupVersion) startupError = e instanceof Error ? e.message : String(e);
+    } finally { starting = false; }
+  }
+
   onMount(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     systemDark = media.matches;
     const themeChanged = () => systemDark = media.matches;
     media.addEventListener('change', themeChanged);
-    void act(async () => {
-      const connection = await getAPI(); api = connection.api; preview = connection.preview;
-      appState = await api.get_state(); settings = { ...defaultSettings, ...appState.settings };
-      completedSeen = new Set(appState.jobs.filter(job => job.state === 'completed').map(job => job.id));
-      failuresSeen = new Set(appState.jobs.filter(job => job.state === 'failed').map(job => job.id));
-      if (appState.documents.length) document = await api.get_document(appState.documents[0].id);
-      await review(); ready = true;
-      const latest = appState.jobs.find(job => !job.preview && (job.state === 'completed' || (job.available_duration || 0) > 0));
-      if (latest) selectRecording(latest);
-      poll = setInterval(() => { void refresh().catch(e => error = String(e)); }, 900);
-    });
+    void initialize();
     return () => media.removeEventListener('change', themeChanged);
   });
-  onDestroy(() => { if (selectedJob) void api.save_position(selectedJob.id, position); streamPlayer?.dispose(); clearInterval(poll); clearTimeout(debounce); clearTimeout(toastTimer); });
+  onDestroy(() => { ++startupVersion; if (selectedJob) void api.save_position(selectedJob.id, position); streamPlayer?.dispose(); clearInterval(poll); clearTimeout(debounce); clearTimeout(toastTimer); });
 </script>
 
 <svelte:window onkeydown={keyboard} />
 
 <div class:dark class="app-shell" data-palette={settings.palette}>
   <aside class:opened={shelf} class="sidebar">
-    <button class="brand" onclick={() => page = 'studio'} aria-label="Lilt studio"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Lilt<span>YOUR WORDS, OUT LOUD</span></span></button>
+    <button class="brand" onclick={showHome} disabled={!ready} aria-label="Lilt home"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Lilt<span>YOUR WORDS, OUT LOUD</span></span></button>
     <div class="sidebar-rule"></div>
     <nav aria-label="Main navigation">
-      <button class:current={page === 'studio'} onclick={() => { page = 'studio'; shelf = false; }}><BookOpen size={19} strokeWidth={1.6} /><span>Reading room</span><span class="nav-dot"></span></button>
-      <button class:current={page === 'library'} onclick={() => { page = 'library'; shelf = false; }}><Library size={19} strokeWidth={1.6} /><span>Your recordings</span>{#if appState?.jobs.filter(j => !j.preview && j.state === 'completed').length}<span class="count">{appState.jobs.filter(j => !j.preview && j.state === 'completed').length}</span>{/if}</button>
+      <button class:current={page === 'home'} onclick={showHome} disabled={!ready}><House size={19} strokeWidth={1.6} /><span>Home</span><span class="nav-dot"></span></button>
+      <button class:current={page === 'studio'} onclick={showStudio} disabled={!ready}><BookOpen size={19} strokeWidth={1.6} /><span>Reading room</span><span class="nav-dot"></span></button>
+      <button class:current={page === 'library'} disabled={!ready} onclick={() => { page = 'library'; shelf = false; }}><Library size={19} strokeWidth={1.6} /><span>Your recordings</span>{#if appState?.jobs.filter(j => !j.preview && j.state === 'completed').length}<span class="count">{appState.jobs.filter(j => !j.preview && j.state === 'completed').length}</span>{/if}</button>
     </nav>
     <div class="shelf-heading"><span>ON YOUR SHELF</span><button title="New reading" onclick={newDocument} disabled={!ready}><Plus size={16} /></button></div>
     <div class="document-list">
@@ -282,21 +311,26 @@
     <button class="add-reading" onclick={importDocument} disabled={!ready}><Plus size={16} /> Add a reading <span>↗</span></button>
     <div class="sidebar-bottom">
       <div class="quiet-note"><p>A little less scrolling.<br /><strong>A little more listening.</strong></p></div>
-      <button class:current={page === 'settings'} class="sidebar-settings" onclick={() => { page = 'settings'; shelf = false; }}><Settings2 size={18} strokeWidth={1.5} /><span>Settings</span></button>
+      <button class:current={page === 'settings'} class="sidebar-settings" disabled={!ready} onclick={() => { page = 'settings'; shelf = false; }}><Settings2 size={18} strokeWidth={1.5} /><span>Settings</span></button>
       <div class="sidebar-footer"><img class="footer-mark" src={brandIcon} alt="" /><div>Made for your own pace<small>Lilt · local audio studio</small></div><button title="About Lilt" onclick={() => help = true}><CircleHelp size={16} /></button></div>
     </div>
   </aside>
 
   <div class="workspace">
     <header class="topbar">
-      <div class="breadcrumb"><button class="shelf-toggle" title="Toggle shelf" onclick={() => shelf = !shelf}><PanelLeft size={18} /></button><span>Workspace</span><span class="breadcrumb-slash">/</span><strong>{page === 'studio' ? 'Reading room' : page === 'library' ? 'Recordings' : 'Settings'}</strong></div>
-      <div class="top-actions">{#if preview}<span class="preview-label">Interface preview</span>{/if}<button class="engine-pill" onclick={() => page = 'settings'}><span class:ready={engineReady} class="status-dot"></span>{engineReady ? 'Voice engine ready' : appState?.model.state === 'downloading' ? 'Setting up voices' : 'Voice setup'}<ArrowUpRight size={13} /></button><span class="top-separator"></span><button class="import-button" onclick={importDocument} disabled={!ready}><FolderOpen size={16} /> Import Markdown <span>Ctrl O</span></button></div>
+      <div class="breadcrumb"><button class="shelf-toggle" title="Toggle shelf" onclick={() => shelf = !shelf}><PanelLeft size={18} /></button><span>Workspace</span><span class="breadcrumb-slash">/</span><strong>{page === 'home' ? 'Home' : page === 'studio' ? 'Reading room' : page === 'library' ? 'Recordings' : 'Settings'}</strong></div>
+      <div class="top-actions">{#if preview}<span class="preview-label">Interface preview</span>{/if}<button class="engine-pill" disabled={!ready} onclick={() => page = 'settings'}><span class:ready={engineReady} class="status-dot"></span>{engineReady ? 'Voice engine ready' : appState?.model.state === 'downloading' ? 'Setting up voices' : 'Voice setup'}<ArrowUpRight size={13} /></button><span class="top-separator"></span><button class="import-button" onclick={importDocument} disabled={!ready}><FolderOpen size={16} /> Import Markdown <span>Ctrl O</span></button></div>
     </header>
 
     {#if error}<div class="error-banner" role="alert"><AlertCircle size={17} /><span>{error}</span><button title="Dismiss error" onclick={() => error = ''}><X size={16} /></button></div>{/if}
 
     {#if !ready}
-      <div class="loading-screen"><img class="loading-brand" src={brandIcon} alt="Lilt" /><LoaderCircle size={23} class="spin" /><p>Opening your reading room…</p></div>
+      <div class="loading-screen"><img class="loading-brand" src={brandIcon} alt="Lilt" />
+        {#if startupError}<AlertCircle size={24} /><h2>Let’s get you back to your library.</h2><p class="startup-message" role="alert">{startupError}</p><button class="primary-button" onclick={initialize}><RotateCcw size={16} /> Retry connection</button>
+        {:else}<LoaderCircle size={23} class="spin" /><p>Opening your library…</p>{/if}
+      </div>
+    {:else if page === 'home'}
+      <Home documents={appState?.documents || []} jobs={appState?.jobs || []} generating={!!active || testing} openDocument={selectDocument} {importDocument} {newDocument} listen={(job) => selectRecording(job, true)} {exportAudio} {continueJob} showLibrary={() => page = 'library'} {showStudio} voiceName={(id) => voiceDetails[id]?.name || id.split('_').slice(1).join(' ')} />
     {:else if page === 'studio'}
       <div class="studio-layout">
         <main class="reading-workspace">
@@ -367,7 +401,7 @@
       <div class="player-center"><div class="player-buttons"><button title="Back 10 seconds" disabled={!selectedJob} onclick={() => seek(position - 10)}><SkipBack size={16} fill="currentColor" /></button><button class="play-button" title={playing || wanted ? 'Pause' : 'Play'} data-buffering={buffering} disabled={!selectedJob} onclick={togglePlay}>{#if buffering}<LoaderCircle size={18} class="spin" />{:else if playing}<Pause size={18} fill="currentColor" />{:else}<Play size={18} fill="currentColor" />{/if}</button><button title="Forward 10 seconds" disabled={!selectedJob} onclick={() => seek(position + 10)}><SkipForward size={16} fill="currentColor" /></button></div><div class="player-timeline"><span>{formatTime(position)}</span><input aria-label="Seek audio" type="range" min="0" max={duration || 1} step="0.1" value={position} oninput={(e) => seek(Number(e.currentTarget.value))} disabled={!selectedJob} /><span>{selectedJob ? formatTime(duration) : '—:—'}</span></div></div>
       <div class="player-extra"><button class="playback-rate" disabled={!selectedJob} title="Playback speed" onclick={changePlayback}>{playbackSpeed}×</button><Volume2 size={17} /><input type="range" aria-label="Volume" min="0" max="1" step="0.05" bind:value={volume} oninput={changeVolume} /><button class="export-button" disabled={!selectedJob || selectedJob.state !== 'completed'} onclick={() => exportAudio()} title="Export recording"><Download size={18} /></button></div>
     </footer>
-    <audio bind:this={audio} src={selectedJob && !streaming ? `/media/${selectedJob.id}.wav` : undefined} onloadedmetadata={loadedAudio} ontimeupdate={timeUpdate} onplay={() => { if (!streaming) playing = true; }} onpause={() => { if (!streaming) { playing = false; if (selectedJob) void api.save_position(selectedJob.id, position); } }} onended={() => { if (!streaming) playing = false; }} onerror={() => { if (selectedJob && !streaming) error = 'This recording could not be opened. Check that its audio file is still available.'; }}></audio>
+    <audio bind:this={audio} preload="metadata" src={selectedJob && !streaming ? `/media/${selectedJob.id}.wav` : undefined} onloadedmetadata={loadedAudio} ontimeupdate={timeUpdate} onplay={() => { if (!streaming) playing = true; }} onpause={() => { if (!streaming) { playing = false; if (selectedJob) void api.save_position(selectedJob.id, position); } }} onended={() => { if (!streaming) playing = false; }} onerror={() => { if (selectedJob && !streaming) error = 'This recording could not be opened. Check that its audio file is still available.'; }}></audio>
   </div>
   {#if toast}<div class="toast" role="status"><Check size={17} />{toast}<button title="Dismiss notification" onclick={() => toast = ''}><X size={15} /></button></div>{/if}
   <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Lilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Lilt is your local reading room. Bring Markdown, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import Markdown <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
