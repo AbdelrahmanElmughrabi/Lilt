@@ -1,4 +1,4 @@
-"""Isolated real-model checks and reproducible baseline/candidate listening samples.
+"""Source-only isolated real-model integration checks for the current engine.
 
 Run with the matching Python environment. Models are read without modification;
 all generated libraries, samples and evidence go into an explicit new directory.
@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import sys
 import time
 import urllib.request
@@ -57,64 +56,6 @@ def verify_audio(jobs, job):
         offset += pause
     assert offset == len(complete)
     return digest(folder / 'recording.wav')
-
-
-def comparison(arguments):
-    import numpy as np
-    import soundfile as sf
-    config = {'provider': 'CUDAExecutionProvider' if arguments.device == 'gpu' else 'CPUExecutionProvider',
-              'device_id': 0 if arguments.device == 'gpu' else -1, 'cuda_device': 0,
-              'threads': 2 if arguments.device == 'gpu' else 4, 'spinning': False}
-    model = arguments.models / ('kokoro-v1.0.fp16-gpu.onnx' if arguments.device == 'gpu' else 'kokoro-v1.0.int8.onnx')
-    voices = arguments.models / 'voices-v1.0.bin'
-    if arguments.device == 'gpu':
-        runtime = ROOT / '.cuda-probe'
-        sys.path.insert(0, str(runtime))
-        bins = [str(path) for path in (runtime / 'nvidia').glob('*/bin')]
-        os.environ['PATH'] = os.pathsep.join(bins + [os.environ.get('PATH', '')])
-    started = time.perf_counter()
-    if arguments.engine == 'baseline':
-        import onnxruntime as ort
-        from kokoro_onnx import Kokoro
-        options = ort.SessionOptions()
-        options.intra_op_num_threads = config['threads']
-        options.add_session_config_entry('session.intra_op.allow_spinning', '0')
-        options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-        options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        if arguments.device == 'gpu':
-            ort.preload_dlls(directory='')
-            providers = [('CUDAExecutionProvider', {'device_id': '0', 'cudnn_conv_algo_search': 'HEURISTIC',
-                                                    'do_copy_in_default_stream': '1'}), 'CPUExecutionProvider']
-        else:
-            providers = ['CPUExecutionProvider']
-        session = ort.InferenceSession(str(model), sess_options=options, providers=providers)
-        assert config['provider'] in session.get_providers()
-        session.disable_fallback()
-        engine = Kokoro.from_session(session, str(voices))
-    else:
-        from backend.performance import create_engine
-        engine = create_engine(model, voices, config)
-    loading = time.perf_counter() - started
-    corpus = [
-        ('ordinary-us', 'af_heart', 'The next sentence is waiting. Listen to the first words while the next thought is prepared.'),
-        ('numbers-us', 'af_heart', 'Dr. Smith paid $12.50 on October 12, 2026. The CPU uses 4 threads; version 2.0 is ready.'),
-        ('ordinary-gb', 'bf_emma', 'A quiet library gives each thought a little room. The colour of the sky changes as we read.'),
-        ('fallback-gb', 'bf_emma', 'Zorblyx met José at the café. Their new project was called LiltTTS.'),
-    ]
-    results = []
-    for name, voice, text in corpus:
-        started = time.perf_counter()
-        samples, rate = engine.create(text, voice=voice, speed=1, lang='en-gb' if voice.startswith('b') else 'en-us')
-        elapsed = time.perf_counter() - started
-        assert rate == 24000 and len(samples) and np.all(np.isfinite(samples)) and np.any(samples)
-        target = arguments.output / f'{name}.wav'
-        sf.write(target, samples, rate, subtype='PCM_16')
-        results.append({'sample': name, 'text': text, 'voice': voice, 'seconds': elapsed,
-                        'audio_seconds': len(samples) / rate, 'sha256': digest(target),
-                        'warnings': getattr(engine, 'last_pronunciation_warnings', [])})
-        print(f'{arguments.engine} {arguments.device}: {name} ready', flush=True)
-    return {'engine': arguments.engine, 'device': arguments.device, 'load_seconds': loading,
-            'samples': results, 'listening_review': 'Pending human A/B review; valid audio is not a naturalness verdict.'}
 
 
 def integration(arguments):
@@ -210,14 +151,12 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--models', type=Path, default=ROOT / '.app-data/models')
     parser.add_argument('--device', choices=['cpu', 'gpu'], default='cpu')
-    parser.add_argument('--engine', choices=['baseline', 'candidate'], default='candidate')
-    parser.add_argument('--compare-only', action='store_true')
     arguments = parser.parse_args()
     arguments.output = arguments.output.resolve()
     if arguments.output.exists():
         raise ValueError('Use a new evidence directory; existing libraries and recordings are never overwritten.')
     arguments.output.mkdir(parents=True)
-    evidence = comparison(arguments) if arguments.compare_only else integration(arguments)
+    evidence = integration(arguments)
     (arguments.output / 'results.json').write_text(json.dumps(evidence, indent=2), encoding='utf-8')
     print(json.dumps({'success': True, 'evidence': str(arguments.output / 'results.json')}), flush=True)
 

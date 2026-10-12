@@ -20,8 +20,6 @@ def main():
     parser = argparse.ArgumentParser(description="Lilt — local Markdown to speech")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--data-dir", type=Path, help="Explicit library folder for an isolated evaluation")
-    parser.add_argument("--evaluate-runtime", type=Path, help="Run candidate runtime checks into a new isolated evidence directory")
-    parser.add_argument("--evaluation-device", choices=("cpu", "gpu"), default="cpu")
     parser.add_argument("--serve-preview", action="store_true", help="Serve UI for developer visual checks; no speech API is exposed")
     arguments = parser.parse_args()
     root = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
@@ -36,22 +34,6 @@ def main():
     assets = root / "frontend" / "dist"
     if not assets.is_dir():
         raise RuntimeError("Build the interface first: cd frontend && npm run build")
-    if arguments.evaluate_runtime:
-        from tools.pronunciation_integration import integration
-        from types import SimpleNamespace
-        output = arguments.evaluate_runtime.resolve()
-        if output.exists():
-            parser.error("Use a new evidence directory; existing data is never overwritten.")
-        output.mkdir(parents=True)
-        models = Path(sys.executable).parent / "models" if getattr(sys, "frozen", False) else root / ".app-data" / "models"
-        try:
-            evidence = integration(SimpleNamespace(output=output, models=models, device=arguments.evaluation_device))
-            (output / "results.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
-        except Exception as error:
-            logging.exception("Candidate runtime check failed")
-            (output / "failure.json").write_text(json.dumps({"error": str(error)}), encoding="utf-8")
-            raise SystemExit(1)
-        return
     store = Store(arguments.data_dir.resolve() if arguments.data_dir else data_directory(
         candidate.get("data_profile") if candidate else None))
     logging.basicConfig(filename=str(store.root / "lilt.log"), level=logging.INFO,

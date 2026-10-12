@@ -1,5 +1,6 @@
 """Fetch the optional official GPU model with release size verification."""
 import hashlib
+import argparse
 import json
 import sys
 import urllib.request
@@ -9,8 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.models import GPU_FILE, RELEASE
 
 if __name__ == '__main__':
-    name = sys.argv[1] if len(sys.argv) > 1 else GPU_FILE
-    directory = Path(__file__).resolve().parents[1] / '.app-data' / 'models'
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--models', type=Path, default=Path(__file__).resolve().parents[1] / '.tmp/pronunciation-eval/data/models',
+                        help='Isolated evaluation model directory')
+    arguments = parser.parse_args()
+    name = GPU_FILE
+    directory = arguments.models.resolve()
     directory.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(RELEASE, headers={'User-Agent': 'Lilt-Desktop/0.2'})
     with urllib.request.urlopen(request, timeout=30) as response:

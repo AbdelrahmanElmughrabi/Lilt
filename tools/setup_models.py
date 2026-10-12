@@ -1,3 +1,5 @@
+"""Download speech assets into this branch's isolated evaluation library."""
+import argparse
 import sys
 import time
 from pathlib import Path
@@ -7,7 +9,10 @@ from backend.models import Models
 from backend.storage import Store, data_directory
 
 if __name__ == "__main__":
-    store = Store(data_directory())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--data-dir', type=Path, help='Explicit evaluation library folder')
+    arguments = parser.parse_args()
+    store = Store(arguments.data_dir.resolve() if arguments.data_dir else data_directory('Lilt-Pronunciation-Evaluation'))
     models = Models(store.root / "models")
     models.download()
     previous = -1

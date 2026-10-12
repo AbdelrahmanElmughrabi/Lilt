@@ -14,7 +14,7 @@ The candidate is a development evaluation pending listening and distribution rev
 
 Double-click **`dist\Lilt\Lilt.exe`**. Keep the entire `Lilt` folder together: the executable needs `_internal` and `models` next to it. Python, Node, a terminal, and a browser tab are not needed to run this build.
 
-The project folder also contains a **Lilt shortcut** created by `build.ps1`. The CPU app is approximately 243 MB including its model/runtime. This build also includes an optional `gpu-runtime` folder (~2.9 GB) and GPU model (~177 MB), making the full folder about 3.35 GB. Keep `gpu-runtime` to use NVIDIA acceleration; the CPU app works without it.
+The project folder also retains the **Lilt shortcut** from the preserved `main` baseline. Current-branch builds use the separate candidate output and do not replace this shortcut. The CPU app is approximately 243 MB including its model/runtime. This build also includes an optional `gpu-runtime` folder (~2.9 GB) and GPU model (~177 MB), making the full folder about 3.35 GB. Keep `gpu-runtime` to use NVIDIA acceleration; the CPU app works without it.
 
 The build includes the local model and voice assets, so speech is ready immediately. Windows needs the Microsoft **WebView2 Evergreen Runtime**, normally already available on Windows 10/11. If it is missing, install it from [Microsoft](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
 
@@ -62,10 +62,10 @@ Pop-Location
 & .\run-pronunciation.ps1
 ```
 
-The source launcher uses `.tmp\pronunciation-eval\data` and copies any existing model files there without changing the originals. If assets are missing, use the candidate app's Settings to download/import them. The baseline model setup tool remains:
+The source launcher uses `.tmp\pronunciation-eval\data` and copies any existing model files there without changing the originals. If assets are missing, use the candidate app's Settings to download/import them, or download into this same isolated library:
 
 ```powershell
-& .\.venv\Scripts\python.exe tools\setup_models.py
+& .\.tmp\pronunciation-env\Scripts\python.exe tools\setup_models.py --data-dir .tmp\pronunciation-eval\data
 ```
 
 The frontend development preview is available through `npm run dev`; native file dialogs and real speech are available in the desktop app. Production uses the compiled local frontend, with no development server dependency. A read-only server on a random loopback port supplies UI files and audio seeking; application commands go through the pywebview bridge.
@@ -75,16 +75,18 @@ The frontend development preview is available through `npm run dev`; native file
 ## Build and checks
 
 ```powershell
-& .\build-pronunciation.ps1
+& .\build.ps1
 # Add -IncludeGpu to include the previously validated optional runtime.
 & .\.tmp\pronunciation-env\Scripts\python.exe -m unittest discover -s tests -v
 & .\.tmp\pronunciation-env\Scripts\python.exe tools\smoke_test.py
 & .\.tmp\pronunciation-env\Scripts\python.exe tools\native-startup-check.py
 ```
 
-`build-pronunciation.ps1` uses `requirements-pronunciation.lock.txt`, `build\pronunciation`, and `dist\pronunciation`. It packages only the selected English pronunciation assets, collects notices and covered source, and audits the actual executable/archive for excluded dependencies. It leaves the baseline executable, environment and shortcut untouched. `tools/pronunciation_integration.py --output <new-directory> --device cpu` (or `gpu`) checks real-model early media, exact streamed/exported samples, cache reuse, cancellation/restart and benchmarks. Its `--compare-only --engine baseline|candidate` mode generates listening samples with the matching environment. The frozen candidate exposes equivalent isolated checks through `--evaluate-runtime <new-directory> --evaluation-device cpu|gpu`.
+`build.ps1` is the canonical build on this branch. It uses `requirements.lock.txt`, `packaging/Lilt.spec`, `build\pronunciation`, and `dist\pronunciation`. `build-pronunciation.ps1` forwards to it for existing candidate commands. Both paths use the current pronunciation environment, collect notices/covered source, and audit the actual executable/archive. The retained baseline executable, environment and shortcut stay separate.
 
-The retained baseline build instructions apply to `main` at the preserved revision; use the candidate script on this branch. `build.ps1` runs Svelte checks, builds the frontend, freezes Python with PyInstaller, and copies available model files from `.app-data\models` into `dist\Lilt\models`. Its output is a portable folder. Use `build.ps1 -IncludeGpu` to copy a previously validated `.cuda-probe` runtime and GPU model into the output. Pinning is captured in `requirements.lock.txt` and `frontend/package-lock.json`.
+Only runtime application code is frozen. Integration checks and sample generation are source-only developer tools. Run `tools/pronunciation_integration.py --output <new-directory> --device cpu` (or `gpu`) for early media, exact streamed/exported samples, cache reuse, cancellation/restart and benchmarks. Run `tools/pronunciation_samples.py --output <new-directory> --device cpu` for current-engine listening samples. Previously generated baseline/candidate A/B clips remain in the Obsidian evaluation evidence; baseline reproduction uses the preserved `main` revision. The executable does not contain baseline comparison code or the development evaluation CLI.
+
+Build reads available assets from `.app-data\models` and a validated GPU runtime from `.cuda-probe` by default, without altering either. Use `-ModelDirectory` and `-GpuRuntimeDirectory` for separate candidate assets. The old baseline dependency declarations/build recipe remain available through `main` history.
 
 Developer-only desktop checks in `tools/ui-check.cjs`, `tools/desktop-flow.cjs`, and `tools/long-reading.cjs` attach Playwright to the app's embedded WebView2 when explicitly launched with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`. Normal launches do not enable that debugging port. Set `LILT_PLAYWRIGHT` to a Playwright module location if it is not installed in the local Node environment.
 
@@ -105,10 +107,11 @@ Reusable speech is keyed by text, voice, narration speed, model/voice content, a
 The bundled NVIDIA add-on is optional and requires a compatible NVIDIA driver. DirectML was evaluated but failed Kokoro synthesis on both adapters here. For source development, install GPU dependencies separately and validate them before packaging:
 
 ```powershell
-& .\.venv\Scripts\python.exe -m pip install --target .cuda-probe -r requirements-gpu.lock.txt
-& .\.venv\Scripts\python.exe tools\download_gpu_model.py
-& .\.venv\Scripts\python.exe tools\probe_cuda.py
-& .\build.ps1 -IncludeGpu
+& .\.tmp\pronunciation-env\Scripts\python.exe -m pip install --target .tmp\pronunciation-gpu-runtime -r requirements-gpu.lock.txt
+& .\.tmp\pronunciation-env\Scripts\python.exe tools\download_gpu_model.py --models .tmp\pronunciation-eval\data\models
+& .\.tmp\pronunciation-env\Scripts\python.exe tools\probe_cuda.py --runtime .tmp\pronunciation-gpu-runtime --models .tmp\pronunciation-eval\data\models
+$env:LILT_GPU_RUNTIME = Join-Path (Get-Location) '.tmp\pronunciation-gpu-runtime'
+& .\build.ps1 -IncludeGpu -GpuRuntimeDirectory .tmp\pronunciation-gpu-runtime -ModelDirectory .tmp\pronunciation-eval\data\models
 ```
 
 The probe verifies finite audible output and actual CUDA nodes before writing its validation marker. Generation refuses an unavailable requested GPU instead of silently running a different backend. `LILT_GPU_RUNTIME` can point to a validated runtime folder. Keep base CPU dependencies separate from the optional GPU installation.

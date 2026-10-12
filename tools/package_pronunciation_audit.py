@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import dis
 import hashlib
 import json
+import marshal
 import re
+import types
 from pathlib import Path
 
 from PyInstaller.archive.readers import CArchiveReader
@@ -14,6 +17,28 @@ FORBIDDEN_MODULES = ('kokoro_onnx', 'phonemizer', 'phonemizer_fork', 'espeakng_l
                      'misaki.espeak', 'torch', 'transformers', 'spacy_curated_transformers',
                      'curated_transformers', 'PyInstaller.utils', 'pythonnet._pyinstaller',
                      'webview.__pyinstaller', 'setuptools._vendor.autocommand')
+DEVELOPMENT_MODULES = ('tools', 'tests')
+REMOVED_PRONUNCIATION = ('kokoro_onnx', 'phonemizer', 'phonemizer_fork', 'espeakng_loader', 'misaki.espeak')
+
+
+def removed_imports(code):
+    """Inspect nested functions too; an absent package can still have dormant imports."""
+    found = set()
+    source_module = ''
+    for instruction in dis.get_instructions(code):
+        if instruction.opname == 'IMPORT_NAME':
+            source_module = instruction.argval
+            name = source_module
+        elif instruction.opname == 'IMPORT_FROM':
+            name = source_module + '.' + instruction.argval
+        else:
+            continue
+        found.update(prefix for prefix in REMOVED_PRONUNCIATION
+                     if name == prefix or name.startswith(prefix + '.'))
+    for value in code.co_consts:
+        if isinstance(value, types.CodeType):
+            found.update(removed_imports(value))
+    return found
 
 
 def digest(path: Path) -> str:
@@ -28,13 +53,24 @@ def audit(package: Path) -> dict:
     executable = package / 'Lilt.exe'
     archive = CArchiveReader(str(executable))
     modules = []
+    obsolete_imports = []
     archive_names = sorted(archive.toc)
     for name in archive_names:
         if archive.toc[name][-1] == 'z':
-            modules.extend(archive.open_embedded_archive(name).toc)
+            pyz = archive.open_embedded_archive(name)
+            modules.extend(pyz.toc)
+            for module in pyz.toc:
+                if module == 'backend' or module.startswith('backend.'):
+                    code = pyz.extract(module)
+                    if isinstance(code, types.CodeType):
+                        obsolete_imports.extend(f'{module}: {target}' for target in sorted(removed_imports(code)))
+        elif name == 'main':
+            code = marshal.loads(archive.extract(name))
+            obsolete_imports.extend(f'main: {target}' for target in sorted(removed_imports(code)))
     modules = sorted(set(modules))
     violations = [f'Forbidden frozen module: {name}' for name in modules
-                  if any(name == prefix or name.startswith(prefix + '.') for prefix in FORBIDDEN_MODULES)]
+                  if any(name == prefix or name.startswith(prefix + '.') for prefix in (*FORBIDDEN_MODULES, *DEVELOPMENT_MODULES))]
+    violations.extend(f'Removed pronunciation import in shipped app code: {item}' for item in obsolete_imports)
     files = []
     for path in sorted(package.rglob('*')):
         if not path.is_file():
@@ -48,7 +84,7 @@ def audit(package: Path) -> dict:
             normalized = relative.lower().replace('-', '_')
             runtime_path = relative.removeprefix('_internal/').removeprefix('gpu-runtime/')
             external_module = runtime_path.rsplit('.', 1)[0].replace('/', '.')
-            if any(external_module == prefix or external_module.startswith(prefix + '.') for prefix in FORBIDDEN_MODULES):
+            if any(external_module == prefix or external_module.startswith(prefix + '.') for prefix in (*FORBIDDEN_MODULES, *DEVELOPMENT_MODULES)):
                 violations.append(f'Forbidden external module: {relative}')
             # Only top-level third-party packages are rejected here. ONNX Runtime
             # has its own MIT `onnxruntime/transformers` optimization subpackage;
@@ -74,6 +110,7 @@ def audit(package: Path) -> dict:
     report = {'schema': 1, 'status': 'pass' if not violations else 'fail', 'violations': violations,
               'scope': 'actual executable PYZ modules and package files; legal/artifact provenance review remains pending',
               'archive_entries': archive_names, 'frozen_modules': modules, 'files': files,
+              'removed_pronunciation_imports': obsolete_imports,
               'models': [item for item in files if item['path'].startswith('models/')],
               'limitations': ['Inactive extras in upstream metadata are not active runtime dependencies.',
                               'No automatic inference of every native/vendored component license.',

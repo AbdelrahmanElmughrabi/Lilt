@@ -1,4 +1,4 @@
-param([string]$BootstrapPython = '.\.venv\Scripts\python.exe')
+param([string]$BootstrapPython = 'python')
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 $liltCandidateTemp = Join-Path $PSScriptRoot '.tmp\pronunciation-pip-temp'
@@ -12,8 +12,7 @@ if (!(Test-Path -LiteralPath $liltCandidatePython)) {
 }
 & $liltCandidatePython -m ensurepip --upgrade
 if ($LASTEXITCODE -ne 0) { throw 'Candidate pip preparation failed.' }
-$liltCandidateRequirements = if (Test-Path -LiteralPath 'requirements-pronunciation.lock.txt') { 'requirements-pronunciation.lock.txt' } else { 'requirements-pronunciation.txt' }
-& $liltCandidatePython -m pip install --cache-dir (Join-Path $PSScriptRoot '.pip-cache') -r $liltCandidateRequirements
+& $liltCandidatePython -m pip install --cache-dir (Join-Path $PSScriptRoot '.pip-cache') -r requirements.lock.txt
 if ($LASTEXITCODE -ne 0) { throw 'Candidate dependency installation failed.' }
 & $liltCandidatePython -m pip check
 if ($LASTEXITCODE -ne 0) { throw 'Candidate dependency resolution is inconsistent.' }

@@ -1,6 +1,12 @@
-param([switch]$IncludeGpu)
+param([switch]$IncludeGpu, [string]$ModelDirectory = '.app-data\models', [string]$GpuRuntimeDirectory = '.cuda-probe')
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
+$liltCandidatePython = Join-Path $PSScriptRoot '.tmp\pronunciation-env\Scripts\python.exe'
+if (!(Test-Path -LiteralPath $liltCandidatePython)) { throw 'Run setup-pronunciation.ps1 first.' }
+$liltCandidateTemp = Join-Path $PSScriptRoot '.tmp\pronunciation-pip-temp'
+New-Item -ItemType Directory -Path $liltCandidateTemp -Force | Out-Null
+$env:TEMP = $liltCandidateTemp
+$env:TMP = $liltCandidateTemp
 Push-Location -LiteralPath (Join-Path $PSScriptRoot 'frontend')
 try {
     npm.cmd run check
@@ -8,35 +14,42 @@ try {
     npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw 'Interface build failed.' }
 } finally { Pop-Location }
-& '.\.venv\Scripts\python.exe' -m PyInstaller --noconfirm packaging\Lilt.spec
-if ($LASTEXITCODE -ne 0) { throw 'Executable packaging failed.' }
-$liltPackagedModels = Join-Path $PSScriptRoot 'dist\Lilt\models'
-New-Item -ItemType Directory -Path $liltPackagedModels -Force | Out-Null
+& $liltCandidatePython -m PyInstaller --noconfirm --clean --distpath dist\pronunciation --workpath build\pronunciation packaging\Lilt.spec
+if ($LASTEXITCODE -ne 0) { throw 'Candidate executable packaging failed.' }
+$liltCandidateFolder = Join-Path $PSScriptRoot 'dist\pronunciation\Lilt'
+$liltCandidateModelSource = if ([IO.Path]::IsPathRooted($ModelDirectory)) { [IO.Path]::GetFullPath($ModelDirectory) } else { [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $ModelDirectory)) }
+$liltCandidateMarker = @{ data_profile = 'Lilt-Pronunciation-Evaluation'; development = $true } | ConvertTo-Json
+[IO.File]::WriteAllText((Join-Path $liltCandidateFolder 'lilt-candidate.json'), $liltCandidateMarker, (New-Object Text.UTF8Encoding($false)))
+$liltCandidateModels = Join-Path $liltCandidateFolder 'models'
+New-Item -ItemType Directory -Path $liltCandidateModels -Force | Out-Null
 foreach ($liltModelName in @('kokoro-v1.0.int8.onnx', 'voices-v1.0.bin')) {
-    $liltModelSource = Join-Path $PSScriptRoot ('.app-data\models\' + $liltModelName)
-    if (Test-Path -LiteralPath $liltModelSource) {
-        Copy-Item -LiteralPath $liltModelSource -Destination (Join-Path $liltPackagedModels $liltModelName) -Force
-    }
+    $liltModelSource = Join-Path $liltCandidateModelSource $liltModelName
+    if (!(Test-Path -LiteralPath $liltModelSource)) { throw ('Missing local model: ' + $liltModelName) }
+    Copy-Item -LiteralPath $liltModelSource -Destination (Join-Path $liltCandidateModels $liltModelName) -Force
 }
-$liltShortcutShell = New-Object -ComObject WScript.Shell
-$liltShortcut = $liltShortcutShell.CreateShortcut((Join-Path $PSScriptRoot 'Lilt.lnk'))
-$liltShortcut.TargetPath = Join-Path $PSScriptRoot 'dist\Lilt\Lilt.exe'
-$liltShortcut.WorkingDirectory = Join-Path $PSScriptRoot 'dist\Lilt'
-$liltShortcut.IconLocation = $liltShortcut.TargetPath + ',0'
-$liltShortcut.Description = 'Lilt — local Markdown narration'
-$liltShortcut.Save()
-Write-Output 'Built dist\Lilt\Lilt.exe. Keep the complete Lilt folder together.'
 if ($IncludeGpu) {
-    $liltGpuSource = Join-Path $PSScriptRoot '.cuda-probe'
+    $liltGpuSource = if ([IO.Path]::IsPathRooted($GpuRuntimeDirectory)) { [IO.Path]::GetFullPath($GpuRuntimeDirectory) } else { [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $GpuRuntimeDirectory)) }
     if (!(Test-Path -LiteralPath (Join-Path $liltGpuSource 'lilt-runtime.json'))) { throw 'Run the real CUDA probe before including the GPU runtime.' }
-    $liltGpuDestination = Join-Path $PSScriptRoot 'dist\Lilt\gpu-runtime'
+    $liltGpuDestination = Join-Path $liltCandidateFolder 'gpu-runtime'
     New-Item -ItemType Directory -Path $liltGpuDestination -Force | Out-Null
-    foreach ($liltGpuPart in @('onnxruntime','nvidia','lilt-runtime.json')) {
-        Copy-Item -LiteralPath (Join-Path $liltGpuSource $liltGpuPart) -Destination $liltGpuDestination -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $liltGpuSource 'onnxruntime') -Destination $liltGpuDestination -Recurse -Force
+    # The optional Nvidia portion contains only runtime DLLs and license texts;
+    # headers and import/development libraries are deliberately omitted.
+    foreach ($liltGpuFile in Get-ChildItem -LiteralPath (Join-Path $liltGpuSource 'nvidia') -Recurse -File) {
+        if ($liltGpuFile.Extension -ne '.dll' -and $liltGpuFile.Name -notmatch '(?i)license|copying|notice|eula') { continue }
+        $liltGpuRelative = $liltGpuFile.FullName.Substring($liltGpuSource.Length + 1)
+        $liltGpuTarget = Join-Path $liltGpuDestination $liltGpuRelative
+        New-Item -ItemType Directory -Path (Split-Path -Parent $liltGpuTarget) -Force | Out-Null
+        Copy-Item -LiteralPath $liltGpuFile.FullName -Destination $liltGpuTarget -Force
     }
+    Copy-Item -LiteralPath (Join-Path $liltGpuSource 'lilt-runtime.json') -Destination $liltGpuDestination -Force
     Get-ChildItem -LiteralPath $liltGpuSource -Directory | Where-Object { $_.Name -like 'nvidia*.dist-info' -or $_.Name -like 'onnxruntime_gpu*.dist-info' } | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination $liltGpuDestination -Recurse -Force
     }
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '.app-data\models\kokoro-v1.0.fp16-gpu.onnx') -Destination $liltPackagedModels -Force
-    Write-Output 'Included optional NVIDIA runtime. CPU operation also remains available.'
+    Copy-Item -LiteralPath (Join-Path $liltCandidateModelSource 'kokoro-v1.0.fp16-gpu.onnx') -Destination $liltCandidateModels -Force
 }
+& $liltCandidatePython tools\assemble_pronunciation_notices.py --output (Join-Path $liltCandidateFolder 'third-party')
+if ($LASTEXITCODE -ne 0) { throw 'Candidate notice assembly failed.' }
+& $liltCandidatePython tools\package_pronunciation_audit.py --package $liltCandidateFolder
+if ($LASTEXITCODE -ne 0) { throw 'Candidate package isolation audit failed.' }
+Write-Output 'Built dist\pronunciation\Lilt\Lilt.exe. This is a development evaluation build pending distribution review.'
