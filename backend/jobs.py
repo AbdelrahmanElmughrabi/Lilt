@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import hashlib
-import importlib.metadata
+import copy
 import json
 import math
 import multiprocessing as mp
@@ -12,15 +11,24 @@ import uuid
 from .cache import SectionCache
 from .models import FILES, GPU_FILE
 from .performance import Performance, model_identity
+from .pronunciation import pronunciation_identity
 from .runtime import gpu_runtime_directory
 from .sections import listening_chunks, manifest, published_sections
 from .speech import speech_worker
 
 TERMINAL = {'completed', 'cancelled', 'failed', 'interrupted'}
+RESUMABLE = {'cancelled', 'failed', 'interrupted'}
+PRONUNCIATION_CHANGED = ('This reading used a different pronunciation engine. '
+                         'Your saved audio is kept. Start a new reading to continue.')
 
 
 def public_job(job):
-    return {key: value for key, value in job.items() if key not in {'chunks', 'markdown', 'sections', 'audio_identity', 'fingerprint'}}
+    result = {key: value for key, value in job.items() if key not in {
+        'chunks', 'markdown', 'sections', 'audio_identity', 'pronunciation_identity', 'fingerprint'}}
+    compatible = job['state'] in RESUMABLE and job.get('pronunciation_identity') == pronunciation_identity()
+    result.update(can_resume=compatible, resume_message=PRONUNCIATION_CHANGED
+                  if job['state'] in RESUMABLE and not compatible else '')
+    return result
 
 
 class Jobs:
@@ -38,7 +46,7 @@ class Jobs:
         self._cache_sample = (0, {})
         for job in store.all('jobs'):
             if job['state'] not in TERMINAL:
-                job.update(state='interrupted', message='This reading was interrupted. You can continue it.')
+                job.update(state='interrupted', message='This reading was interrupted. Your completed sections are saved.')
                 store.put('jobs', job)
         threading.Thread(target=self._listen, daemon=True).start()
 
@@ -48,18 +56,28 @@ class Jobs:
                 args=(self.commands, self.events, self.cancel, gpu_runtime_directory()), daemon=True)
             self.process.start()
 
-    def _audio_identity(self, filename):
+    def _audio_identity(self, filename, pronunciation=None):
+        pronunciation = pronunciation if pronunciation is not None else pronunciation_identity()
         paths = [self.models.root / filename, self.models.root / FILES[1]]
-        key = tuple((str(path), path.stat().st_size, path.stat().st_mtime_ns) for path in paths)
+        runtime = (self.performance.gpu_runtime or {}).get('runtime', self.performance.runtime)
+        key = (tuple((str(path), path.stat().st_size, path.stat().st_mtime_ns) for path in paths),
+               json.dumps(pronunciation, sort_keys=True), runtime)
         if key not in self._identities:
-            runtime = (self.performance.gpu_runtime or {}).get('runtime', self.performance.runtime)
-            self._identities[key] = [model_identity(path) for path in paths] + [importlib.metadata.version('kokoro-onnx'), runtime]
+            self._identities[key] = [model_identity(path) for path in paths] + [runtime, copy.deepcopy(pronunciation)]
         return self._identities[key]
 
     def start(self, prepared, document, voice, speed, preview=False, resume=None):
         with self.lock:
             if self.active or self.operation == 'benchmark':
                 raise ValueError('Finish or cancel the current reading or speed test first.')
+            pronunciation = copy.deepcopy(pronunciation_identity())
+            if resume:
+                job = self.store.get('jobs', resume)
+                if job['state'] not in RESUMABLE:
+                    raise ValueError('This reading cannot be continued.')
+                # Old sections remain listenable, but must never be extended by another engine.
+                if job.get('pronunciation_identity') != pronunciation:
+                    raise ValueError(PRONUNCIATION_CHANGED)
             status = self.models.status()
             if status['state'] != 'ready':
                 raise ValueError('Set up the local voice engine first.')
@@ -71,37 +89,26 @@ class Jobs:
             if not prepared['chunks']:
                 raise ValueError('This document has no readable text.')
             settings = self.store.settings()
-            config = self.performance.resolve(settings)
             if resume:
-                job = self.store.get('jobs', resume)
-                if job['state'] not in {'cancelled', 'failed', 'interrupted'}:
-                    raise ValueError('This reading cannot be continued.')
                 filename = job.get('model_file', FILES[0])
                 if filename not in {FILES[0], GPU_FILE}:
                     raise ValueError('Unknown saved voice model.')
                 config = self.performance.resolve(settings | {'processing_device': 'gpu' if filename != FILES[0] else 'cpu'})
-                identity = self._audio_identity(filename)
-                if 'audio_identity' in job:
-                    if job['audio_identity'] != identity or job['markdown'] != document['markdown'] or job['voice'] != voice or job['speed'] != speed or job['options'] != prepared['options']:
-                        raise ValueError('Continue with the original text, voice, and model files.')
-                else:
-                    old = {'text': prepared['text'], 'options': job['options'], 'voice': voice, 'speed': speed,
-                           'model': [(name, (self.models.root / name).stat().st_size,
-                                      (self.models.root / name).stat().st_mtime_ns) for name in FILES]}
-                    if hashlib.sha256(json.dumps(old, sort_keys=True).encode()).hexdigest() != job['fingerprint']:
-                        raise ValueError('The original model files have changed. Create a new reading.')
-                    job['audio_identity'] = identity
-                    job['options'] = prepared['options']
+                identity = self._audio_identity(filename, pronunciation)
+                if job.get('audio_identity') != identity or job['markdown'] != document['markdown'] or job['voice'] != voice or job['speed'] != speed or job['options'] != prepared['options']:
+                    raise ValueError('Continue with the original text, voice, and model files.')
                 job.update(state='preparing', message='Continuing your reading…')
                 job['sections'], job['available_duration'] = published_sections(job, self.store.root / 'jobs' / job['id'])
                 job['completed'] = len(job['sections'])
             else:
+                config = self.performance.resolve(settings)
                 filename = GPU_FILE if config['provider'] != 'CPUExecutionProvider' else FILES[0]
                 chunks = listening_chunks(prepared['chunks'])
                 job = {'id': uuid.uuid4().hex, 'document_id': document['id'], 'title': document['title'],
                        'voice': voice, 'speed': speed, 'words': prepared['words'], 'preview': preview,
-                       'chunks': chunks, 'markdown': document['markdown'], 'options': prepared['options'],
-                       'audio_identity': self._audio_identity(filename), 'model_file': filename,
+                       'chunks': chunks, 'markdown': document['markdown'], 'options': copy.deepcopy(prepared['options']),
+                       'audio_identity': self._audio_identity(filename, pronunciation), 'pronunciation_identity': pronunciation,
+                       'model_file': filename,
                        'created': time.time(), 'state': 'preparing', 'completed': 0, 'total': len(chunks),
                        'duration': 0, 'position': 0, 'sections': [], 'available_duration': 0,
                        'message': 'Preparing your first words…'}

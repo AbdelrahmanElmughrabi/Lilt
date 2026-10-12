@@ -11,7 +11,15 @@ from contextlib import closing, contextmanager
 from pathlib import Path
 
 
-def data_directory():
+def data_directory(profile=None):
+    if profile:
+        if profile != "Lilt-Pronunciation-Evaluation":
+            raise ValueError("Unknown app data profile.")
+        evaluation = os.environ.get("LILT_EVALUATION_DATA_DIR")
+        if evaluation:
+            return Path(evaluation).resolve()
+        parent = Path(os.environ["LOCALAPPDATA"]) if os.environ.get("LOCALAPPDATA") else Path.home()
+        return parent / profile
     # Keep the old override usable for existing development scripts.
     override = os.environ.get("LILT_DATA_DIR") or os.environ.get("FOLIO_DATA_DIR")
     if override:

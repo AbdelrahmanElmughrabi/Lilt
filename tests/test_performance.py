@@ -1,4 +1,5 @@
 import os
+import copy
 import hashlib
 import json
 import tempfile
@@ -9,15 +10,16 @@ import urllib.request
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import numpy as np
 import soundfile as sf
 
 from backend.cache import SectionCache, section_key
 from backend.documents import prepare
-from backend.jobs import Jobs
+from backend.jobs import Jobs, public_job
 from backend.models import FILES
-from backend.performance import validate
+from backend.performance import Performance, validate
 from backend.sections import listening_chunks, published_sections
 from backend.server import AppServer
 from backend.storage import Store
@@ -73,6 +75,28 @@ class PerformanceTests(unittest.TestCase):
         cache.clear()
         self.assertTrue(source.exists())
         self.assertTrue((self.root / 'copy.wav').exists())
+
+    def test_changed_pronunciation_invalidates_performance_recommendation(self):
+        store = Store(self.root / 'data')
+        model_folder = self.root / 'models'
+        model_folder.mkdir()
+        for name in FILES:
+            (model_folder / name).write_bytes(b'unchanged fixture model')
+        performance = Performance.__new__(Performance)
+        performance.store, performance.models = store, SimpleNamespace(root=model_folder)
+        performance.logical, performance.physical = 8, 4
+        performance.adapters, performance.runtime, performance.gpu_runtime = [], 'fixture', None
+        performance._identity, performance._pronunciation_identity = None, None
+        with patch('backend.performance.pronunciation_identity', return_value={'engine': 'fixture', 'revision': 1}):
+            original = performance.identity()
+            result = {'identity': original, 'cpu': {'threads': 2}, 'best': {'provider': 'CPUExecutionProvider'}}
+            store.save_settings({'benchmark_result': result})
+            self.assertEqual(performance.recommendation(), result)
+        with patch('backend.performance.pronunciation_identity', return_value={'engine': 'fixture', 'revision': 2}):
+            self.assertNotEqual(performance.identity(), original)
+            self.assertIsNone(performance.recommendation())
+        # Invalidating a recommendation must retain the old measurement record.
+        self.assertEqual(store.settings()['benchmark_result'], result)
 
     def test_timeline_uses_exact_samples_and_stops_at_gap(self):
         chunks = [{'text': 'one', 'pause': 0.3333333}, {'text': 'two', 'pause': 0.6}, {'text': 'three', 'pause': 1}]
@@ -130,7 +154,7 @@ class PerformanceTests(unittest.TestCase):
         time.sleep(.6)
         self.assertEqual(store.get('jobs',key)['state'],'interrupted')
 
-    def test_first_release_job_can_continue_more_than_once(self):
+    def reading_fixture(self):
         store = Store(self.root / 'data')
         jobs = Jobs(store, None)
         model_folder = self.root / 'models'
@@ -138,27 +162,129 @@ class PerformanceTests(unittest.TestCase):
         for name in FILES:
             (model_folder / name).write_bytes(b'unchanged fixture model')
         jobs.models = SimpleNamespace(root=model_folder, status=lambda: {'state':'ready', 'voices':['af_heart']})
-        jobs.performance = SimpleNamespace(resolve=lambda _: {'model':str(model_folder / FILES[0]), 'provider':'CPUExecutionProvider'}, gpu_runtime=None, runtime='fixture')
-        jobs._worker = lambda: None
+        jobs.performance = SimpleNamespace(resolve=Mock(return_value={'model':str(model_folder / FILES[0]), 'provider':'CPUExecutionProvider'}), gpu_runtime=None, runtime='fixture')
+        jobs._worker = Mock()
+        text = '# Saved reading\n\n' + ' '.join(f'word{i}' for i in range(70)) + '.\n\nEvery word keeps its original place.'
+        prepared = prepare(text)
+        doc = store.document(text, prepared['title'])
+        return store, jobs, doc, prepared
+
+    def interrupted_fixture(self, store, jobs, doc, prepared):
+        jobs.start(prepared, doc, 'af_heart', 1)
+        command = jobs.commands.get(timeout=2)
+        job = copy.deepcopy(command['job'])
+        directory = store.root / 'jobs' / job['id']
+        directory.mkdir()
+        audio = directory / 'section-000000.wav'
+        sf.write(audio, np.zeros(2400), 24000, subtype='PCM_16')
+        job['sections'], job['available_duration'] = published_sections(job, directory)
+        job.update(state='interrupted', completed=len(job['sections']), position=.05)
+        store.put('jobs', job)
+        jobs.active = None
+        jobs._worker.reset_mock()
+        jobs.performance.resolve.reset_mock()
+        return job, audio
+
+    def test_legacy_jobs_are_not_promoted_or_modified_during_resume(self):
+        store, jobs, doc, prepared = self.reading_fixture()
         try:
-            text = '# Legacy reading\n\nEvery word keeps its original place.'
-            options = {'theme':'dark', 'voice':'af_heart', 'speed':1, 'include_code':False, 'heading_pause':.6, 'paragraph_pause':.3}
-            prepared = prepare(text, options)
-            doc = store.document(text, prepared['title'])
-            old = {'text':prepared['text'], 'options':options, 'voice':'af_heart', 'speed':1.0,
-                   'model':[(name,(model_folder / name).stat().st_size,(model_folder / name).stat().st_mtime_ns) for name in FILES]}
-            job = {'id':uuid.uuid4().hex,'document_id':doc['id'],'title':doc['title'],'markdown':text,'voice':'af_heart','speed':1.0,'preview':False,
-                   'chunks':prepared['chunks'],'options':options,'fingerprint':hashlib.sha256(json.dumps(old,sort_keys=True).encode()).hexdigest(),
-                   'created':1,'state':'interrupted','completed':0,'total':len(prepared['chunks']),'position':0,'duration':0}
-            store.put('jobs', job)
+            job, audio = self.interrupted_fixture(store, jobs, doc, prepared)
+            job.pop('pronunciation_identity')
+            original_audio_identity = job.pop('audio_identity')
+            old = {'text':prepared['text'], 'options':prepared['options'], 'voice':'af_heart', 'speed':1.0,
+                   'model':[(name,(jobs.models.root / name).stat().st_size,(jobs.models.root / name).stat().st_mtime_ns) for name in FILES]}
+            job['fingerprint'] = hashlib.sha256(json.dumps(old, sort_keys=True).encode()).hexdigest()
+            for identity in (None, original_audio_identity):
+                with self.subTest(legacy_identity=identity):
+                    if identity is not None:
+                        job['audio_identity'] = identity
+                    store.put('jobs', job)
+                    before, audio_before = store.get('jobs', job['id']), audio.read_bytes()
+                    with self.assertRaisesRegex(ValueError, 'different pronunciation engine'):
+                        jobs.start(prepared, doc, 'af_heart', 1, resume=job['id'])
+                    self.assertEqual(store.get('jobs', job['id']), before)
+                    self.assertEqual(audio.read_bytes(), audio_before)
+                    self.assertEqual(jobs.stream(job['id'])['sections'], job['sections'])
+                    self.assertFalse(public_job(job)['can_resume'])
+                    jobs._worker.assert_not_called()
+                    jobs.performance.resolve.assert_not_called()
+                    self.assertIsNone(jobs.active)
+        finally:
+            jobs.close()
+
+    def test_changed_pronunciation_rejects_resume_and_separates_cache(self):
+        store, jobs, doc, prepared = self.reading_fixture()
+        try:
+            job, audio = self.interrupted_fixture(store, jobs, doc, prepared)
+            before, audio_before = store.get('jobs', job['id']), audio.read_bytes()
+            next_pronunciation = job['pronunciation_identity'] | {'revision': 'a-new-integration'}
+            old_key = section_key(job['chunks'][0]['text'], job['voice'], job['speed'], job['audio_identity'])
+            jobs.cache.put(old_key, audio)
+            with patch('backend.jobs.pronunciation_identity', return_value=next_pronunciation):
+                with self.assertRaisesRegex(ValueError, 'different pronunciation engine'):
+                    jobs.start(prepared, doc, 'af_heart', 1, resume=job['id'])
+                changed_identity = jobs._audio_identity(FILES[0])
+                changed_key = section_key(job['chunks'][0]['text'], job['voice'], job['speed'], changed_identity)
+                self.assertNotEqual(changed_key, old_key)
+                self.assertFalse(jobs.cache.fetch(changed_key, self.root / 'incompatible.wav'))
+                self.assertFalse(public_job(job)['can_resume'])
+            self.assertEqual(jobs._audio_identity(FILES[0]), job['audio_identity'])
+            self.assertEqual(store.get('jobs', job['id']), before)
+            self.assertEqual(audio.read_bytes(), audio_before)
+            self.assertTrue((jobs.cache.root / (old_key + '.wav')).exists())
+            jobs._worker.assert_not_called()
+            jobs.performance.resolve.assert_not_called()
+        finally:
+            jobs.close()
+
+    def test_compatible_job_continues_twice_with_immutable_snapshot_and_timeline(self):
+        store, jobs, doc, prepared = self.reading_fixture()
+        try:
+            job, audio = self.interrupted_fixture(store, jobs, doc, prepared)
+            audio_before = audio.read_bytes()
+            snapshot = {field: copy.deepcopy(job[field]) for field in
+                        ('chunks', 'options', 'markdown', 'pronunciation_identity', 'audio_identity', 'sections', 'available_duration', 'position')}
+            # New chunking policies must not replace the persisted section layout.
+            prepared['chunks'].reverse()
             for _ in range(2):
                 resumed = jobs.start(prepared, doc, 'af_heart', 1, resume=job['id'])
                 command = jobs.commands.get(timeout=2)
-                self.assertEqual(command['job']['chunks'], prepared['chunks'])
+                for field, expected in snapshot.items():
+                    self.assertEqual(command['job'][field], expected)
                 self.assertEqual(resumed['state'], 'preparing')
+                self.assertTrue(public_job(job)['can_resume'])
+                self.assertEqual(audio.read_bytes(), audio_before)
                 jobs.active.update(state='interrupted')
                 store.put('jobs', jobs.active)
                 jobs.active = None
+        finally:
+            jobs.close()
+
+    def test_public_resume_status_keeps_completed_recordings_and_warning_metadata(self):
+        completed = {'id': uuid.uuid4().hex, 'state': 'completed', 'pronunciation_warnings': ['Unfamiliar name spelled out.']}
+        before = copy.deepcopy(completed)
+        result = public_job(completed)
+        self.assertFalse(result['can_resume'])
+        self.assertEqual(result['resume_message'], '')
+        self.assertEqual(result['pronunciation_warnings'], completed['pronunciation_warnings'])
+        self.assertEqual(completed, before)
+        legacy = completed | {'state': 'interrupted'}
+        self.assertIn('saved audio is kept', public_job(legacy)['resume_message'])
+
+    def test_new_job_snapshot_does_not_follow_mutable_pronunciation_or_options(self):
+        store, jobs, doc, prepared = self.reading_fixture()
+        pronunciation = {'engine': 'fixture', 'revision': 1, 'assets': {'lexicon': 'original'}}
+        try:
+            with patch('backend.jobs.pronunciation_identity', return_value=pronunciation):
+                created = jobs.start(prepared, doc, 'af_heart', 1)
+                command = jobs.commands.get(timeout=2)
+            snapshot = store.get('jobs', created['id'])
+            pronunciation['assets']['lexicon'] = 'different'
+            prepared['options']['paragraph_pause'] = 10
+            self.assertEqual(jobs.active['pronunciation_identity'], snapshot['pronunciation_identity'])
+            self.assertEqual(jobs.active['audio_identity'], snapshot['audio_identity'])
+            self.assertEqual(jobs.active['options'], snapshot['options'])
+            self.assertEqual(command['job']['pronunciation_identity'], snapshot['pronunciation_identity'])
         finally:
             jobs.close()
 

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.metadata
 import json
 import os
 import platform
@@ -11,6 +10,7 @@ from pathlib import Path
 
 from .devices import gpu_adapters
 from .models import FILES, GPU_FILE
+from .pronunciation import pronunciation_identity
 
 DEFAULTS = {'performance_mode': 'balanced', 'cpu_threads': 0, 'processing_device': 'auto',
             'gpu_device': -1, 'buffer_mode': 'balanced', 'auto_listen': True,
@@ -48,7 +48,7 @@ def model_identity(path):
 
 def create_engine(model, voices, config):
     import onnxruntime as ort
-    from kokoro_onnx import Kokoro
+    from .kokoro_engine import Kokoro
     options = ort.SessionOptions()
     options.intra_op_num_threads = int(config['threads'])
     options.add_session_config_entry('session.intra_op.allow_spinning', '1' if config.get('spinning') else '0')
@@ -101,13 +101,16 @@ class Performance:
         self._sampled = 0
         self._usage = None
         self._identity = None
+        self._pronunciation_identity = None
 
     def identity(self):
-        if self._identity is None:
+        pronunciation = pronunciation_identity()
+        if self._identity is None or pronunciation != self._pronunciation_identity:
             model_files = [(name, (self.models.root / name).stat().st_size, (self.models.root / name).stat().st_mtime_ns)
                            for name in (*FILES, GPU_FILE) if (self.models.root / name).is_file()]
             self._identity = hashlib.sha256(json.dumps([platform.processor(), self.logical, self.physical,
-                self.adapters, self.runtime, self.gpu_runtime, importlib.metadata.version('kokoro-onnx'), model_files], sort_keys=True).encode()).hexdigest()
+                self.adapters, self.runtime, self.gpu_runtime, pronunciation, model_files], sort_keys=True).encode()).hexdigest()
+            self._pronunciation_identity = pronunciation
         return self._identity
 
     def recommendation(self):

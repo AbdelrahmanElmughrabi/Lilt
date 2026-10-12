@@ -2,7 +2,15 @@
 
 A Windows desktop reading room for turning English Markdown into local narration. Built with **pywebview + Svelte + Python + Kokoro-ONNX**. Lilt uses warm ivory, deep ink, muted lilac, and soft sage. Settings offers Lilt (default) and Classic palettes, each with light, dark, or Windows appearance.
 
-## Open the app
+## Pronunciation evaluation branch
+
+This branch uses offline Misaki 0.9.4 English, without its `en` extra or eSpeak fallback, through an attributed Kokoro inference adapter. Launch `dist\pronunciation\Lilt\Lilt.exe` to try the candidate. Keep its entire folder together. Its default library is `%LOCALAPPDATA%\Lilt-Pronunciation-Evaluation`; it does not migrate the existing library. `LILT_EVALUATION_DATA_DIR` or an explicit `--data-dir` selects another evaluation folder. General `LILT_DATA_DIR` / `FOLIO_DATA_DIR` overrides do not select this candidate's default library.
+
+Unfamiliar English words may be spelled aloud. Accented Latin text may use its English spelling; both produce visible notices. Unsupported characters stop generation clearly. Saved WAV playback remains independent of pronunciation. A partial reading from another pronunciation identity can still be played, but must be generated as a new reading. Cache entries and performance recommendations also include pronunciation identity.
+
+The candidate is a development evaluation pending listening and distribution review. Lilt-owned source can remain proprietary subject to compatible third-party terms. Required texts, covered component source and remaining release gates are described in [thirdparty/PRONUNCIATION-CANDIDATE.md](thirdparty/PRONUNCIATION-CANDIDATE.md) and collected beside the executable in `third-party/`. Changing external pronunciation libraries requires restarting Lilt; changed source/assets invalidate compatible continuation and caches.
+
+## Open the preserved baseline
 
 Double-click **`dist\Lilt\Lilt.exe`**. Keep the entire `Lilt` folder together: the executable needs `_internal` and `models` next to it. Python, Node, a terminal, and a browser tab are not needed to run this build.
 
@@ -43,20 +51,18 @@ There are no paid TTS APIs or app analytics. Model setup fetches assets from the
 
 ## Develop
 
-Use Python 3.12 and Node 20.19+ / 22.12+. From this folder in PowerShell:
+Use Python 3.12 and Node 20.19+ / 22.12+. On this evaluation branch, install its separate environment and run with separate data:
 
 ```powershell
-python -m venv .venv
-& .\.venv\Scripts\python.exe -m pip install -r requirements.lock.txt
+& .\setup-pronunciation.ps1
 Push-Location frontend
 npm.cmd ci
 npm.cmd run build
 Pop-Location
-$env:LILT_DATA_DIR = Join-Path (Get-Location) '.app-data'
-& .\.venv\Scripts\python.exe main.py
+& .\run-pronunciation.ps1
 ```
 
-Use the app's Settings to download the model, or run:
+The source launcher uses `.tmp\pronunciation-eval\data` and copies any existing model files there without changing the originals. If assets are missing, use the candidate app's Settings to download/import them. The baseline model setup tool remains:
 
 ```powershell
 & .\.venv\Scripts\python.exe tools\setup_models.py
@@ -69,13 +75,16 @@ The frontend development preview is available through `npm run dev`; native file
 ## Build and checks
 
 ```powershell
-& .\build.ps1
-& .\.venv\Scripts\python.exe -m unittest discover -s tests -v
-& .\.venv\Scripts\python.exe tools\smoke_test.py
-& .\.venv\Scripts\python.exe tools\native-startup-check.py
+& .\build-pronunciation.ps1
+# Add -IncludeGpu to include the previously validated optional runtime.
+& .\.tmp\pronunciation-env\Scripts\python.exe -m unittest discover -s tests -v
+& .\.tmp\pronunciation-env\Scripts\python.exe tools\smoke_test.py
+& .\.tmp\pronunciation-env\Scripts\python.exe tools\native-startup-check.py
 ```
 
-`build.ps1` runs Svelte checks, builds the frontend, freezes Python with PyInstaller, and copies available model files from `.app-data\models` into `dist\Lilt\models`. Its output is a portable folder. Use `build.ps1 -IncludeGpu` to copy a previously validated `.cuda-probe` runtime and GPU model into the output. Pinning is captured in `requirements.lock.txt` and `frontend/package-lock.json`.
+`build-pronunciation.ps1` uses `requirements-pronunciation.lock.txt`, `build\pronunciation`, and `dist\pronunciation`. It packages only the selected English pronunciation assets, collects notices and covered source, and audits the actual executable/archive for excluded dependencies. It leaves the baseline executable, environment and shortcut untouched. `tools/pronunciation_integration.py --output <new-directory> --device cpu` (or `gpu`) checks real-model early media, exact streamed/exported samples, cache reuse, cancellation/restart and benchmarks. Its `--compare-only --engine baseline|candidate` mode generates listening samples with the matching environment. The frozen candidate exposes equivalent isolated checks through `--evaluate-runtime <new-directory> --evaluation-device cpu|gpu`.
+
+The retained baseline build instructions apply to `main` at the preserved revision; use the candidate script on this branch. `build.ps1` runs Svelte checks, builds the frontend, freezes Python with PyInstaller, and copies available model files from `.app-data\models` into `dist\Lilt\models`. Its output is a portable folder. Use `build.ps1 -IncludeGpu` to copy a previously validated `.cuda-probe` runtime and GPU model into the output. Pinning is captured in `requirements.lock.txt` and `frontend/package-lock.json`.
 
 Developer-only desktop checks in `tools/ui-check.cjs`, `tools/desktop-flow.cjs`, and `tools/long-reading.cjs` attach Playwright to the app's embedded WebView2 when explicitly launched with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`. Normal launches do not enable that debugging port. Set `LILT_PLAYWRIGHT` to a Playwright module location if it is not installed in the local Node environment.
 
@@ -87,11 +96,11 @@ Processing performance, narration speed, and playback speed are independent. Qui
 
 The speed test compares warmed inference, excludes model loading and cached passages, and prefers fewer CPU threads when results are within 5%. Results are tied to model/runtime/hardware identities. More threads do not guarantee faster speech. CPU utilization is measured for the speech process, normalized to the machine's logical processors.
 
-Measured on this i7-11800H / RTX 3060 Laptop GPU: representative CPU passages produced approximately 1.0–1.1 audio seconds per processing second; NVIDIA produced approximately 10–12.5. A real 89-second recording generated in 8.1 seconds, with its first section available after 2.4 seconds. A warmed packaged run produced 68 seconds in 8 seconds; all 12 sections were reused on a repeat in 0.31 seconds. Cold GPU DLL/model loading took about 22 seconds on the first packaged run and can vary; optional startup preparation reduces the wait for a later request. These measurements are examples from this PC.
+Baseline measurements on this i7-11800H / RTX 3060 Laptop GPU (not candidate performance guarantees): representative CPU passages produced approximately 1.0–1.1 audio seconds per processing second; NVIDIA produced approximately 10–12.5. A real 89-second recording generated in 8.1 seconds, with its first section available after 2.4 seconds. A warmed packaged run produced 68 seconds in 8 seconds; all 12 sections were reused on a repeat in 0.31 seconds. Cold GPU DLL/model loading took about 22 seconds on the first packaged run and can vary; optional startup preparation reduces the wait for a later request. These measurements are examples from this PC.
 
 Automatic playback follows Start sooner (~1 second), Balanced (adaptive ~4–10 seconds), or Fewer interruptions (~24 seconds) of decoded audio. Manual Play starts any available audio. If generation is slower than playback, the player freezes at the last available sample and continues once its buffer is ready. Decoding/prefetch is bounded; the final exported WAV matches the raw section audio and intended pauses. Partial recordings retain listening position and can be played/continued after restart.
 
-Reusable speech is keyed by text, voice, narration speed, model/voice content, and runtime identity. The 128/256/512 MB limit evicts least-recently-used passages. Clearing it leaves saved recordings untouched. Continuation keeps the original snapshot and section layout; it refuses changed model files.
+Reusable speech is keyed by text, voice, narration speed, model/voice content, and runtime identity. The 128/256/512 MB limit evicts least-recently-used passages. Clearing it leaves saved recordings untouched. Continuation keeps the original snapshot and section layout; it refuses changed model files and, on this branch, changed pronunciation identity.
 
 The bundled NVIDIA add-on is optional and requires a compatible NVIDIA driver. DirectML was evaluated but failed Kokoro synthesis on both adapters here. For source development, install GPU dependencies separately and validate them before packaging:
 
@@ -112,4 +121,4 @@ The executable is a portable development build, not a signed installer. It has b
 
 ## Source map
 
-`main.py` owns the desktop lifecycle. `backend/documents.py` prepares narration, `jobs.py` owns job state, `speech.py` runs inference, `server.py` serves local audio, `storage.py` persists the library, `models.py` handles assets, and `bridge.py` exposes desktop commands. `performance.py`, `cache.py`, and `sections.py` own tuning, reuse, and the published timeline. `backend/desktop.py` adapts the native bridge for strict CSP. `frontend/src/App.svelte` contains the UI shell, `Home.svelte` the landing page, `PerformanceSettings.svelte` the tuning panel, and `stream-player.ts` the bounded live player; `tokens.css` and `styles.css` define its theme.
+`main.py` owns the desktop lifecycle. `backend/documents.py` prepares narration, `jobs.py` owns job state, `speech.py` runs inference, `server.py` serves local audio, `storage.py` persists the library, `models.py` handles assets, and `bridge.py` exposes desktop commands. `performance.py`, `cache.py`, and `sections.py` own tuning, reuse, and the published timeline. `pronunciation.py` owns offline English coverage/identity, and `kokoro_engine.py` adapts the licensed inference helpers in `backend/_vendor/kokoro`. `backend/desktop.py` adapts the native bridge for strict CSP. `frontend/src/App.svelte` contains the UI shell, `Home.svelte` the landing page, `PerformanceSettings.svelte` the tuning panel, and `stream-player.ts` the bounded live player; `tokens.css` and `styles.css` define its theme.

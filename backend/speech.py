@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import json
 import time
 from pathlib import Path
 
@@ -14,15 +15,20 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
     import soundfile as sf
     from .cache import SectionCache, audio_info, section_key
     from .performance import create_engine
+    from .pronunciation import pronunciation_identity
 
     engine, identity = None, None
+    process_pronunciation = pronunciation_identity()
 
     def load(command, config=None):
         nonlocal engine, identity
         config = config or command['config']
+        if pronunciation_identity() != process_pronunciation:
+            raise ValueError('Pronunciation files changed while Lilt was open. Restart Lilt before creating or continuing a reading.')
         model, voices = config['model'], command['voices']
         version = (model, os.path.getmtime(model), voices, os.path.getmtime(voices),
-                   config['provider'], config['device_id'], config['threads'], config.get('spinning', False))
+                   config['provider'], config['device_id'], config['threads'], config.get('spinning', False),
+                   json.dumps(pronunciation_identity(), sort_keys=True))
         if version != identity:
             engine = None
             engine = create_engine(model, voices, config)
@@ -91,8 +97,11 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
         cache = SectionCache(Path(command['cache']), command['cache_limit_mb']) if command['cache_enabled'] else None
         started = time.perf_counter()
         sections, available, hits, generated = [], 0.0, 0, 0
+        warnings = list(job.get('pronunciation_warnings', []))
         total = len(job['chunks'])
         try:
+            if job.get('pronunciation_identity') != process_pronunciation:
+                raise ValueError('This reading uses different pronunciation files. Start a new reading after restarting Lilt.')
             priority(command['config'])
             events.put({'id': key, 'state': 'preparing', 'message': 'Preparing your first words…'})
             for index, chunk in enumerate(job['chunks']):
@@ -112,15 +121,20 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
                     voice_engine = load(command)
                     samples, rate = voice_engine.create(chunk['text'], voice=job['voice'], speed=job['speed'],
                                                         lang='en-gb' if job['voice'].startswith('b') else 'en-us')
+                    section_warnings = list(getattr(voice_engine, 'last_pronunciation_warnings', []))
                     if not len(samples) or rate != 24000 or not np.all(np.isfinite(samples)):
                         raise ValueError('The speech engine returned an invalid audio section.')
                     temporary = path.with_suffix('.part')
                     sf.write(temporary, samples, rate, format='WAV', subtype='PCM_16')
+                    SectionCache.write_warnings(path, section_warnings)
                     temporary.replace(path)
                     info = sf.info(path)
                     generated += 1
                     if cache:
                         cache.put(cache_key, path)
+                for warning in SectionCache.read_warnings(path):
+                    if warning not in warnings:
+                        warnings.append(warning)
                 pause = int(chunk['pause'] * 24000) / 24000 if index < total - 1 else 0
                 sections.append({'index': index, 'start': available, 'duration': info.frames / 24000, 'pause': pause})
                 available += info.frames / 24000 + pause
@@ -128,6 +142,7 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
                 event = {'id': key, 'state': 'generating', 'completed': index + 1, 'total': total,
                          'sections': sections.copy(), 'available_duration': available, 'throughput': available / max(elapsed, 0.001),
                          'processing_seconds': elapsed, 'cache_hits': hits, 'generated_sections': generated,
+                         'pronunciation_warnings': warnings.copy(),
                          'message': f'{index + 1} of {total} sections ready to listen'}
                 if index == 0:
                     event['first_audio_seconds'] = max(0, time.time() - job.get('attempt_started', job['created']))
@@ -159,6 +174,7 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
                     raise ValueError('The final recording does not match its section timeline.')
                 temporary.replace(directory / 'recording.wav')
                 events.put({'id': key, 'state': 'completed', 'completed': total, 'total': total, 'duration': duration,
+                            'pronunciation_warnings': warnings.copy(),
                             'processing_seconds': time.perf_counter() - started, 'message': 'Your recording is ready.'})
         except Exception as error:
             events.put({'id': key, 'state': 'failed', 'message': f'Generation stopped: {str(error)[:700]}'})
