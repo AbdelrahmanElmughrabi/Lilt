@@ -9,6 +9,8 @@ import unittest
 from unittest.mock import patch
 
 from backend.pronunciation import EnglishPronunciation, PronunciationError, pronunciation_identity
+from backend.documents import prepare
+from backend.speech_text import SYMBOL_NAMES
 
 
 class PronunciationIdentityTests(unittest.TestCase):
@@ -28,7 +30,7 @@ assert first == pronunciation_identity()
 print(json.dumps(first))
 """
         result = subprocess.run([sys.executable, '-X', 'utf8', '-c', code], cwd=root, capture_output=True, text=True, check=True)
-        self.assertEqual(json.loads(result.stdout)['revision'], 'lilt-misaki-english-v1')
+        self.assertEqual(json.loads(result.stdout)['revision'], 'lilt-misaki-english-v2')
 
     def test_actual_lexicon_model_and_replaceable_library_change_identity(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -132,6 +134,30 @@ class OfflineEnglishTests(unittest.TestCase):
         for text in ('λ', 'Hello 🦊 world.', '中文'):
             with self.subTest(text=text), self.assertRaisesRegex(PronunciationError, 'cannot pronounce'):
                 self.engine.phonemize(text)
+
+    def test_prepared_symbols_preserve_complete_sentence_in_both_accents(self):
+        for original, spoken in [('Before➔middle 🦊 after. Next sentence stays.',
+                                  'Before right arrow middle after. Next sentence stays.'),
+                                 ('Hello 🦊́ world. café stays.', 'Hello world. café stays.')]:
+            prepared = prepare(original)
+            self.assertEqual(prepared['text'], spoken)
+            for lang in ('en-us', 'en-gb'):
+                actual = self.engine.phonemize(prepared['chunks'][0]['text'], lang)
+                self.assertEqual(actual, self.engine.phonemize(spoken, lang))
+                self.assertTrue(actual)
+
+    def test_all_listed_symbol_names_have_real_offline_pronunciation(self):
+        for lang in ('en-us', 'en-gb'):
+            for symbol, name in SYMBOL_NAMES.items():
+                with self.subTest(symbol=symbol, lang=lang):
+                    prepared = prepare('Before ' + symbol + ' after.')
+                    self.assertEqual(self.engine.phonemize(prepared['text'], lang),
+                                     self.engine.phonemize('Before ' + name + ' after.', lang))
+
+    def test_symbol_policy_digest_is_part_of_pronunciation_identity(self):
+        original = pronunciation_identity()
+        with patch.dict(SYMBOL_NAMES, {'➔': 'changed arrow'}):
+            self.assertNotEqual(pronunciation_identity()['symbols'], original['symbols'])
 
     def test_substantive_words_cannot_be_dropped_by_tokenizer(self):
         engine = self.engine._engine(False)

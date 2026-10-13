@@ -25,6 +25,8 @@ PRONUNCIATION_CHANGED = ('This reading used a different pronunciation engine. '
 def public_job(job):
     result = {key: value for key, value in job.items() if key not in {
         'chunks', 'markdown', 'sections', 'audio_identity', 'pronunciation_identity', 'fingerprint'}}
+    result.pop('unread_symbols', None)
+    result['unread_count'] = len(job.get('unread_symbols', []))
     compatible = job['state'] in RESUMABLE and job.get('pronunciation_identity') == pronunciation_identity()
     result.update(can_resume=compatible, resume_message=PRONUNCIATION_CHANGED
                   if job['state'] in RESUMABLE and not compatible else '')
@@ -65,6 +67,24 @@ class Jobs:
         if key not in self._identities:
             self._identities[key] = [model_identity(path) for path in paths] + [runtime, copy.deepcopy(pronunciation)]
         return self._identities[key]
+
+    def _write_unread(self, job):
+        symbols = job.get('unread_symbols', [])
+        if not symbols:
+            return
+        directory = (self.store.root / 'jobs' / job['id']).resolve()
+        if directory.parent != (self.store.root / 'jobs').resolve():
+            raise ValueError('Invalid recording location.')
+        directory.mkdir(parents=True, exist_ok=True)
+        lines = ['Symbols omitted from the prepared speech text.',
+                 'Later sections may not have been generated if this reading was stopped.',
+                 f"Reading: {job['title']}", f"Recording: {job['id']}", '']
+        for symbol in symbols:
+            codes = ' '.join(f'U+{ord(c):04X}' for c in symbol)
+            lines.append(f'{json.dumps(symbol, ensure_ascii=False)} ({codes})')
+        temporary = directory / 'unread.part'
+        temporary.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        temporary.replace(directory / 'unread.txt')
 
     def start(self, prepared, document, voice, speed, preview=False, resume=None):
         with self.lock:
@@ -107,6 +127,7 @@ class Jobs:
                 job = {'id': uuid.uuid4().hex, 'document_id': document['id'], 'title': document['title'],
                        'voice': voice, 'speed': speed, 'words': prepared['words'], 'preview': preview,
                        'chunks': chunks, 'markdown': document['markdown'], 'options': copy.deepcopy(prepared['options']),
+                       'unread_symbols': list(prepared.get('unread_symbols', [])),
                        'audio_identity': self._audio_identity(filename, pronunciation), 'pronunciation_identity': pronunciation,
                        'model_file': filename,
                        'created': time.time(), 'state': 'preparing', 'completed': 0, 'total': len(chunks),
@@ -115,6 +136,12 @@ class Jobs:
             job.update(attempt_started=time.time(), engine={key: value for key, value in config.items() if key != 'model'},
                        cache_hits=0, generated_sections=0)
             self.store.put('jobs', job)
+            try:
+                self._write_unread(job)
+            except OSError as error:
+                job.update(state='failed', message='Could not save unread.txt. Your text and available audio are kept.')
+                self.store.put('jobs', job)
+                raise ValueError(job['message']) from error
             self.active = job
             self.cancel.clear()
             self._worker()

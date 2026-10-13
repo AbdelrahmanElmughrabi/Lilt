@@ -10,6 +10,7 @@ import struct
 import sys
 import tempfile
 import time
+import traceback
 import uuid
 import wave
 from pathlib import Path
@@ -76,7 +77,7 @@ def main():
                 assert abs(evaluate('document.querySelector("audio").currentTime') - 3) < .2
                 assert not evaluate('!!document.querySelector(".error-banner")')
                 # Home buttons dispatch through Svelte to real native APIs.
-                window.run_js('document.querySelectorAll(".recent-reading")[1].click()')
+                window.run_js('Array.from(document.querySelectorAll(".recent-reading")).find(row => row.textContent.includes("The art of paying attention")).click()')
                 until('!!document.querySelector(".studio-layout")')
                 until('document.querySelector(".document-tabs") !== null')
                 assert store.get('documents', first['id'])['opened'] > first['opened']
@@ -101,7 +102,7 @@ def main():
                                   'recent_open': True, 'saved_wav': True, 'resume_playback': True, 'replay_finished': True}), flush=True)
             except Exception as error:
                 failures.append(str(error))
-                print(json.dumps({'success': False, 'error': str(error)}), flush=True)
+                print(json.dumps({'success': False, 'error': str(error), 'traceback': traceback.format_exc()}), flush=True)
             finally:
                 window.destroy()
 

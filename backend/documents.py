@@ -5,6 +5,8 @@ import re
 from html.parser import HTMLParser
 from markdown_it import MarkdownIt
 
+from .speech_text import normalize_symbols
+
 DEFAULT_OPTIONS = {"include_code": False, "heading_pause": 0.6, "paragraph_pause": 0.3}
 
 
@@ -133,12 +135,17 @@ def prepare(markdown: str, options: dict | None = None, fallback_title="Untitled
             content = html_text(token.content)
             if content:
                 blocks.append({"kind": "paragraph", "text": content})
+    unread_symbols = []
+    for block in blocks:
+        block['text'], unread = normalize_symbols(block['text'])
+        unread_symbols.extend(unread)
     chunks = []
     for block_index, block in enumerate(blocks):
         sections = section_text(block["text"])
         pause = settings["heading_pause"] if block["kind"] == "heading" else settings["paragraph_pause"]
         for index, text in enumerate(sections):
             chunks.append({"text": text, "block": block_index, "pause": pause if index == len(sections) - 1 else 0.12})
-    spoken = "\n\n".join(block["text"] for block in blocks)
+    spoken = "\n\n".join(block["text"] for block in blocks if block['text'])
     return {"title": title or fallback_title, "text": spoken, "blocks": blocks, "chunks": chunks,
-            "words": len(spoken.split()), "omissions": omissions, "options": settings}
+            "words": len(spoken.split()), "omissions": omissions, "options": settings,
+            "unread_symbols": unread_symbols, "unread_count": len(unread_symbols)}

@@ -13,11 +13,13 @@ import importlib.metadata
 from pathlib import Path
 import unicodedata
 
+from .speech_text import symbol_identity
+
 
 MISAKI_VERSION = '0.9.4'
 MODEL_PACKAGE = 'en_core_web_sm'
 MODEL_VERSION = '3.8.0'
-PRONUNCIATION_REVISION = 'lilt-misaki-english-v1'
+PRONUNCIATION_REVISION = 'lilt-misaki-english-v2'
 FALLBACK_POLICY = 'latin-english-normalization-and-letter-spelling-v1'
 ADAPTER_REVISION = 'lilt-kokoro-0.6.1-v1'
 _LEXICONS = ('gb_gold.json', 'gb_silver.json', 'us_gold.json', 'us_silver.json')
@@ -92,6 +94,7 @@ def pronunciation_identity():
         'model_sha256': _content_identity(model_root, _payload_files(model_root)),
         'num2words_sha256': _content_identity(numbers_root, _payload_files(numbers_root, '.py')),
         'fallback': FALLBACK_POLICY,
+        'symbols': symbol_identity(),
     }
 
 
