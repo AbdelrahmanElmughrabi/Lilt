@@ -20,8 +20,8 @@ from .speech_text import symbol_identity
 MISAKI_VERSION = '0.9.4'
 MODEL_PACKAGE = 'en_core_web_sm'
 MODEL_VERSION = '3.8.0'
-PRONUNCIATION_REVISION = 'lilt-misaki-english-v3'
-FALLBACK_POLICY = 'latin-english-contextual-punctuation-and-spelling-v2'
+PRONUNCIATION_REVISION = 'lilt-misaki-english-v4'
+FALLBACK_POLICY = 'latin-english-contextual-punctuation-and-spelling-v3'
 ADAPTER_REVISION = 'lilt-kokoro-0.6.1-v1'
 _LEXICONS = ('gb_gold.json', 'gb_silver.json', 'us_gold.json', 'us_silver.json')
 _CODE_PACKAGES = ('misaki', 'spacy', 'thinc', 'regex', 'addict', 'numpy', 'num2words')
@@ -101,7 +101,7 @@ def pronunciation_identity():
 
 _DIGITS = ('zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine')
 _SYMBOL_NAMES = {
-    "'": 'apostrophe', '-': 'hyphen', '_': 'underscore', '/': 'slash', '.': 'dot',
+    '-': 'hyphen', '_': 'underscore', '/': 'slash', '.': 'dot',
     ':': 'colon', '+': 'plus', '@': 'at', '&': 'and', '%': 'percent', '=': 'equal',
     '#': 'hash', '$': 'dollar', '*': 'asterisk', '\\': 'backslash', '~': 'tilde',
     '^': 'caret', '|': 'pipe', '<': 'less than', '>': 'greater than',
@@ -109,7 +109,7 @@ _SYMBOL_NAMES = {
 }
 # These are model punctuation, not words such as "comma" or "quote".
 _PUNCTUATION = {c: c for c in ',;:.!?—…"“”()'}
-_PUNCTUATION.update({'[': '(', ']': ')', '{': '(', '}': ')', '–': '—', '`': ''})
+_PUNCTUATION.update({'[': '(', ']': ')', '{': '(', '}': ')', '–': '—', '`': '', "'": ''})
 _CURRENCY_NAMES = {'$': 'dollar', '£': 'pound', '€': 'euro'}
 # Recognize English thousands/decimal formats before handling separators.
 _NUMBER = re.compile(r'(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?|\.[0-9]+')

@@ -24,7 +24,8 @@ def integration(arguments):
 
     original = json.loads(arguments.snapshot.read_text(encoding='utf-8'))
     before = json.loads(arguments.before.read_text(encoding='utf-8'))
-    indices = sorted({8, 9, *(item['section'] - 1 for item in before['languages']['en-us']['failures'])})
+    indices = sorted({8, 9, *(item['section'] - 1 for item in before['languages']['en-us']['failures']),
+                      *(i for i, c in enumerate(original['chunks']) if 'pet = generate' in c['text'])})
     selected = '\n\n'.join(original['chunks'][i]['text'] for i in indices)
     markdown = original['markdown'] if arguments.full_document else selected
     store = Store(arguments.output / 'data')
@@ -52,7 +53,10 @@ def integration(arguments):
         assert first['markdown'] == markdown
         assert store.get('documents', document['id'])['markdown'] == markdown
         if arguments.full_document:
-            assert first['chunks'] == original['chunks']
+            if arguments.allow_spacing:
+                assert ''.join(''.join(c['text'] for c in first['chunks']).split()) == ''.join(''.join(c['text'] for c in original['chunks']).split())
+            else:
+                assert first['chunks'] == original['chunks']
         expected_provider = 'CUDAExecutionProvider' if arguments.device == 'gpu' else 'CPUExecutionProvider'
         assert first['engine']['provider'] == expected_provider
         evidence['generation'] = {key: first.get(key) for key in (
@@ -101,6 +105,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--device', choices=['cpu', 'gpu'], default='cpu')
     parser.add_argument('--full-document', action='store_true')
+    parser.add_argument('--allow-spacing', action='store_true', help='Verify whitespace-only content changes instead of identical old chunks.')
     parser.add_argument('--models', type=Path, default=ROOT / '.app-data/models')
     arguments = parser.parse_args()
     arguments.output = arguments.output.resolve()

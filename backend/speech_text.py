@@ -1,12 +1,13 @@
-"""Prepare graphic symbols for speech without changing the source document."""
+"""Prepare graphic symbols and speech boundaries without changing the source."""
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import unicodedata
 
 
-SYMBOL_POLICY = 'lilt-speech-symbols-v2'
+SYMBOL_POLICY = 'lilt-speech-symbols-v3'
 SYMBOL_NAMES = {
     '→': 'right arrow', '➔': 'right arrow', '➜': 'right arrow',
     '➝': 'right arrow', '➞': 'right arrow', '➡': 'right arrow', '➤': 'right arrow',
@@ -26,11 +27,16 @@ SYMBOL_NAMES = {
 }
 # Misaki already handles these as punctuation or part of a currency amount.
 _PASSTHROUGH = frozenset('‘’“”–—…£€')
+_SPACING_MARKS = frozenset('=()[]{}<>')
+_ADDRESS = re.compile(r'(?<![a-z0-9+.-])(?:[a-z][a-z0-9+.-]*://|www\.)\S+|'
+                      r"(?<![a-z0-9.!#$%&'*+/=?^_`{|}~-])"
+                      r"[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}", re.I)
 
 
 def symbol_identity():
     """Cheap identity; importing pronunciation identity must not load regex/G2P."""
-    policy = [SYMBOL_POLICY, SYMBOL_NAMES, sorted(_PASSTHROUGH), unicodedata.unidata_version]
+    policy = [SYMBOL_POLICY, SYMBOL_NAMES, sorted(_PASSTHROUGH), unicodedata.unidata_version,
+              sorted(_SPACING_MARKS), _ADDRESS.pattern, 'non-numeric-comma-spacing-v1']
     return {'revision': SYMBOL_POLICY,
             'sha256': hashlib.sha256(json.dumps(policy, sort_keys=True, ensure_ascii=False).encode()).hexdigest()}
 
@@ -47,6 +53,32 @@ def _ordinary(character):
     # Enclosing marks and variation selectors are graphic decorations.
     return category[0] in 'LN' or (category[0] == 'M' and category != 'Me'
                                   and not _variation_selector(character))
+
+
+def _speech_spacing(text):
+    """Separate selected syntax without rewriting words, punctuation or addresses."""
+    def space_part(part):
+        pieces = []
+        for index, character in enumerate(part):
+            after = part[index + 1:index + 2]
+            before = part[index - 1:index] if index else ''
+            if character in _SPACING_MARKS:
+                pieces.extend((' ', character))
+                # A closing group stays attached to its following sentence mark.
+                if character not in ')]}' or after not in ',;:.!?':
+                    pieces.append(' ')
+            else:
+                pieces.append(character)
+                if character == ',' and after and not after.isspace() and not (before.isdigit() and after.isdigit()):
+                    pieces.append(' ')
+        return ''.join(pieces)
+
+    pieces, end = [], 0
+    for match in _ADDRESS.finditer(text):
+        pieces.extend((space_part(text[end:match.start()]), match.group()))
+        end = match.end()
+    pieces.append(space_part(text[end:]))
+    return ' '.join(''.join(pieces).split())
 
 
 def normalize_symbols(text):
@@ -84,4 +116,4 @@ def normalize_symbols(text):
             if graphic:
                 unread.append(graphic)
                 pieces.append(' ')
-    return ' '.join(''.join(pieces).split()), unread
+    return _speech_spacing(''.join(pieces)), unread

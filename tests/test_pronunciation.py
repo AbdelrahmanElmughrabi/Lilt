@@ -30,7 +30,7 @@ assert first == pronunciation_identity()
 print(json.dumps(first))
 """
         result = subprocess.run([sys.executable, '-X', 'utf8', '-c', code], cwd=root, capture_output=True, text=True, check=True)
-        self.assertEqual(json.loads(result.stdout)['revision'], 'lilt-misaki-english-v3')
+        self.assertEqual(json.loads(result.stdout)['revision'], 'lilt-misaki-english-v4')
 
     def test_actual_lexicon_model_and_replaceable_library_change_identity(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -242,6 +242,40 @@ class OfflineEnglishTests(unittest.TestCase):
             with self.subTest(text=text, tag=tag), patch.object(type(engine), '__call__', return_value=('', [token])):
                 with self.assertRaisesRegex(PronunciationError, 'omitted'):
                     self.engine.phonemize(text)
+
+    def test_prepared_compounds_use_word_pronunciation_without_letter_fallback(self):
+        cases = [('`pet = generate(seed, version)`.', 'pet = generate ( seed, version ).'),
+                 ('(e.g. body=3, earStyle=1, tailType=5, colorHue=210, etc.).',
+                  '( e.g. body = 3, earStyle = 1, tailType = 5, colorHue = 210, etc. ).'),
+                 ('eyeCount>2', 'eyeCount > 2'), ('`<path>`', '< path >'),
+                 ('`<linearGradient>`', '< linearGradient >')]
+        for lang in ('en-us', 'en-gb'):
+            for original, expected in cases:
+                with self.subTest(lang=lang, text=original):
+                    prepared = prepare(original)
+                    self.assertEqual(prepared['text'], expected)
+                    phonemes = self.engine.phonemize(prepared['text'], lang)
+                    self.assertFalse(any('spelled out' in warning for warning in self.engine.last_warnings))
+                    self.assertEqual(phonemes, self.engine.phonemize(expected, lang))
+                    lexicon = self.engine._engine(lang == 'en-gb').lexicon
+                    self.assertNotIn(self.engine._word(lexicon, 'comma'), phonemes)
+                    self.assertNotIn(self.engine._word(lexicon, 'parenthesis'), phonemes)
+
+    def test_apostrophes_keep_contractions_and_never_acquire_spoken_names(self):
+        for lang in ('en-us', 'en-gb'):
+            british = lang == 'en-gb'
+            lexicon = self.engine._engine(british).lexicon
+            for original in ("Don't change John's words.", 'Don’t change John’s words.'):
+                prepared = prepare(original)
+                self.assertEqual(prepared['text'], original)
+                self.engine.phonemize(prepared['text'], lang)
+                self.assertEqual(self.engine.last_warnings, [])
+            self.assertEqual(self.engine._spell("qzx'wvu", lexicon, british),
+                             self.engine._spell('qzxwvu', lexicon, british))
+            self.assertEqual(self.engine._spell("'", lexicon, british), '')
+            for original in ('qzx’wvu', 'qzx‘wvu'):
+                phonemes = self.engine.phonemize(original, lang)
+                self.assertNotIn(self.engine._word(lexicon, 'apostrophe'), phonemes)
 
     def test_fallback_does_not_erase_unsupported_text_or_control_characters(self):
         lexicon = self.engine._engine(False).lexicon

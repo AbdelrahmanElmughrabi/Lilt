@@ -45,7 +45,57 @@ class SymbolPreparationTests(unittest.TestCase):
 
     def test_existing_punctuation_currency_numbers_and_ascii_syntax_are_preserved(self):
         source = '“Hello”—don’t stop… $12.50 £3 €4 1/2 2026-10-14 foo_bar a@b.com [x](/y/)'
+        self.assertEqual(normalize_symbols(source),
+                         (source.replace('[x](/y/)', '[ x ] ( /y/ )'), []))
+
+    def test_function_calls_and_assignments_get_spacing_without_word_rewriting(self):
+        for source, expected in [('pet = generate(seed, version).', 'pet = generate ( seed, version ).'),
+                                 ('body=3,earStyle=1,tailType=5,colorHue=210.',
+                                  'body = 3, earStyle = 1, tailType = 5, colorHue = 210.')]:
+            self.assertEqual(normalize_symbols(source), (expected, []))
+            self.assertEqual(''.join(source.split()), ''.join(expected.split()))
+
+    def test_brackets_and_commas_remain_characters_without_spoken_names(self):
+        self.assertEqual(normalize_symbols('{body=3} [seed,version].'),
+                         ('{ body = 3 } [ seed, version ].', []))
+        self.assertEqual(normalize_symbols('seed,version'), ('seed, version', []))
+        self.assertEqual(normalize_symbols('eyeCount>2 <path>'), ('eyeCount > 2 < path >', []))
+
+    def test_numeric_commas_decimals_currency_signs_and_ranges_are_protected(self):
+        source = 'Values[0,0,0,…] 1,000 12.050 $12.50 £3.40 €4.20 –0.1 1–5 ~10 2026-10-14'
+        self.assertEqual(normalize_symbols(source), (source.replace('Values[0,0,0,…]', 'Values [ 0,0,0, … ]'), []))
+
+    def test_straight_and_curly_apostrophes_and_quotes_are_untouched(self):
+        source = "Don't change John's words. Don’t change John’s words. 'seed' “version”"
         self.assertEqual(normalize_symbols(source), (source, []))
+        self.assertEqual(normalize_symbols("body='seed'"), ("body = 'seed'", []))
+
+    def test_common_addresses_keep_query_operators_grouping_and_numeric_commas(self):
+        for source in ('https://example.com/f(seed)?a=3&v=1,000', 'www.example.com/f(seed)?a=3',
+                       'name+tag=field@example.com', "o'brien@example.com"):
+            self.assertEqual(normalize_symbols(source), (source, []))
+        self.assertEqual(normalize_symbols('(name@example.com)'), ('( name@example.com )', []))
+
+    def test_spacing_is_idempotent_and_long_words_are_preserved(self):
+        source = "pet=generate(seed,version), John's body=3; https://example.com?a=3"
+        prepared, _ = normalize_symbols(source)
+        self.assertEqual(normalize_symbols(prepared), (prepared, []))
+        long_word = 'a' * 20000
+        self.assertEqual(normalize_symbols(long_word), (long_word, []))
+
+    def test_spacing_rules_are_part_of_policy_identity(self):
+        original = symbol_identity()
+        with patch('backend.speech_text._SPACING_MARKS', frozenset('=()')):
+            self.assertNotEqual(symbol_identity(), original)
+
+    def test_original_code_title_and_spoken_job_text_use_the_correct_copies(self):
+        markdown = '# generate(seed)\n\n`body=3,earStyle=1`'
+        prepared = prepare(markdown)
+        self.assertEqual(prepared['title'], 'generate(seed)')
+        self.assertEqual(prepared['text'], 'generate ( seed )\n\nbody = 3, earStyle = 1')
+        self.assertEqual(' '.join(chunk['text'] for chunk in prepared['chunks']),
+                         prepared['text'].replace('\n\n', ' '))
+        self.assertEqual(prepared['unread_count'], 0)
 
     def test_controls_are_logged_and_separate_words(self):
         self.assertEqual(normalize_symbols('one\x00two\u200bthree\tend'),
