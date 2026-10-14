@@ -11,6 +11,7 @@ from functools import lru_cache
 import hashlib
 import importlib.metadata
 from pathlib import Path
+import re
 import unicodedata
 
 from .speech_text import symbol_identity
@@ -19,8 +20,8 @@ from .speech_text import symbol_identity
 MISAKI_VERSION = '0.9.4'
 MODEL_PACKAGE = 'en_core_web_sm'
 MODEL_VERSION = '3.8.0'
-PRONUNCIATION_REVISION = 'lilt-misaki-english-v2'
-FALLBACK_POLICY = 'latin-english-normalization-and-letter-spelling-v1'
+PRONUNCIATION_REVISION = 'lilt-misaki-english-v3'
+FALLBACK_POLICY = 'latin-english-contextual-punctuation-and-spelling-v2'
 ADAPTER_REVISION = 'lilt-kokoro-0.6.1-v1'
 _LEXICONS = ('gb_gold.json', 'gb_silver.json', 'us_gold.json', 'us_silver.json')
 _CODE_PACKAGES = ('misaki', 'spacy', 'thinc', 'regex', 'addict', 'numpy', 'num2words')
@@ -106,7 +107,14 @@ _SYMBOL_NAMES = {
     '^': 'caret', '|': 'pipe', '<': 'less than', '>': 'greater than',
     '!': 'exclamation mark', '?': 'question mark', ';': 'semicolon', '"': 'quote',
 }
-_ORNAMENTS = frozenset('[]{}()`')
+# These are model punctuation, not words such as "comma" or "quote".
+_PUNCTUATION = {c: c for c in ',;:.!?—…"“”()'}
+_PUNCTUATION.update({'[': '(', ']': ')', '{': '(', '}': ')', '–': '—', '`': ''})
+_CURRENCY_NAMES = {'$': 'dollar', '£': 'pound', '€': 'euro'}
+# Recognize English thousands/decimal formats before handling separators.
+_NUMBER = re.compile(r'(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?|\.[0-9]+')
+_NUMERIC_TEXT = re.compile(r'[0-9][0-9,.]*')
+_RANGE_END = re.compile(r'[0-9](?:[kKmMbB])?$')
 _LATIN_REPLACEMENTS = {'æ': 'ae', 'œ': 'oe', 'ø': 'o', 'ł': 'l', 'ß': 'ss', 'đ': 'd', 'ð': 'th', 'þ': 'th'}
 _SPELLING_WARNING = 'Some words outside the pronunciation dictionary were spelled out.'
 _LATIN_WARNING = 'Some accented Latin text used its English spelling for pronunciation.'
@@ -120,6 +128,9 @@ def _latin_ascii(text):
             result.append("'")
             continue
         if character.isascii():
+            result.append(character)
+            continue
+        if character in _PUNCTUATION or character in _CURRENCY_NAMES:
             result.append(character)
             continue
         name = unicodedata.name(character, '')
@@ -186,23 +197,89 @@ class EnglishPronunciation:
             pieces.append(value)
         return ' '.join(pieces)
 
+    def _number(self, text, lexicon, currency=None):
+        if '.' in text and (currency is None or len(text.partition('.')[2]) > 2):
+            whole, _, fraction = text.partition('.')
+            pieces = [self._number(whole, lexicon)] if whole else []
+            pieces.append(self._word(lexicon, 'point'))
+            pieces.extend(self._word(lexicon, _DIGITS[int(c)]) for c in fraction)
+            phonemes = ' '.join(pieces)
+            return lexicon.append_currency(phonemes, currency) if currency else phonemes
+        # A leading-zero identifier must retain each digit.
+        if currency is None and len(text) > 1 and text[0] == '0' and text.isdigit():
+            return ' '.join(self._word(lexicon, _DIGITS[int(c)]) for c in text)
+        token = self._en.MToken(text, 'CD', '', _=self._en.MToken.Underscore(
+            is_head=True, num_flags='', currency=currency))
+        phonemes, _ = lexicon(token, self._en.TokenContext())
+        if not phonemes:
+            raise PronunciationError('A number has no supported English pronunciation.')
+        return phonemes
+
     def _spell(self, text, lexicon, british):
         pieces = []
-        for character in text:
-            if character.isspace() or character in _ORNAMENTS:
+        index = 0
+        while index < len(text):
+            character = text[index]
+            before, after = text[:index], text[index + 1:]
+            if character.isspace():
+                index += 1
                 continue
-            if character.isascii() and character.isalpha():
+            # Keep code ranges (0..7) distinct from a decimal (.7).
+            if text.startswith('..', index):
+                end = index + 2
+                while end < len(text) and text[end] == '.':
+                    end += 1
+                pieces.append('…' if end - index >= 3 else self._word(lexicon, 'dot dot'))
+                index = end
+                continue
+            number = _NUMBER.match(text, index)
+            if number:
+                pieces.append(self._number(number.group(), lexicon))
+                index = number.end()
+                continue
+            if character in _CURRENCY_NAMES:
+                amount = _NUMBER.match(text, index + 1)
+                if amount:
+                    pieces.append(self._number(amount.group(), lexicon, character))
+                    index = amount.end()
+                    continue
+                pieces.append(self._word(lexicon, _CURRENCY_NAMES[character]))
+                self._warn(_SYMBOL_WARNING)
+            elif character == '–' and _RANGE_END.search(before) and _NUMBER.match(after):
+                pieces.append(self._word(lexicon, 'to'))
+            elif character in '-–' and _NUMBER.match(after) and (not before or not before[-1].isalnum()):
+                pieces.append(self._word(lexicon, 'minus'))
+            elif character == '~' and _NUMBER.match(after):
+                pieces.append(self._word(lexicon, 'about'))
+            elif character == '.' and before and after and before[-1].isalnum() and after[0].isalpha():
+                pieces.append(self._word(lexicon, 'dot'))
+                self._warn(_SYMBOL_WARNING)
+            elif character in _PUNCTUATION:
+                pieces.append(_PUNCTUATION[character])
+            elif character.isascii() and character.isalpha():
                 key = 'zed' if british and character.lower() == 'z' else character.upper()
                 pieces.append(self._word(lexicon, key))
-            elif character in '0123456789':
-                pieces.append(self._word(lexicon, _DIGITS[int(character)]))
+                self._warn(_SPELLING_WARNING)
             elif character in _SYMBOL_NAMES:
                 pieces.append(self._word(lexicon, _SYMBOL_NAMES[character]))
+                self._warn(_SYMBOL_WARNING)
             else:
                 self._unsupported(character)
-        if not pieces:
-            raise PronunciationError('A word has no supported English pronunciation.')
-        return ' '.join(pieces)
+            index += 1
+        return ' '.join(piece for piece in pieces if piece)
+
+    def _fallback(self, token, lexicon, british):
+        text, changed = _latin_ascii(token.text)
+        if text is None:
+            self._unsupported(token.text)
+        if changed:
+            self._warn(_LATIN_WARNING)
+            normalized = replace(token, text=text, _=replace_attributes(token._, self._en))
+            normalized._.alias = None
+            phonemes, rating = lexicon(normalized, self._en.TokenContext())
+            if phonemes:
+                return phonemes, rating
+        return self._spell(text, lexicon, british), 1
 
     def _engine(self, british):
         if british not in self.engines:
@@ -214,18 +291,7 @@ class EnglishPronunciation:
             engine.unk = '❓'
 
             def fallback(token):
-                text, changed = _latin_ascii(token.text)
-                if text is None:
-                    self._unsupported(token.text)
-                if changed:
-                    self._warn(_LATIN_WARNING)
-                    normalized = replace(token, text=text, _=replace_attributes(token._, self._en))
-                    normalized._.alias = None
-                    phonemes, rating = engine.lexicon(normalized, self._en.TokenContext())
-                    if phonemes:
-                        return phonemes, rating
-                self._warn(_SPELLING_WARNING)
-                return self._spell(text, engine.lexicon, british), 1
+                return self._fallback(token, engine.lexicon, british)
 
             engine.fallback = fallback
             self.engines[british] = engine
@@ -244,6 +310,26 @@ class EnglishPronunciation:
         if original != covered:
             raise PronunciationError('Pronunciation did not preserve every word in this section. Generation stopped before saving incomplete speech.')
         for index, token in enumerate(tokens):
+            numeric = _NUMERIC_TEXT.fullmatch(token.text)
+            if numeric and (('..' in token.text) or (',' in token.text and not _NUMBER.fullmatch(token.text))
+                            or (len(token.text) > 1 and token.text[0] == '0' and token.text.isdigit())):
+                # Misaki accepts malformed grouping as a single number (0,0,0
+                # becomes zero). Preserve individual values and separators.
+                token.phonemes = self._spell(token.text, engine.lexicon, lang == 'en-gb')
+            if not token.phonemes and any(c.isalnum() for c in token.text) and token.tag in self._en.PUNCT_TAGS:
+                # spaCy sometimes tags ~10's numeric subtokens as punctuation.
+                # Repair only that proven punctuation path, never an empty word.
+                if _NUMBER.fullmatch(token.text) or any(c in _PUNCTUATION or c in _SYMBOL_NAMES for c in token.text):
+                    token.phonemes, _ = self._fallback(token, engine.lexicon, lang == 'en-gb')
+            before = tokens[index - 1] if index else None
+            after = tokens[index + 1] if index + 1 < len(tokens) else None
+            if token.text in {'~', '–'} and after and not token.whitespace and _NUMBER.match(after.text):
+                if token.text == '~':
+                    token.phonemes = self._word(engine.lexicon, 'about')
+                elif before and not before.whitespace and _RANGE_END.search(before.text):
+                    token.phonemes = self._word(engine.lexicon, 'to')
+                else:
+                    token.phonemes = self._word(engine.lexicon, 'minus')
             if token.phonemes is None or '❓' in token.phonemes:
                 raise PronunciationError('A word has no English pronunciation. Generation stopped before saving incomplete speech.')
             if not token.phonemes and any(c.isalnum() for c in token.text):
@@ -254,13 +340,7 @@ class EnglishPronunciation:
                 if token.text in self._en.CURRENCIES and any(
                         later._.get('currency') == token.text for later in tokens[index + 1:index + 4]):
                     continue
-                meaningful = ''.join(c for c in token.text if not c.isspace() and c not in _ORNAMENTS)
-                if meaningful:
-                    normalized, _ = _latin_ascii(meaningful)
-                    if normalized is None or any(c not in _SYMBOL_NAMES for c in normalized):
-                        self._unsupported(meaningful)
-                    self._warn(_SYMBOL_WARNING)
-                    token.phonemes = self._spell(normalized, engine.lexicon, lang == 'en-gb')
+                token.phonemes, _ = self._fallback(token, engine.lexicon, lang == 'en-gb')
         return ''.join(token.phonemes + token.whitespace for token in tokens).strip()
 
 

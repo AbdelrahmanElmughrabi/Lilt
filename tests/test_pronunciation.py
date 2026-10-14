@@ -30,7 +30,7 @@ assert first == pronunciation_identity()
 print(json.dumps(first))
 """
         result = subprocess.run([sys.executable, '-X', 'utf8', '-c', code], cwd=root, capture_output=True, text=True, check=True)
-        self.assertEqual(json.loads(result.stdout)['revision'], 'lilt-misaki-english-v2')
+        self.assertEqual(json.loads(result.stdout)['revision'], 'lilt-misaki-english-v3')
 
     def test_actual_lexicon_model_and_replaceable_library_change_identity(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -158,6 +158,97 @@ class OfflineEnglishTests(unittest.TestCase):
         original = pronunciation_identity()
         with patch.dict(SYMBOL_NAMES, {'➔': 'changed arrow'}):
             self.assertNotEqual(pronunciation_identity()['symbols'], original['symbols'])
+
+    def test_compact_numeric_vector_preserves_each_value_and_pause(self):
+        for lang in ('en-us', 'en-gb'):
+            with self.subTest(lang=lang):
+                phonemes = self.engine.phonemize('The vector is [0,0,0,…].', lang)
+                lexicon = self.engine.engines[lang == 'en-gb'].lexicon
+                self.assertEqual(phonemes.count(self.engine._word(lexicon, 'zero')), 3)
+                self.assertEqual(phonemes.count(','), 3)
+                self.assertIn('…', phonemes)
+                self.assertNotIn(self.engine._word(lexicon, 'comma'), phonemes)
+
+    def test_bare_compact_number_list_is_not_collapsed_to_one_number(self):
+        for lang in ('en-us', 'en-gb'):
+            phonemes = self.engine.phonemize('Values: 0,0,0.', lang)
+            lexicon = self.engine.engines[lang == 'en-gb'].lexicon
+            self.assertEqual(phonemes.count(self.engine._word(lexicon, 'zero')), 3)
+            self.assertEqual(phonemes.count(','), 2)
+
+    def test_fallback_handles_sentence_punctuation_and_grouping(self):
+        for british in (False, True):
+            lexicon = self.engine._engine(british).lexicon
+            self.assertEqual(self.engine._spell('[,;:.!?…“”]`', lexicon, british),
+                             '( , ; : . ! ? … “ ” )')
+            self.assertEqual(self.engine._spell('`', lexicon, british), '')
+
+    def test_fallback_preserves_thousands_decimal_and_leading_zero_digits(self):
+        for british in (False, True):
+            lexicon = self.engine._engine(british).lexicon
+            self.assertEqual(self.engine._spell('[1,000]', lexicon, british),
+                             '( ' + self.engine._number('1,000', lexicon) + ' )')
+            self.assertEqual(self.engine._spell('[000]', lexicon, british).count(
+                self.engine._word(lexicon, 'zero')), 3)
+            decimal = self.engine._spell('[12.050000000000000001]', lexicon, british)
+            self.assertIn(self.engine._word(lexicon, 'point'), decimal)
+            fraction = decimal.split(self.engine._word(lexicon, 'point'), 1)[1]
+            self.assertEqual(fraction.count(self.engine._word(lexicon, 'zero')), 16)
+            self.assertIn(self.engine._word(lexicon, 'five'), fraction)
+            self.assertIn(self.engine._word(lexicon, 'one'), fraction)
+
+    def test_fallback_preserves_currency_amount_units_without_duplicates(self):
+        for british in (False, True):
+            lexicon = self.engine._engine(british).lexicon
+            for currency in ('$', '£', '€'):
+                expected = self.engine._number('12.50', lexicon, currency)
+                self.assertEqual(self.engine._spell(currency + '12.50', lexicon, british), expected)
+
+    def test_ranges_signed_decimals_approximations_and_embedded_quotes(self):
+        for lang in ('en-us', 'en-gb'):
+            lexicon = self.engine._engine(lang == 'en-gb').lexicon
+            cases = [('The range is 1–5 coils.', 'to'),
+                     ('roundness=–0.1, earLength=+0.3, pattern=2', 'minus'),
+                     ('Use ~10–15 parameters.', 'about'),
+                     ('Use ~10 latent traits.', 'about'),
+                     ('Produce ~1000 pets.', 'about')]
+            for text, meaning in cases:
+                with self.subTest(lang=lang, text=text):
+                    self.assertIn(self.engine._word(lexicon, meaning), self.engine.phonemize(text, lang))
+            quoted = self.engine.phonemize('if body=“blob”, limit tail length', lang)
+            self.assertIn('“', quoted)
+            self.assertIn('”', quoted)
+            self.assertIn(self.engine._word(lexicon, 'equal'), quoted)
+
+    def test_repair_of_numeric_punctuation_tags_keeps_every_number(self):
+        for lang in ('en-us', 'en-gb'):
+            lexicon = self.engine._engine(lang == 'en-gb').lexicon
+            result = self.engine.phonemize('Use ~10–15 parameters.', lang)
+            self.assertIn(self.engine._number('10', lexicon), result)
+            self.assertIn(self.engine._number('15', lexicon), result)
+            self.assertIn(self.engine._word(lexicon, 'to'), result)
+
+    def test_punctuation_fallback_keeps_word_spelling_and_code_dots(self):
+        lexicon = self.engine._engine(False).lexicon
+        expected = '( ' + ' '.join(lexicon.golds[c] for c in 'QZXWVU') + ' , )'
+        self.assertEqual(self.engine._spell('[qzxwvu,]', lexicon, False), expected)
+        self.assertIn(self.engine._word(lexicon, 'dot dot'),
+                      self.engine.phonemize('hash(seed,0..7)'))
+
+    def test_word_or_number_omissions_outside_punctuation_path_still_stop(self):
+        engine = self.engine._engine(False)
+        for text, tag in (('hello', 'NN'), ('hello', ','), ('12', 'NN')):
+            token = self.engine._en.MToken(text, tag, '', phonemes='')
+            with self.subTest(text=text, tag=tag), patch.object(type(engine), '__call__', return_value=('', [token])):
+                with self.assertRaisesRegex(PronunciationError, 'omitted'):
+                    self.engine.phonemize(text)
+
+    def test_fallback_does_not_erase_unsupported_text_or_control_characters(self):
+        lexicon = self.engine._engine(False).lexicon
+        for text in ('hello λ world', 'hello\x00world'):
+            with self.subTest(text=text), self.assertRaises(PronunciationError):
+                token = self.engine._en.MToken(text, 'NN', '')
+                self.engine._fallback(token, lexicon, False)
 
     def test_substantive_words_cannot_be_dropped_by_tokenizer(self):
         engine = self.engine._engine(False)
