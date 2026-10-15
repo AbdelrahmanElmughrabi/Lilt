@@ -8,6 +8,7 @@ export type Section = { index: number; start: number; duration: number; pause: n
 export type Stream = { id: string; state: string; sections: Section[]; available: number; total: number; complete: boolean; running: boolean; throughput: number };
 export type Document = { id: string; title: string; markdown: string; created: number; opened?: number | null; source?: string };
 export type DocumentSummary = Omit<Document, 'markdown'> & { words?: number };
+export type ImportBatch = { documents: Document[]; errors: { name: string; message: string }[] };
 export type Job = { id: string; title: string; document_id: string; voice: string; speed: number; words: number; preview: boolean; state: string; completed: number; total: number; duration: number; position: number; message: string; created: number; last_listened?: number; available_duration?: number; engine?: Configuration; throughput?: number; cache_hits?: number; first_audio_seconds?: number; can_resume?: boolean; resume_message?: string; pronunciation_warnings?: string[]; unread_count?: number };
 export type Prepared = { title: string; text: string; words: number; chunks: { text: string; pause: number; block: number }[]; omissions: { code_blocks: number; metadata: number }; unread_count?: number };
 export type Model = { state: string; percent: number; message: string; voices: string[] };
@@ -23,9 +24,12 @@ export type API = {
   get_document(id: string): Promise<Document>;
   save_document(id: string, text: string): Promise<Document>;
   new_document(): Promise<Document>;
+  reveal_document(id: string): Promise<boolean>;
+  reveal_recording(id: string): Promise<boolean>;
   remove_document(id: string): Promise<boolean>;
   remove_recording(id: string, deleteAudio: boolean): Promise<boolean>;
   import_document(): Promise<Document | null>;
+  import_dropped_documents(files: File[]): Promise<ImportBatch>;
   prepare_document(text: string, options: Settings): Promise<Prepared>;
   save_settings(settings: Settings): Promise<Settings>;
   generate(id: string, text: string, settings: Settings): Promise<Job>;
@@ -83,8 +87,9 @@ export async function getAPI(): Promise<{ api: API; preview: boolean }> {
     get_document: async () => doc,
     save_document: async (_id, text) => (doc = { ...doc, markdown: text, title: text.match(/^#\s+(.+)$/m)?.[1] || 'Untitled reading' }),
     new_document: async () => (doc = { ...doc, markdown: '# Untitled reading\n\nPut your words here.', title: 'Untitled reading' }),
+    reveal_document: unavailable, reveal_recording: unavailable,
     remove_document: unavailable, remove_recording: unavailable,
-    import_document: unavailable,
+    import_document: unavailable, import_dropped_documents: unavailable,
     prepare_document: async (text) => ({ title: doc.title, text: text.replace(/^#+\s*/gm, '').replace(/[>*]/g, ''), words: text.split(/\s+/).filter(Boolean).length, chunks: [], omissions: { code_blocks: 0, metadata: 0 } }),
     save_settings: async value => (settings = value),
     generate: unavailable, preview_voice: unavailable, cancel_generation: unavailable, resume_job: unavailable,

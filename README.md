@@ -22,7 +22,7 @@ The build includes the local model and voice assets, so speech is ready immediat
 
 Lilt opens on **Home**, with recent readings, saved recordings, and **Continue listening** from your saved position. Completed audio is saved automatically as WAV; reopening or playing it does not generate it again. Use the recording's download button to export a copy for listening elsewhere.
 
-1. Import a UTF-8 `.md` / `.markdown` file, or add a reading and paste text in **Edit**.
+1. Import a UTF-8 `.md` / `.markdown` file, drop one or more anywhere in the app, or add a reading and paste text in **Edit**.
 2. Use **Read** for formatted Markdown or **Spoken** to check the wording sent to the voice.
 3. Choose an English voice, try its sample, and adjust narration speed and paragraph pauses.
 4. Select **Create your audio**. Stop after the current section if needed; **Your recordings → Continue** resumes saved sections.
@@ -30,6 +30,10 @@ Lilt opens on **Home**, with recent readings, saved recordings, and **Continue l
 6. Open **Settings → Less waiting. More listening.** to run a speed test, choose processing resources, or adjust buffering.
 
 Documents are working copies: editing or removing one does not change its original file. Removing a recording keeps its audio on disk unless you explicitly select deletion. Normal app data lives in `%LOCALAPPDATA%\Lilt`: SQLite library/settings, model downloads, section audio, completed WAVs, and WebView cache. `LILT_DATA_DIR` overrides that location for development.
+
+Drag Markdown files over any part of Lilt to see the animated **Drop your words here** overlay. It follows the active palette and appearance, respects reduced motion, saves pending edits before importing, and keeps original file paths for Explorer. Valid files in a mixed drop are added while unsupported or unreadable files are reported.
+
+Right-click a reading or recording in the sidebar, Home, or Your recordings for **Delete…** and **Show in File Explorer**. Keyboard users can focus the item and press **Shift+F10** or the context-menu key. Deletion uses the existing confirmation: original Markdown stays untouched, and saved audio is deleted only when explicitly selected. Explorer selects the original Markdown or completed WAV; unfinished recordings open their output folder. Readings created inside Lilt have no original file to reveal. Stop generation before deleting its recording.
 
 Use **Find** or **Ctrl+F** in a reading to search the current Read, Edit, or Spoken view. Search ignores case and treats punctuation literally. **Enter** / **Shift+Enter** in the search box moves to the next / previous match, wrapping at either end; **Escape** closes Find. Read and Spoken highlight matches; Edit selects the matching Markdown text.
 
@@ -88,7 +92,7 @@ The frontend development preview is available through `npm run dev`; native file
 & .\.tmp\pronunciation-env\Scripts\python.exe tools\native-startup-check.py
 ```
 
-`build.ps1` is the canonical build on this branch. It uses `requirements.lock.txt`, `packaging/Lilt.spec`, `build\pronunciation`, and `dist\pronunciation`. `build-pronunciation.ps1` forwards to it for existing candidate commands. Both paths use the current pronunciation environment, collect notices/covered source, and audit the actual executable/archive. The retained baseline executable, environment and shortcut stay separate.
+`build.ps1` is the canonical build on this branch. Close the target app before rebuilding its folder, or use `-OutputDirectory dist\drag-drop` to build a separate copy while it stays open. Output directories must stay under this workspace’s `dist` folder. It uses `requirements.lock.txt`, `packaging/Lilt.spec`, `build\pronunciation`, and `dist\pronunciation`. `build-pronunciation.ps1` forwards to it for existing candidate commands. Both paths use the current pronunciation environment, collect notices/covered source, and audit the actual executable/archive. The retained baseline executable, environment and shortcut stay separate.
 
 Only runtime application code is frozen. Integration checks and sample generation are source-only developer tools. Run `tools/pronunciation_integration.py --output <new-directory> --device cpu` (or `gpu`) for early media, exact streamed/exported samples, cache reuse, cancellation/restart and benchmarks. Run `tools/pronunciation_samples.py --output <new-directory> --device cpu` for current-engine listening samples. Previously generated baseline/candidate A/B clips remain in the Obsidian evaluation evidence; baseline reproduction uses the preserved `main` revision. The executable does not contain baseline comparison code or the development evaluation CLI.
 

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import shutil
+import os
+import subprocess
+import sys
 import threading
 from pathlib import Path
 
 from .documents import prepare
 from .jobs import public_job
 from .performance import validate
+from .windows_shell import select_file
 
 
 class Bridge:
@@ -62,6 +66,44 @@ class Bridge:
             self._store.remove("documents", key)
         return True
 
+    def reveal_document(self, key):
+        document = self._store.get('documents', key)
+        source = document.get('source')
+        if not source:
+            raise ValueError('This reading has no original Markdown file.')
+        path = Path(source)
+        if not path.is_absolute() or path.suffix.lower() not in {'.md', '.markdown'} or not path.is_file():
+            raise ValueError('The original Markdown file could not be found. It may have been moved or deleted.')
+        return self._reveal_path(path, select=True)
+
+    def reveal_recording(self, key):
+        job = self._store.get('jobs', key)
+        root = (self._store.root / 'jobs').resolve()
+        directory = (root / key).resolve()
+        if directory.parent != root:
+            raise ValueError('Invalid recording location.')
+        audio = directory / 'recording.wav'
+        if job.get('state') == 'completed':
+            if not audio.is_file() or audio.resolve().parent != directory:
+                raise ValueError('The saved recording file could not be found.')
+            return self._reveal_path(audio, select=True)
+        if not directory.is_dir():
+            raise ValueError('This reading has no output folder yet.')
+        return self._reveal_path(directory, select=False)
+
+    def _reveal_path(self, path, select):
+        if sys.platform != 'win32':
+            raise ValueError('Show in File Explorer is available on Windows.')
+        explorer = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'explorer.exe'
+        try:
+            if select:
+                select_file(path)
+            else:
+                subprocess.Popen(f'"{explorer}" "{path}"', shell=False)
+        except OSError as exc:
+            raise ValueError('File Explorer could not be opened. Try again.') from exc
+        return True
+
     def remove_recording(self, key, delete_audio=False):
         with self._lock, self._jobs.lock:
             active = self._jobs.state()
@@ -82,15 +124,41 @@ class Bridge:
                                                 file_types=("Markdown files (*.md;*.markdown)",))
         if not paths:
             return None
-        path = Path(paths[0])
+        return self._import_document_path(paths[0])
+
+    def import_dropped_documents(self, paths):
+        if not isinstance(paths, list) or not paths:
+            raise ValueError('Drop a Markdown (.md or .markdown) file to add a reading.')
+        documents, errors = [], []
+        seen = set()
+        for source in paths:
+            try:
+                path = Path(source).resolve()
+                identity = os.path.normcase(str(path))
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                documents.append(self._import_document_path(path))
+            except (OSError, ValueError, TypeError) as exc:
+                errors.append({'name': Path(source).name if isinstance(source, str) else 'File',
+                               'message': str(exc)})
+        return {'documents': documents, 'errors': errors}
+
+    def _import_document_path(self, source):
+        path = Path(source).resolve()
         if path.suffix.lower() not in {".md", ".markdown"}:
             raise ValueError("Choose a Markdown (.md or .markdown) file.")
+        if not path.is_file():
+            raise ValueError('This file could not be found. Drop a file rather than a folder.')
         try:
             markdown = path.read_text(encoding="utf-8-sig")
         except UnicodeDecodeError:
             raise ValueError("This file is not UTF-8. Save it as UTF-8 and try again.") from None
+        except OSError:
+            raise ValueError('This file could not be read. Check that it is available and try again.') from None
         prepared = prepare(markdown, self._store.settings(), path.stem)
-        return self._store.document(markdown, prepared["title"], source=str(path))
+        with self._lock:
+            return self._store.document(markdown, prepared["title"], source=str(path))
 
     def prepare_document(self, markdown, options):
         return prepare(markdown, options)

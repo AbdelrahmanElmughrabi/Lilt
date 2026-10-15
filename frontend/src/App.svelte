@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, untrack } from 'svelte';
   import { House } from '@lucide/svelte';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
   import { BookOpen, Headphones, Library, Settings2, Plus, ArrowUpRight, FileText, FolderOpen, ChevronDown, Check, Play, Pause, SkipBack, SkipForward, Volume2, Download, SlidersHorizontal, X, LoaderCircle, Moon, Sun, Monitor, CircleHelp, RotateCcw, Pencil, AlignLeft, Eye, AlertCircle, Square, Search, PanelLeft, AudioLines, ArrowRight, Trash2 } from '@lucide/svelte';
   import { getAPI, withTimeout, defaultSettings, type API, type Settings, type Document, type Job, type Prepared, type State } from './api';
   import Home from './Home.svelte';
+  import FileContextMenu from './FileContextMenu.svelte';
+  import FileDrop from './FileDrop.svelte';
+  import { fileContext, type FileMenu, type FileItem } from './context-menu';
   import DocumentFind from './DocumentFind.svelte';
   import brandIcon from './assets/lilt.png';
   import PerformanceSettings from './PerformanceSettings.svelte';
@@ -31,6 +34,10 @@
   let help = $state(false);
   let removal = $state<{ id: string; title: string; kind: 'document' | 'recording' } | null>(null);
   let deleteAudio = $state(false);
+  let fileMenu = $state<FileMenu | null>(null);
+  function openFileMenu(menu: FileMenu) { fileMenu = menu; }
+  function requestFileRemoval(item: FileItem) { deleteAudio = false; removal = { id: item.id, title: item.title, kind: item.kind }; }
+  async function revealFile(item: FileItem) { await act(() => item.kind === 'document' ? api.reveal_document(item.id) : api.reveal_recording(item.id)); }
   let helpDialog: HTMLDialogElement;
   let removalDialog: HTMLDialogElement;
   let shelf = $state(false);
@@ -44,7 +51,7 @@
   let wanted = $state(false);
   let ahead = $state(0);
   let streamPlayer: StreamPlayer | null = null;
-  let refreshing = false;
+  let refreshTask: Promise<void> | null = null;
   let selectionVersion = 0;
   let position = $state(0);
   let duration = $state(0);
@@ -83,6 +90,7 @@
     ALLOWED_ATTR: [],
   }));
 
+  $effect(() => { page; untrack(() => { fileMenu = null; }); });
   $effect(() => { if (help) helpDialog?.showModal(); else helpDialog?.close(); });
   $effect(() => { if (removal) removalDialog?.showModal(); else removalDialog?.close(); });
 
@@ -91,10 +99,17 @@
     error = '';
     try { return await operation(); } catch (e) { error = e instanceof Error ? e.message : String(e); return null; }
   }
-  async function refresh() {
-    if (!api || refreshing) return;
-    refreshing = true;
-    try {
+  async function refresh(afterMutation = false) {
+    if (!api) return;
+    if (refreshTask) {
+      await refreshTask;
+      if (!afterMutation) return;
+    }
+    // A removal must fetch state after any older poll has finished.
+    if (!refreshTask) refreshTask = loadState().finally(() => { refreshTask = null; });
+    await refreshTask;
+  }
+  async function loadState() {
     const next = await withTimeout(api.get_state()); appState = next;
     if (selectedJob) {
       const updated = next.jobs.find(job => job.id === selectedJob!.id);
@@ -115,7 +130,6 @@
     const failure = next.jobs.find(job => job.state === 'failed' && !failuresSeen.has(job.id));
     next.jobs.filter(job => job.state === 'failed').forEach(job => failuresSeen.add(job.id));
     if (failure) error = failure.message;
-    } finally { refreshing = false; }
   }
   async function review() {
     if (!document) return;
@@ -167,6 +181,19 @@
   }
   async function importDocument() {
     await act(async () => { await flushSave(); const imported = await api.import_document(); if (imported) { document = imported; dirty = false; page = 'studio'; tab = 'read'; await review(); await refresh(); notify('Added to your shelf. The original file stays untouched.'); } });
+  }
+  async function importDroppedFiles(files: File[]) {
+    await act(async () => {
+      await flushSave();
+      const result = await api.import_dropped_documents(files);
+      if (result.documents.length) {
+        help = false; removal = null; fileMenu = null; voiceMenu = false; shelf = false;
+        document = result.documents[0]; dirty = false; page = 'studio'; tab = 'read';
+        await review(); await refresh(true);
+        notify(result.documents.length === 1 ? 'Added to your shelf. The original file stays untouched.' : `Added ${result.documents.length} readings to your shelf. Your originals stay untouched.`);
+      }
+      if (result.errors.length) error = result.errors.slice(0, 3).map(item => `${item.name}: ${item.message}`).join(' ') + (result.errors.length > 3 ? ` And ${result.errors.length - 3} more files could not be added.` : '');
+    });
   }
   async function newDocument() {
     await act(async () => { await flushSave(); document = await api.new_document(); dirty = false; page = 'studio'; tab = 'edit'; await review(); await refresh(); });
@@ -240,11 +267,14 @@
       const item = removal!;
       if (item.kind === 'document') {
         await flushSave(); await api.remove_document(item.id);
-        document = null; prepared = null; await refresh();
-        if (appState?.documents.length) await selectDocument(appState.documents[0].id);
+        const wasOpen = document?.id === item.id;
+        if (wasOpen) { ++prepareVersion; document = null; prepared = null; dirty = false; }
+        await refresh(true);
+        if (wasOpen && page === 'studio' && appState?.documents.length) await selectDocument(appState.documents[0].id);
       } else {
+        await api.remove_recording(item.id, deleteAudio);
         if (selectedJob?.id === item.id) { streamPlayer?.dispose(); streamPlayer = null; ++selectionVersion; audio.pause(); selectedJob = null; streaming = buffering = wanted = false; position = duration = 0; }
-        await api.remove_recording(item.id, deleteAudio); await refresh();
+        await refresh(true);
       }
       removal = null; deleteAudio = false; notify('Removed from your shelf.');
     });
@@ -252,6 +282,7 @@
   }
   function keyboard(event: KeyboardEvent) {
     if (!ready) return;
+    if (fileMenu) return;
     const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName);
     if ((event.ctrlKey || event.metaKey) && event.key === 'o') { event.preventDefault(); void importDocument(); }
     if ((event.ctrlKey || event.metaKey) && event.key === 's') { event.preventDefault(); void act(flushSave); }
@@ -296,6 +327,7 @@
 <svelte:window onkeydown={keyboard} />
 
 <div class:dark class="app-shell" data-palette={settings.palette}>
+  <FileDrop enabled={ready} importFiles={importDroppedFiles} />
   <aside class:opened={shelf} class="sidebar">
     <button class="brand" onclick={showHome} disabled={!ready} aria-label="Lilt home"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Lilt<span>YOUR WORDS, OUT LOUD</span></span></button>
     <div class="sidebar-rule"></div>
@@ -307,7 +339,7 @@
     <div class="shelf-heading"><span>ON YOUR SHELF</span><button title="New reading" onclick={newDocument} disabled={!ready}><Plus size={16} /></button></div>
     <div class="document-list">
       {#each appState?.documents || [] as doc}
-        <button class:chosen={document?.id === doc.id && page === 'studio'} onclick={() => selectDocument(doc.id)}><FileText size={17} strokeWidth={1.5} /><span>{doc.title}<small>Markdown reading</small></span></button>
+        <button use:fileContext={{ item: { ...doc, kind: 'document' }, open: openFileMenu }} class:chosen={document?.id === doc.id && page === 'studio'} onclick={() => selectDocument(doc.id)}><FileText size={17} strokeWidth={1.5} /><span>{doc.title}<small>Markdown reading</small></span></button>
       {/each}
       {#if ready && !appState?.documents.length}<p class="shelf-empty">A home for the words<br />you want to return to.</p>{/if}
     </div>
@@ -333,7 +365,7 @@
         {:else}<LoaderCircle size={23} class="spin" /><p>Opening your library…</p>{/if}
       </div>
     {:else if page === 'home'}
-      <Home documents={appState?.documents || []} jobs={appState?.jobs || []} generating={!!active || testing} openDocument={selectDocument} {importDocument} {newDocument} listen={(job) => selectRecording(job, true)} {exportAudio} {continueJob} showLibrary={() => page = 'library'} {showStudio} voiceName={(id) => voiceDetails[id]?.name || id.split('_').slice(1).join(' ')} />
+      <Home {openFileMenu} documents={appState?.documents || []} jobs={appState?.jobs || []} generating={!!active || testing} openDocument={selectDocument} {importDocument} {newDocument} listen={(job) => selectRecording(job, true)} {exportAudio} {continueJob} showLibrary={() => page = 'library'} {showStudio} voiceName={(id) => voiceDetails[id]?.name || id.split('_').slice(1).join(' ')} />
     {:else if page === 'studio'}
       <div class="studio-layout">
         <main class="reading-workspace">
@@ -383,7 +415,7 @@
     {:else if page === 'library'}
       <main class="library-page"><div class="page-heading"><div><span class="eyebrow">WORDS YOU CAN RETURN TO</span><h1>Your listening shelf<span>.</span></h1><p>A home for finished recordings and readings in progress.</p></div><div class="search-field"><Search size={17} /><input aria-label="Search recordings" placeholder="Find a reading…" bind:value={query} /></div></div>
         <div class="library-stats"><span><Headphones size={16} /> {appState?.jobs.filter(j => !j.preview && j.state === 'completed').length || 0} saved recordings</span><span>At your pace, whenever you like.</span></div>
-        {#if recordings.length}<div class="recording-grid">{#each recordings as job}<div class="recording-card"><div class="recording-art"><div class="mini-waves" aria-hidden="true">{#each [14, 26, 38, 22, 46, 32, 50, 28, 42, 20, 34, 14] as height}<span style:height={`${height}px`}></span>{/each}</div><span>{job.state === 'completed' ? 'READY FOR A LISTEN' : 'A WORK IN PROGRESS'}</span></div><div class="recording-info"><div class="card-date">{date(job.created)}<span>{jobLabel(job)}</span></div><h2>{job.title}</h2><p>{voiceDetails[job.voice]?.name || job.voice} <span>·</span> {job.speed.toFixed(1)}× narration</p><div class="recording-actions">{#if job.state !== 'completed' && (job.available_duration || 0) > 0}<button class="icon-button" title="Listen to available audio" onclick={() => selectRecording(job, true)}><Headphones size={16} /></button>{/if}{#if job.state === 'completed'}<button class="card-play" onclick={() => selectRecording(job, true)}><Play size={14} fill="currentColor" /> Listen</button><button class="icon-button" title="Export WAV" onclick={() => exportAudio(job)}><Download size={17} /></button>{:else if ['cancelled', 'failed', 'interrupted'].includes(job.state)}{#if job.can_resume !== false}<button class="card-play" disabled={!!active || testing} onclick={() => continueJob(job)}><RotateCcw size={14} /> Continue</button>{/if}{:else}<button class="card-play" onclick={() => { if (job.completed) selectRecording(job, true); page = 'studio'; }}><LoaderCircle size={14} class="spin" /> In progress</button>{/if}{#if ['completed', 'cancelled', 'failed', 'interrupted'].includes(job.state)}<button class="icon-button" title="Remove recording" onclick={() => { deleteAudio = false; removal = { id: job.id, title: job.title, kind: 'recording' }; }}><Trash2 size={16} /></button>{/if}</div>{#if job.resume_message}<p class="job-error">{job.resume_message}</p>{:else if job.state === 'failed'}<p class="job-error">{job.message}</p>{/if}{#each job.pronunciation_warnings || [] as warning}<p class="settings-hint">{warning}</p>{/each}</div></div>{/each}</div>{:else}<div class="library-empty"><div class="empty-art"><Headphones size={48} strokeWidth={1} /></div><h2>Good words deserve<br /><em>a second listen.</em></h2><p>{query ? 'No recordings match that search.' : 'Your recordings will live here. Start with a reading, choose a voice, and make something worth keeping.'}</p><button class="primary-button" onclick={() => page = 'studio'}>Back to the reading room <ArrowRight size={17} /></button></div>{/if}
+        {#if recordings.length}<div class="recording-grid">{#each recordings as job}<div class="recording-card" use:fileContext={{ item: { ...job, kind: 'recording' }, open: openFileMenu }}><div class="recording-art"><div class="mini-waves" aria-hidden="true">{#each [14, 26, 38, 22, 46, 32, 50, 28, 42, 20, 34, 14] as height}<span style:height={`${height}px`}></span>{/each}</div><span>{job.state === 'completed' ? 'READY FOR A LISTEN' : 'A WORK IN PROGRESS'}</span></div><div class="recording-info"><div class="card-date">{date(job.created)}<span>{jobLabel(job)}</span></div><h2>{job.title}</h2><p>{voiceDetails[job.voice]?.name || job.voice} <span>·</span> {job.speed.toFixed(1)}× narration</p><div class="recording-actions">{#if job.state !== 'completed' && (job.available_duration || 0) > 0}<button class="icon-button" title="Listen to available audio" onclick={() => selectRecording(job, true)}><Headphones size={16} /></button>{/if}{#if job.state === 'completed'}<button class="card-play" onclick={() => selectRecording(job, true)}><Play size={14} fill="currentColor" /> Listen</button><button class="icon-button" title="Export WAV" onclick={() => exportAudio(job)}><Download size={17} /></button>{:else if ['cancelled', 'failed', 'interrupted'].includes(job.state)}{#if job.can_resume !== false}<button class="card-play" disabled={!!active || testing} onclick={() => continueJob(job)}><RotateCcw size={14} /> Continue</button>{/if}{:else}<button class="card-play" onclick={() => { if (job.completed) selectRecording(job, true); page = 'studio'; }}><LoaderCircle size={14} class="spin" /> In progress</button>{/if}{#if ['completed', 'cancelled', 'failed', 'interrupted'].includes(job.state)}<button class="icon-button" title="Remove recording" onclick={() => { deleteAudio = false; removal = { id: job.id, title: job.title, kind: 'recording' }; }}><Trash2 size={16} /></button>{/if}</div>{#if job.resume_message}<p class="job-error">{job.resume_message}</p>{:else if job.state === 'failed'}<p class="job-error">{job.message}</p>{/if}{#each job.pronunciation_warnings || [] as warning}<p class="settings-hint">{warning}</p>{/each}</div></div>{/each}</div>{:else}<div class="library-empty"><div class="empty-art"><Headphones size={48} strokeWidth={1} /></div><h2>Good words deserve<br /><em>a second listen.</em></h2><p>{query ? 'No recordings match that search.' : 'Your recordings will live here. Start with a reading, choose a voice, and make something worth keeping.'}</p><button class="primary-button" onclick={() => page = 'studio'}>Back to the reading room <ArrowRight size={17} /></button></div>{/if}
       </main>
     {:else}
       <main class="settings-page"><div class="page-heading"><div><span class="eyebrow">MAKE YOURSELF AT HOME</span><h1>The little details<span>.</span></h1><p>Your voice, your space, your pace.</p></div></div>
@@ -410,6 +442,10 @@
   </div>
   {#if toast}<div class="toast" role="status"><Check size={17} />{toast}<button title="Dismiss notification" onclick={() => toast = ''}><X size={15} /></button></div>{/if}
   <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Lilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Lilt is your local reading room. Bring Markdown, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import Markdown <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
+  {#if fileMenu}
+    {#key fileMenu}<FileContextMenu menu={fileMenu} canDelete={!busy && (fileMenu.item.kind === 'document' || ['completed', 'cancelled', 'failed', 'interrupted'].includes(fileMenu.item.state || ''))} close={() => fileMenu = null} remove={requestFileRemoval} reveal={revealFile} />{/key}
+  {/if}
+
   <dialog bind:this={removalDialog} class="about-modal removal-modal" aria-labelledby="removal-title" onclose={() => removal = null} oncancel={() => removal = null}>
     {#if removal}
       <button class="modal-close" title="Close" onclick={() => removal = null}><X size={20} /></button>

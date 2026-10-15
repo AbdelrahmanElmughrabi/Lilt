@@ -1,6 +1,11 @@
-param([switch]$IncludeGpu, [string]$ModelDirectory = '.app-data\models', [string]$GpuRuntimeDirectory = '.cuda-probe')
+param([switch]$IncludeGpu, [string]$ModelDirectory = '.app-data\models', [string]$GpuRuntimeDirectory = '.cuda-probe', [string]$OutputDirectory = 'dist\pronunciation')
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
+$liltCandidateDistRoot = if ([IO.Path]::IsPathRooted($OutputDirectory)) { [IO.Path]::GetFullPath($OutputDirectory) } else { [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $OutputDirectory)) }
+$liltAllowedDistRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'dist')) + [IO.Path]::DirectorySeparatorChar
+if (!$liltCandidateDistRoot.StartsWith($liltAllowedDistRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Build output must be a subdirectory of this workspace dist folder.' }
+$liltOutputExecutable = Join-Path $liltCandidateDistRoot 'Lilt\Lilt.exe'
+if (Get-Process -Name Lilt -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $liltOutputExecutable }) { throw 'This output is running. Close that Lilt copy or choose another -OutputDirectory before building.' }
 $liltCandidatePython = Join-Path $PSScriptRoot '.tmp\pronunciation-env\Scripts\python.exe'
 if (!(Test-Path -LiteralPath $liltCandidatePython)) { throw 'Run setup-pronunciation.ps1 first.' }
 $liltCandidateTemp = Join-Path $PSScriptRoot '.tmp\pronunciation-pip-temp'
@@ -14,9 +19,9 @@ try {
     npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw 'Interface build failed.' }
 } finally { Pop-Location }
-& $liltCandidatePython -m PyInstaller --noconfirm --clean --distpath dist\pronunciation --workpath build\pronunciation packaging\Lilt.spec
+& $liltCandidatePython -m PyInstaller --noconfirm --clean --distpath $liltCandidateDistRoot --workpath build\pronunciation packaging\Lilt.spec
 if ($LASTEXITCODE -ne 0) { throw 'Candidate executable packaging failed.' }
-$liltCandidateFolder = Join-Path $PSScriptRoot 'dist\pronunciation\Lilt'
+$liltCandidateFolder = Join-Path $liltCandidateDistRoot 'Lilt'
 $liltCandidateModelSource = if ([IO.Path]::IsPathRooted($ModelDirectory)) { [IO.Path]::GetFullPath($ModelDirectory) } else { [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $ModelDirectory)) }
 $liltCandidateMarker = @{ data_profile = 'Lilt-Pronunciation-Evaluation'; development = $true } | ConvertTo-Json
 [IO.File]::WriteAllText((Join-Path $liltCandidateFolder 'lilt-candidate.json'), $liltCandidateMarker, (New-Object Text.UTF8Encoding($false)))
@@ -52,4 +57,4 @@ if ($IncludeGpu) {
 if ($LASTEXITCODE -ne 0) { throw 'Candidate notice assembly failed.' }
 & $liltCandidatePython tools\package_pronunciation_audit.py --package $liltCandidateFolder
 if ($LASTEXITCODE -ne 0) { throw 'Candidate package isolation audit failed.' }
-Write-Output 'Built dist\pronunciation\Lilt\Lilt.exe. This is a development evaluation build pending distribution review.'
+Write-Output ('Built ' + (Join-Path $liltCandidateFolder 'Lilt.exe') + '. This is a development evaluation build pending distribution review.')
