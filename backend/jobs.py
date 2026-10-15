@@ -41,6 +41,9 @@ class Jobs:
         self.commands, self.events = self.context.Queue(), self.context.Queue()
         self.cancel = self.context.Event()
         self.process, self.active, self.operation = None, None, None
+        self.idle_since = None
+        self.releasing = False
+        self.release_error = ''
         self.closing = False
         self.performance = Performance(store, models) if models else None
         self.cache = SectionCache(store.root / 'section-cache', store.settings()['cache_limit_mb'])
@@ -53,10 +56,80 @@ class Jobs:
         threading.Thread(target=self._listen, daemon=True).start()
 
     def _worker(self):
+        if self.closing:
+            raise ValueError('Lilt is closing.')
+        if self.releasing:
+            raise ValueError('The voice process is still releasing memory. Try again shortly.')
         if not self.process or not self.process.is_alive():
+            if self.process:
+                self.process.join(timeout=0)
+                self.process.close()
+                self.process = None
+                self._reset_channels()
             self.process = self.context.Process(target=speech_worker,
                 args=(self.commands, self.events, self.cancel, gpu_runtime_directory()), daemon=True)
             self.process.start()
+        self.idle_since = None
+        self.release_error = ''
+
+    def _reset_channels(self):
+        # Each worker gets fresh IPC, including after a forced exit. The listener
+        # discards reads from a retired event queue before applying any event.
+        old_commands, old_events = self.commands, self.events
+        self.commands, self.events = self.context.Queue(), self.context.Queue()
+        self.cancel = self.context.Event()
+        for channel in (old_commands, old_events):
+            channel.cancel_join_thread()
+            channel.close()
+
+    def release_engine(self):
+        with self.lock:
+            if self.active or self.operation:
+                raise ValueError('Finish the current reading, speed test, or voice preparation before releasing memory.')
+            if self.closing:
+                return False
+            return self._release_worker()
+
+    def _release_worker(self):
+        if self.process:
+            self.releasing = True
+            if self.process.is_alive():
+                self.commands.put(None)
+                self.process.join(timeout=3)
+                if self.process.is_alive():
+                    self.process.terminate()
+                    self.process.join(timeout=3)
+            if self.process.is_alive():
+                self.release_error = 'The voice process has not stopped yet. Try releasing memory again.'
+                raise ValueError(self.release_error)
+            self.process.join(timeout=0)
+            self.process.close()
+            self.process = None
+            self._reset_channels()
+        self.releasing = False
+        self.idle_since = None
+        self.release_error = ''
+        if self.performance:
+            self.performance.warmup = {'state': 'idle', 'message': 'Voice memory released. It reloads for your next reading.'}
+        return True
+
+    def _release_if_idle(self):
+        if self.closing or self.active or self.operation or not self.process:
+            return
+        if self.releasing:
+            if not self.process.is_alive():
+                self._release_worker()
+            return
+        now = time.monotonic()
+        if self.idle_since is None:
+            self.idle_since = now
+        policy = self.store.settings().get('model_release', 'idle')
+        if policy == 'immediate' or (policy == 'idle' and now - self.idle_since >= 120):
+            try:
+                self._release_worker()
+            except ValueError:
+                # Preserve the listener and expose the failed release in status.
+                pass
 
     def _audio_identity(self, filename, pronunciation=None):
         pronunciation = pronunciation if pronunciation is not None else pronunciation_identity()
@@ -88,6 +161,8 @@ class Jobs:
 
     def start(self, prepared, document, voice, speed, preview=False, resume=None):
         with self.lock:
+            if self.releasing or self.closing:
+                raise ValueError('The voice process is unavailable while releasing memory or closing.')
             if self.active or self.operation == 'benchmark':
                 raise ValueError('Finish or cancel the current reading or speed test first.')
             pronunciation = copy.deepcopy(pronunciation_identity())
@@ -161,6 +236,8 @@ class Jobs:
 
     def benchmark(self):
         with self.lock:
+            if self.releasing or self.closing:
+                raise ValueError('The voice process is unavailable while releasing memory or closing.')
             if self.active or self.operation:
                 raise ValueError('Finish the current reading or engine preparation first.')
             if self.models.status()['state'] != 'ready':
@@ -183,7 +260,7 @@ class Jobs:
 
     def warmup(self):
         with self.lock:
-            if self.active or self.operation or self.models.status()['state'] != 'ready':
+            if self.releasing or self.closing or self.active or self.operation or self.models.status()['state'] != 'ready':
                 return False
             config = self.performance.resolve(self.store.settings())
             self.operation = 'warmup'
@@ -216,7 +293,13 @@ class Jobs:
 
     def performance_state(self):
         with self.lock:
-            return self.performance.status(self.process)
+            status = self.performance.status(self.process)
+            status['memory'] = {
+                'state': 'releasing' if self.releasing else 'busy' if self.active or self.operation
+                         else 'idle' if self.process and self.process.is_alive() else 'unloaded',
+                'message': self.release_error,
+            }
+            return status
 
     def cache_state(self):
         if time.monotonic() - self._cache_sample[0] > 3:
@@ -234,12 +317,15 @@ class Jobs:
     def _listen(self):
         import queue
         while not self.closing:
+            event_queue = self.events
             try:
-                event = self.events.get(timeout=0.5)
-            except queue.Empty:
+                event = event_queue.get(timeout=0.5)
+            except (queue.Empty, EOFError, OSError, ValueError):
                 with self.lock:
                     if self.closing:
                         return
+                    if event_queue is not self.events:
+                        continue
                     if self.process and not self.process.is_alive():
                         if self.active:
                             self.active.update(state='failed', message='The speech process stopped. Your completed sections are saved.')
@@ -248,10 +334,13 @@ class Jobs:
                         if self.operation:
                             getattr(self.performance, self.operation).update(state='failed', message='The speech process stopped. You can try again.')
                             self.operation = None
+                    self._release_if_idle()
                 continue
             with self.lock:
                 if self.closing:
                     return
+                if event_queue is not self.events:
+                    continue
                 kind = event.get('kind')
                 if kind == 'benchmark':
                     if self.operation != kind:
@@ -283,6 +372,7 @@ class Jobs:
                     self.store.put('jobs', self.active)
                     if event['state'] in TERMINAL:
                         self.active = None
+                self._release_if_idle()
 
     def state(self):
         with self.lock:

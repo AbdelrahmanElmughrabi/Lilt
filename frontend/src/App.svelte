@@ -6,6 +6,7 @@
   import { BookOpen, Headphones, Library, Settings2, Plus, ArrowUpRight, FileText, FolderOpen, ChevronDown, Check, Play, Pause, SkipBack, SkipForward, Volume2, Download, SlidersHorizontal, X, LoaderCircle, Moon, Sun, Monitor, CircleHelp, RotateCcw, Pencil, AlignLeft, Eye, AlertCircle, Square, Search, PanelLeft, AudioLines, ArrowRight, Trash2 } from '@lucide/svelte';
   import { getAPI, withTimeout, defaultSettings, type API, type Settings, type Document, type Job, type Prepared, type State } from './api';
   import Home from './Home.svelte';
+  import DocumentFind from './DocumentFind.svelte';
   import brandIcon from './assets/lilt.png';
   import PerformanceSettings from './PerformanceSettings.svelte';
   import { primeAudio, StreamPlayer } from './stream-player';
@@ -21,6 +22,7 @@
   let settings = $state<Settings>({ ...defaultSettings });
   let page = $state<'home' | 'studio' | 'library' | 'settings'>('home');
   let tab = $state<'read' | 'edit' | 'spoken'>('read');
+  let searchContent = $state<HTMLElement>();
   let prepared = $state<Prepared | null>(null);
   let dirty = $state(false);
   let busy = $state(false);
@@ -153,11 +155,12 @@
     streamPlayer?.preferences(settings.buffer_mode, playbackSpeed, volume);
     await act(async () => { await api.save_settings({ ...settings }); await review(); await refresh(); });
   }
-  function performanceAction(name: 'test' | 'stop' | 'warm' | 'clear') {
-    void act(async () => {
+  async function performanceAction(name: 'test' | 'stop' | 'warm' | 'release' | 'clear') {
+    await act(async () => {
       if (name === 'test') await api.start_benchmark();
       else if (name === 'stop') await api.stop_benchmark();
       else if (name === 'warm') await api.warm_engine();
+      else if (name === 'release') { await api.release_engine(); notify('Voice memory released. It reloads for your next reading.'); }
       else { await api.clear_cache(); notify('Reusable audio cleared. Your recordings are kept.'); }
       await refresh();
     });
@@ -335,19 +338,20 @@
       <div class="studio-layout">
         <main class="reading-workspace">
           <div class="document-toolbar"><div class="eyebrow"><span class="small-square"></span> A PLACE FOR YOUR WORDS</div><div class="document-tabs" role="group" aria-label="Document view"><button class:active={tab === 'read'} onclick={() => tab = 'read'} title="Read document"><Eye size={15} /> Read</button><button class:active={tab === 'edit'} onclick={() => tab = 'edit'} title="Edit Markdown"><Pencil size={14} /> Edit</button><button class:active={tab === 'spoken'} onclick={() => tab = 'spoken'} title="Preview spoken text"><AlignLeft size={15} /> Spoken</button></div></div>
+          <DocumentFind content={searchContent} revision={`${document?.id}:${tab}:${tab === 'spoken' ? prepared?.text : document?.markdown}`} enabled={!!document} />
           <div class="document-scroll">
             {#if document}
               <div class="reading-meta"><span><FileText size={13} /> MARKDOWN</span><span class="meta-dot">·</span><span>{dirty ? 'Saving changes…' : 'Saved to your shelf'}</span></div>
               {#if tab === 'edit'}
                 <div class="editor-heading"><h1>Your words.<br /><em>Your way.</em></h1><p>Write or paste Markdown. Your working copy saves automatically.</p></div>
-                <textarea aria-label="Markdown editor" class="markdown-editor" spellcheck="false" bind:value={document.markdown} oninput={editChanged}></textarea>
+                <textarea bind:this={searchContent} aria-label="Markdown editor" class="markdown-editor" spellcheck="false" bind:value={document.markdown} oninput={editChanged}></textarea>
               {:else if tab === 'spoken'}
                 <div class="spoken-heading"><span class="eyebrow">WHAT YOUR VOICE WILL READ</span><h1>A clear view<br /><em>of every word.</em></h1><p>Formatting becomes natural pauses. The wording stays yours.</p></div>
                 {#if prepared?.omissions.code_blocks || prepared?.omissions.metadata}<div class="omission-note"><Check size={15} /> {prepared.omissions.code_blocks ? `${prepared.omissions.code_blocks} code block${prepared.omissions.code_blocks === 1 ? '' : 's'} skipped. ` : ''}{prepared.omissions.metadata ? 'Document metadata omitted.' : ''}</div>{/if}
                 {#if prepared?.unread_count}<div class="omission-note"><Check size={15} /> {prepared.unread_count} symbol{prepared.unread_count === 1 ? '' : 's'} omitted from speech. Details will be saved in unread.txt with your recording.</div>{/if}
-                <div class="spoken-text">{prepared?.text || (prepared?.unread_count ? 'No readable text remains after symbol handling.' : 'Add some text to begin your reading.')}</div>
+                <div bind:this={searchContent} class="spoken-text">{prepared?.text || (prepared?.unread_count ? 'No readable text remains after symbol handling.' : 'Add some text to begin your reading.')}</div>
               {:else}
-                <article class="reading-article">{@html html}</article>
+                <article bind:this={searchContent} class="reading-article">{@html html}</article>
               {/if}
               <div class="document-end"><span></span><AudioLines size={20} strokeWidth={1.3} /><span></span></div>
               <div class="endnote">Words worth keeping. A voice to carry them.</div>
@@ -399,13 +403,13 @@
 
     <footer class:has-audio={!!selectedJob} class="player-bar">
       <div class="player-track"><div class="track-icon"><AudioLines size={23} strokeWidth={1.5} /></div><div><strong>{selectedJob?.title || 'Your next listen is waiting.'}</strong><span>{selectedJob ? `${voiceDetails[selectedJob.voice]?.name || selectedJob.voice} · ${selectedJob.preview ? 'Voice preview' : buffering ? 'Waiting for the next words…' : streaming && selectedJob.state !== 'completed' ? `${formatTime(ahead)} buffered ahead` : 'Your recording'}` : 'Choose a voice. Bring your words to life.'}</span>{#if selectedJob?.unread_count}<span title={`${appState?.storage}/jobs/${selectedJob.id}/unread.txt`}>{selectedJob.unread_count} symbol{selectedJob.unread_count === 1 ? '' : 's'} omitted from speech · unread.txt</span>{/if}</div></div>
-      <div class="player-center"><div class="player-buttons"><button title="Back 10 seconds" disabled={!selectedJob} onclick={() => seek(position - 10)}><SkipBack size={16} fill="currentColor" /></button><button class="play-button" title={playing || wanted ? 'Pause' : 'Play'} data-buffering={buffering} disabled={!selectedJob} onclick={togglePlay}>{#if buffering}<LoaderCircle size={18} class="spin" />{:else if playing}<Pause size={18} fill="currentColor" />{:else}<Play size={18} fill="currentColor" />{/if}</button><button title="Forward 10 seconds" disabled={!selectedJob} onclick={() => seek(position + 10)}><SkipForward size={16} fill="currentColor" /></button></div><div class="player-timeline"><span>{formatTime(position)}</span><input aria-label="Seek audio" type="range" min="0" max={duration || 1} step="0.1" value={position} oninput={(e) => seek(Number(e.currentTarget.value))} disabled={!selectedJob} /><span>{selectedJob ? formatTime(duration) : '—:—'}</span></div></div>
+      <div class="player-center"><div class="player-buttons"><button title="Back 10 seconds" disabled={!selectedJob} onclick={() => seek(position - 10)}><SkipBack size={16} fill="currentColor" /></button><button class="play-button" title={playing || wanted ? 'Pause' : 'Play'} data-buffering={buffering} disabled={!selectedJob} onclick={togglePlay}>{#if buffering}<LoaderCircle size={18} class="spin" />{:else if playing}<Pause size={18} fill="currentColor" />{:else}<Play size={18} fill="currentColor" />{/if}</button><button title="Forward 10 seconds" disabled={!selectedJob} onclick={() => seek(position + 10)}><SkipForward size={16} fill="currentColor" /></button></div><div class="player-timeline"><span>{formatTime(position)}</span><input aria-label="Seek audio" type="range" min="0" max={duration || 1} step="0.1" value={position} oninput={(e) => seek(Number(e.currentTarget.value))} disabled={!selectedJob} /><span>{selectedJob ? formatTime(duration) : '-:-'}</span></div></div>
       <div class="player-extra"><button class="playback-rate" disabled={!selectedJob} title="Playback speed" onclick={changePlayback}>{playbackSpeed}×</button><Volume2 size={17} /><input type="range" aria-label="Volume" min="0" max="1" step="0.05" bind:value={volume} oninput={changeVolume} /><button class="export-button" disabled={!selectedJob || selectedJob.state !== 'completed'} onclick={() => exportAudio()} title="Export recording"><Download size={18} /></button></div>
     </footer>
     <audio bind:this={audio} preload="metadata" src={selectedJob && !streaming ? `/media/${selectedJob.id}.wav` : undefined} onloadedmetadata={loadedAudio} ontimeupdate={timeUpdate} onplay={() => { if (!streaming) playing = true; }} onpause={() => { if (!streaming) { playing = false; if (selectedJob) void api.save_position(selectedJob.id, position); } }} onended={() => { if (!streaming) playing = false; }} onerror={() => { if (selectedJob && !streaming) error = 'This recording could not be opened. Check that its audio file is still available.'; }}></audio>
   </div>
   {#if toast}<div class="toast" role="status"><Check size={17} />{toast}<button title="Dismiss notification" onclick={() => toast = ''}><X size={15} /></button></div>{/if}
-  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Lilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Lilt is your local reading room. Bring Markdown, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import Markdown <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
+  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Lilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Lilt is your local reading room. Bring Markdown, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import Markdown <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
   <dialog bind:this={removalDialog} class="about-modal removal-modal" aria-labelledby="removal-title" onclose={() => removal = null} oncancel={() => removal = null}>
     {#if removal}
       <button class="modal-close" title="Close" onclick={() => removal = null}><X size={20} /></button>

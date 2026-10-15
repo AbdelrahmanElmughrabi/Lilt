@@ -17,7 +17,7 @@ def main():
     from backend.server import AppServer
     from backend.storage import Store, data_directory
 
-    parser = argparse.ArgumentParser(description="Lilt — local Markdown to speech")
+    parser = argparse.ArgumentParser(description="Lilt - local Markdown to speech")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--data-dir", type=Path, help="Explicit library folder for an isolated evaluation")
     parser.add_argument("--serve-preview", action="store_true", help="Serve UI for developer visual checks; no speech API is exposed")
@@ -68,7 +68,7 @@ def main():
             "Lilt.PronunciationEvaluation" if candidate else "Lilt.Desktop")
     # Both WebView cache and app data use explicit per-user locations.
     os.environ["WEBVIEW2_USER_DATA_FOLDER"] = str(store.root / "webview")
-    window = webview.create_window("Lilt — Pronunciation Evaluation" if candidate else "Lilt", server.url, js_api=bridge,
+    window = webview.create_window("Lilt - Pronunciation Evaluation" if candidate else "Lilt", server.url, js_api=bridge,
                                    width=1440, height=960, min_size=(1024, 720),
                                    background_color="#f7f5ef", text_select=True)
     bridge._window = window

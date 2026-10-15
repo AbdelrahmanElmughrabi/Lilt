@@ -1,8 +1,8 @@
-export type Settings = { palette: 'lilt' | 'classic'; theme: 'light' | 'dark' | 'system'; voice: string; speed: number; include_code: boolean; heading_pause: number; paragraph_pause: number; performance_mode: 'quiet' | 'balanced' | 'fast' | 'custom'; cpu_threads: number; processing_device: 'auto' | 'cpu' | 'gpu'; gpu_device: number; buffer_mode: 'sooner' | 'balanced' | 'smooth'; auto_listen: boolean; warm_start: boolean; cache_enabled: boolean; cache_limit_mb: number };
-export const defaultSettings: Settings = { palette: 'lilt', theme: 'light', voice: 'af_heart', speed: 1, include_code: false, heading_pause: 0.6, paragraph_pause: 0.3, performance_mode: 'balanced', cpu_threads: 0, processing_device: 'auto', gpu_device: -1, buffer_mode: 'balanced', auto_listen: true, warm_start: false, cache_enabled: true, cache_limit_mb: 256 };
+export type Settings = { palette: 'lilt' | 'classic'; theme: 'light' | 'dark' | 'system'; voice: string; speed: number; include_code: boolean; heading_pause: number; paragraph_pause: number; performance_mode: 'quiet' | 'balanced' | 'fast' | 'custom'; cpu_threads: number; processing_device: 'auto' | 'cpu' | 'gpu'; gpu_device: number; buffer_mode: 'sooner' | 'balanced' | 'smooth'; auto_listen: boolean; warm_start: boolean; model_release: 'idle' | 'immediate' | 'keep'; cache_enabled: boolean; cache_limit_mb: number };
+export const defaultSettings: Settings = { palette: 'lilt', theme: 'light', voice: 'af_heart', speed: 1, include_code: false, heading_pause: 0.6, paragraph_pause: 0.3, performance_mode: 'balanced', cpu_threads: 0, processing_device: 'auto', gpu_device: -1, buffer_mode: 'balanced', auto_listen: true, warm_start: false, model_release: 'idle', cache_enabled: true, cache_limit_mb: 256 };
 export type Configuration = { provider: string; label: string; threads: number; device_id: number; mode?: string };
 export type Measurement = Configuration & { throughput?: number; processing_seconds?: number; audio_seconds?: number; error?: string };
-export type Performance = { logical_processors: number; physical_cores: number; adapters: { id: number; name: string; memory_mb: number }[]; gpu_ready: boolean; gpu_message: string; configuration: Configuration; cpu_percent: number | null; benchmark: { state: string; completed: number; total: number; message: string; results: Measurement[] }; warmup: { state: string; message: string }; recommendation: { cpu: Measurement; best: Measurement; results: Measurement[] } | null };
+export type Performance = { logical_processors: number; physical_cores: number; adapters: { id: number; name: string; memory_mb: number }[]; gpu_ready: boolean; gpu_message: string; configuration: Configuration; cpu_percent: number | null; memory: { state: 'unloaded' | 'idle' | 'busy' | 'releasing'; message: string }; benchmark: { state: string; completed: number; total: number; message: string; results: Measurement[] }; warmup: { state: string; message: string }; recommendation: { cpu: Measurement; best: Measurement; results: Measurement[] } | null };
 export type Cache = { count: number; bytes: number; limit_mb: number };
 export type Section = { index: number; start: number; duration: number; pause: number };
 export type Stream = { id: string; state: string; sections: Section[]; available: number; total: number; complete: boolean; running: boolean; throughput: number };
@@ -18,6 +18,7 @@ export type API = {
   start_benchmark(): Promise<boolean>;
   stop_benchmark(): Promise<boolean>;
   warm_engine(): Promise<boolean>;
+  release_engine(): Promise<boolean>;
   clear_cache(): Promise<boolean>;
   get_document(id: string): Promise<Document>;
   save_document(id: string, text: string): Promise<Document>;
@@ -78,7 +79,7 @@ export async function getAPI(): Promise<{ api: API; preview: boolean }> {
   const unavailable = async (): Promise<never> => { throw new Error('Open the desktop app to use local speech and file dialogs.'); };
   const api: API = {
     get_state: async () => ({ documents: [doc], jobs: [], active: null, model: { state: 'missing', percent: 0, message: 'Open the desktop app to set up your voice engine.', voices: [] }, settings, storage: 'Desktop app storage', performance: null, cache: {count: 0, bytes: 0, limit_mb: 256} }),
-    get_stream: unavailable, start_benchmark: unavailable, stop_benchmark: unavailable, warm_engine: unavailable, clear_cache: unavailable,
+    get_stream: unavailable, start_benchmark: unavailable, stop_benchmark: unavailable, warm_engine: unavailable, release_engine: unavailable, clear_cache: unavailable,
     get_document: async () => doc,
     save_document: async (_id, text) => (doc = { ...doc, markdown: text, title: text.match(/^#\s+(.+)$/m)?.[1] || 'Untitled reading' }),
     new_document: async () => (doc = { ...doc, markdown: '# Untitled reading\n\nPut your words here.', title: 'Untitled reading' }),

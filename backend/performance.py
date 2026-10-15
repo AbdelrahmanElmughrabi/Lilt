@@ -14,13 +14,14 @@ from .pronunciation import pronunciation_identity
 
 DEFAULTS = {'performance_mode': 'balanced', 'cpu_threads': 0, 'processing_device': 'auto',
             'gpu_device': -1, 'buffer_mode': 'balanced', 'auto_listen': True,
-            'warm_start': False, 'cache_enabled': True, 'cache_limit_mb': 256}
+            'warm_start': False, 'model_release': 'idle', 'cache_enabled': True, 'cache_limit_mb': 256}
 
 
 def validate(settings):
     for key, values in {'performance_mode': {'quiet', 'balanced', 'fast', 'custom'},
                         'processing_device': {'auto', 'cpu', 'gpu'},
-                        'buffer_mode': {'sooner', 'balanced', 'smooth'}}.items():
+                        'buffer_mode': {'sooner', 'balanced', 'smooth'},
+                        'model_release': {'idle', 'immediate', 'keep'}}.items():
         if key in settings and settings[key] not in values:
             raise ValueError(f'Unknown {key.replace("_", " ")} setting.')
     if 'cpu_threads' in settings:

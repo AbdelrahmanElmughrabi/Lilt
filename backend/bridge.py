@@ -38,6 +38,9 @@ class Bridge:
     def warm_engine(self):
         return self._jobs.warmup()
 
+    def release_engine(self):
+        return self._jobs.release_engine()
+
     def clear_cache(self):
         return self._jobs.clear_cache()
 

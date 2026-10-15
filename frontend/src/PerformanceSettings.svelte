@@ -3,10 +3,16 @@
   import type { Settings, Performance, Cache } from './api';
   let { settings = $bindable(), performance, cache, busy, ready, onchange, action }: {
     settings: Settings; performance: Performance | null; cache: Cache; busy: boolean; ready: boolean;
-    onchange: () => Promise<void>; action: (name: 'test' | 'stop' | 'warm' | 'clear') => void;
+    onchange: () => Promise<void>; action: (name: 'test' | 'stop' | 'warm' | 'release' | 'clear') => Promise<void>;
   } = $props();
+  let releasing = $state(false);
+  const memoryBusy = $derived(performance?.memory?.state === 'busy' || performance?.memory?.state === 'releasing');
   const testing = $derived(['running', 'cancelling'].includes(performance?.benchmark.state || ''));
   const results = $derived(performance?.benchmark.results.length ? performance.benchmark.results : performance?.recommendation?.results || []);
+  async function release() {
+    releasing = true;
+    try { await action('release'); } finally { releasing = false; }
+  }
   const presets = [{id:'quiet',name:'Quiet',detail:'A lighter touch'}, {id:'balanced',name:'Balanced',detail:'Everyday reading'}, {id:'fast',name:'Fast',detail:'Measured best pace'}, {id:'custom',name:'Custom',detail:'Choose CPU threads'}] as const;
 </script>
 
@@ -28,7 +34,10 @@
   <div class="performance-fields"><label class="full-field"><span>When listening catches up</span><select aria-label="Listening buffer" bind:value={settings.buffer_mode} onchange={onchange}><option value="sooner">Start sooner · smaller buffer</option><option value="balanced">Balanced · adapt to generation speed</option><option value="smooth">Fewer interruptions · more audio ahead</option></select></label></div>
   <label class="toggle-row"><span>Listen as audio arrives<small>Start automatically once enough is ready</small></span><input type="checkbox" bind:checked={settings.auto_listen} onchange={onchange} /><span class="toggle-track"></span></label>
   <label class="toggle-row"><span>Prepare voices when Lilt opens<small>Less initial setup time; uses model memory sooner</small></span><input type="checkbox" bind:checked={settings.warm_start} onchange={onchange} /><span class="toggle-track"></span></label>
-  <div class="settings-actions warm-actions"><button class="secondary-button" disabled={busy || !ready || performance?.warmup.state === 'loading'} onclick={() => action('warm')}><Play size={14} /> {performance?.warmup.state === 'loading' ? 'Preparing…' : 'Prepare voice now'}</button><span>{performance?.warmup.message}</span></div>
+  <div class="settings-actions warm-actions"><button class="secondary-button" disabled={busy || !ready || memoryBusy || releasing || performance?.warmup.state === 'loading'} onclick={() => action('warm')}><Play size={14} /> {performance?.warmup.state === 'loading' ? 'Preparing…' : 'Prepare voice now'}</button><span>{performance?.warmup.message}</span></div>
+  <div class="performance-fields"><label class="full-field"><span>Release voice model</span><select aria-label="Release voice model" bind:value={settings.model_release} onchange={onchange}><option value="idle">After 2 minutes idle</option><option value="immediate">After each operation</option><option value="keep">Keep loaded</option></select></label></div>
+  <p class="settings-hint">Idle starts after generation, voice preparation, or a speed test finishes or stops. Listening can continue. The next reading reloads the model when needed.</p>
+  <div class="settings-actions warm-actions"><button class="secondary-button" disabled={busy || !ready || memoryBusy || releasing || performance?.memory?.state !== 'idle'} onclick={release}><Trash2 size={14} /> {releasing ? 'Releasing…' : 'Release memory now'}</button><span role="status">{performance?.memory?.message || (performance?.memory?.state === 'unloaded' ? 'Voice memory released · loads when needed' : memoryBusy ? 'Voice process in use' : performance?.memory?.state === 'idle' ? 'Voice process idle' : '')}</span></div>
   <div class="performance-divider"></div>
   <label class="toggle-row"><span>Reuse unchanged passages<small>Quicker repeats and small edits, saved locally</small></span><input type="checkbox" bind:checked={settings.cache_enabled} onchange={onchange} /><span class="toggle-track"></span></label>
   <div class="cache-controls"><label><span>Reusable audio limit</span><select aria-label="Cache limit" bind:value={settings.cache_limit_mb} onchange={onchange}>{#each [128,256,512] as limit}<option value={limit}>{limit} MB</option>{/each}</select></label><button class="secondary-button" disabled={busy || !cache.count} onclick={() => action('clear')}><Trash2 size={14} /> Clear reusable audio</button></div>
