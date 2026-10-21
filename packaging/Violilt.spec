@@ -5,7 +5,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, co
 root = Path(SPECPATH).parent
 datas = [(str(root / 'frontend' / 'dist'), 'frontend/dist'),
          (str(root / 'examples'), 'examples'),
-         (str(root / 'assets' / 'lilt.ico'), 'assets'),
+         (str(root / 'assets' / 'violilt.ico'), 'assets'),
          (str(root / 'assets' / 'desktop-api.js'), 'assets'),
          (str(root / 'backend' / '_vendor' / 'kokoro' / 'config.json'), 'backend/_vendor/kokoro')]
 binaries = []
@@ -35,7 +35,7 @@ a = Analysis([str(root / 'main.py')], pathex=[str(root)], binaries=binaries, dat
              excludes=excludes, noarchive=False,
              module_collection_mode={'num2words': 'py', 'certifi': 'py', 'tqdm': 'py'})
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='Lilt', debug=False,
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='Violilt', debug=False,
           bootloader_ignore_signals=False, strip=False, upx=False, console=False,
-          icon=str(root / 'assets' / 'lilt.ico'))
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='Lilt')
+          icon=str(root / 'assets' / 'violilt.ico'))
+coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='Violilt')

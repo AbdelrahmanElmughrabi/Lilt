@@ -12,7 +12,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data-dir', type=Path, help='Explicit evaluation library folder')
     arguments = parser.parse_args()
-    store = Store(arguments.data_dir.resolve() if arguments.data_dir else data_directory('Lilt-Pronunciation-Evaluation'))
+    store = Store(arguments.data_dir.resolve() if arguments.data_dir else data_directory('Violilt-Pronunciation-Evaluation'))
     models = Models(store.root / "models")
     models.download()
     previous = -1

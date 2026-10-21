@@ -1,4 +1,4 @@
-"""Kokoro inference using Lilt's offline English pronunciation.
+"""Kokoro inference using Violilt's offline English pronunciation.
 
 Adapted from Kokoro-ONNX 0.6.1, Copyright (c) 2025 github.com/thewh1teagle, MIT.
 See backend/_vendor/kokoro/LICENSE. This adaptation removes the upstream

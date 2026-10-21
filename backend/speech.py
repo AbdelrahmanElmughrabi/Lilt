@@ -24,7 +24,7 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
         nonlocal engine, identity
         config = config or command['config']
         if pronunciation_identity() != process_pronunciation:
-            raise ValueError('Pronunciation files changed while Lilt was open. Restart Lilt before creating or continuing a reading.')
+            raise ValueError('Pronunciation files changed while Violilt was open. Restart Violilt before creating or continuing a reading.')
         model, voices = config['model'], command['voices']
         version = (model, os.path.getmtime(model), voices, os.path.getmtime(voices),
                    config['provider'], config['device_id'], config['threads'], config.get('spinning', False),
@@ -101,7 +101,7 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
         total = len(job['chunks'])
         try:
             if job.get('pronunciation_identity') != process_pronunciation:
-                raise ValueError('This reading uses different pronunciation files. Start a new reading after restarting Lilt.')
+                raise ValueError('This reading uses different pronunciation files. Start a new reading after restarting Violilt.')
             priority(command['config'])
             events.put({'id': key, 'state': 'preparing', 'message': 'Preparing your first words…'})
             for index, chunk in enumerate(job['chunks']):

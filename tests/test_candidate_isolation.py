@@ -16,24 +16,49 @@ class CandidateIsolationTests(unittest.TestCase):
     def test_evaluation_profile_does_not_migrate_or_open_existing_library(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            legacy = Store(root / 'Folio')
+            legacy = Store(root / 'PreviousBrand')
             legacy.document('Original words', 'Original')
             before = legacy.db.read_bytes()
             with patch.dict(os.environ, {'LOCALAPPDATA': str(root)}, clear=True):
-                selected = data_directory('Lilt-Pronunciation-Evaluation')
+                selected = data_directory('Violilt-Pronunciation-Evaluation')
             evaluation = Store(selected)
-            self.assertEqual(selected, root / 'Lilt-Pronunciation-Evaluation')
+            self.assertEqual(selected, root / 'Violilt-Pronunciation-Evaluation')
             self.assertEqual(evaluation.all('documents'), [])
             self.assertEqual(legacy.db.read_bytes(), before)
-            self.assertFalse((root / 'Lilt').exists())
+            self.assertFalse((root / 'Violilt').exists())
 
     def test_candidate_override_is_separate_from_baseline_override(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            with patch.dict(os.environ, {'LOCALAPPDATA': directory, 'LILT_DATA_DIR': str(root / 'baseline')}, clear=True):
-                self.assertEqual(data_directory('Lilt-Pronunciation-Evaluation'), root / 'Lilt-Pronunciation-Evaluation')
-                with patch.dict(os.environ, {'LILT_EVALUATION_DATA_DIR': str(root / 'candidate')}):
-                    self.assertEqual(data_directory('Lilt-Pronunciation-Evaluation'), root / 'candidate')
+            with patch.dict(os.environ, {'LOCALAPPDATA': directory, 'VIOLILT_DATA_DIR': str(root / 'baseline')}, clear=True):
+                self.assertEqual(data_directory('Violilt-Pronunciation-Evaluation'), root / 'Violilt-Pronunciation-Evaluation')
+                with patch.dict(os.environ, {'VIOLILT_EVALUATION_DATA_DIR': str(root / 'candidate')}):
+                    self.assertEqual(data_directory('Violilt-Pronunciation-Evaluation'), root / 'candidate')
+
+    def test_msix_profile_never_selects_existing_or_evaluation_library(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for profile in ('Violilt', 'PreviousBrand', 'Violilt-Pronunciation-Evaluation'):
+                Store(root / profile).document('Keep these words', profile)
+            with patch.dict(os.environ, {
+                'LOCALAPPDATA': directory,
+                'VIOLILT_DATA_DIR': str(root / 'production-override'),
+                'VIOLILT_IMPORT_DATA_DIR': str(root / 'PreviousBrand'),
+                'VIOLILT_EVALUATION_DATA_DIR': str(root / 'evaluation-override'),
+            }, clear=True):
+                selected = data_directory('Violilt-MSIX-Compatibility')
+            self.assertEqual(selected, root / 'Violilt-MSIX-Compatibility')
+            self.assertEqual(Store(selected).all('documents'), [])
+            for profile in ('Violilt', 'PreviousBrand', 'Violilt-Pronunciation-Evaluation'):
+                self.assertEqual(Store(root / profile).all('documents')[0]['title'], profile)
+
+    def test_msix_override_is_explicit_and_unknown_profiles_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'msix-test'
+            with patch.dict(os.environ, {'VIOLILT_MSIX_TEST_DATA_DIR': str(target)}, clear=True):
+                self.assertEqual(data_directory('Violilt-MSIX-Compatibility'), target)
+                with self.assertRaises(ValueError):
+                    data_directory('../Violilt')
 
     def test_cache_preserves_notices_and_clears_only_its_sidecars(self):
         with tempfile.TemporaryDirectory() as directory:

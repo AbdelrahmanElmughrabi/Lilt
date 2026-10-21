@@ -111,7 +111,7 @@ def main():
     arguments.output = arguments.output.resolve()
     arguments.output.mkdir(parents=True, exist_ok=False)
     if arguments.device == 'gpu':
-        os.environ['LILT_GPU_RUNTIME_DIR'] = str(ROOT / '.cuda-probe')
+        os.environ['VIOLILT_GPU_RUNTIME'] = str(ROOT / '.cuda-probe')
     result = integration(arguments)
     (arguments.output / 'results.json').write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding='utf-8')
 

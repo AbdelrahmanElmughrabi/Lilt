@@ -89,7 +89,7 @@ class PerformanceTests(unittest.TestCase):
         performance._identity, performance._pronunciation_identity = None, None
         with patch('backend.performance.pronunciation_identity', return_value={'engine': 'fixture', 'revision': 1}):
             original = performance.identity()
-            result = {'identity': original, 'cpu': {'threads': 2}, 'best': {'provider': 'CPUExecutionProvider'}}
+            result = {'identity': original, 'cpu': {'threads': 2}, 'best': {'provider': 'CPUExecutionProvider', 'threads': 2}}
             store.save_settings({'benchmark_result': result})
             self.assertEqual(performance.recommendation(), result)
         with patch('backend.performance.pronunciation_identity', return_value={'engine': 'fixture', 'revision': 2}):

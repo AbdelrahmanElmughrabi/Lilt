@@ -83,7 +83,7 @@ def check(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--models', type=Path, default=ROOT / 'dist/pronunciation/Lilt/models')
+    parser.add_argument('--models', type=Path, default=ROOT / 'dist/pronunciation/Violilt/models')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--device', choices=('cpu', 'gpu'), default='cpu')
     check(parser.parse_args())

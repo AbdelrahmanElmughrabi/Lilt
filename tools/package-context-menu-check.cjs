@@ -3,12 +3,12 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { chromium } = require(process.env.LILT_PLAYWRIGHT || 'playwright');
+const { chromium } = require(process.env.VIOLILT_PLAYWRIGHT || 'playwright');
 
 (async () => {
   const fixture = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
   const phase = process.argv[3];
-  const browser = await chromium.connectOverCDP(process.env.LILT_TEST_CDP || 'http://127.0.0.1:9235');
+  const browser = await chromium.connectOverCDP(process.env.VIOLILT_TEST_CDP || 'http://127.0.0.1:9235');
   try {
     const page = browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith('http://127.0.0.1:'));
     assert(page, 'Packaged application page must exist');

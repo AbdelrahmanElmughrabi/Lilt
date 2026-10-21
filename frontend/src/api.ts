@@ -1,5 +1,5 @@
-export type Settings = { palette: 'lilt' | 'classic'; theme: 'light' | 'dark' | 'system'; voice: string; speed: number; include_code: boolean; heading_pause: number; paragraph_pause: number; performance_mode: 'quiet' | 'balanced' | 'fast' | 'custom'; cpu_threads: number; processing_device: 'auto' | 'cpu' | 'gpu'; gpu_device: number; buffer_mode: 'sooner' | 'balanced' | 'smooth'; auto_listen: boolean; warm_start: boolean; model_release: 'idle' | 'immediate' | 'keep'; cache_enabled: boolean; cache_limit_mb: number };
-export const defaultSettings: Settings = { palette: 'lilt', theme: 'light', voice: 'af_heart', speed: 1, include_code: false, heading_pause: 0.6, paragraph_pause: 0.3, performance_mode: 'balanced', cpu_threads: 0, processing_device: 'auto', gpu_device: -1, buffer_mode: 'balanced', auto_listen: true, warm_start: false, model_release: 'idle', cache_enabled: true, cache_limit_mb: 256 };
+export type Settings = { palette: 'violilt' | 'classic'; theme: 'light' | 'dark' | 'system'; voice: string; speed: number; include_code: boolean; heading_pause: number; paragraph_pause: number; performance_mode: 'quiet' | 'balanced' | 'fast' | 'custom'; cpu_threads: number; processing_device: 'auto' | 'cpu' | 'gpu'; gpu_device: number; buffer_mode: 'sooner' | 'balanced' | 'smooth'; auto_listen: boolean; warm_start: boolean; model_release: 'idle' | 'immediate' | 'keep'; cache_enabled: boolean; cache_limit_mb: number };
+export const defaultSettings: Settings = { palette: 'violilt', theme: 'light', voice: 'af_heart', speed: 1, include_code: false, heading_pause: 0.6, paragraph_pause: 0.3, performance_mode: 'balanced', cpu_threads: 0, processing_device: 'auto', gpu_device: -1, buffer_mode: 'balanced', auto_listen: true, warm_start: false, model_release: 'idle', cache_enabled: true, cache_limit_mb: 256 };
 export type Configuration = { provider: string; label: string; threads: number; device_id: number; mode?: string };
 export type Measurement = Configuration & { throughput?: number; processing_seconds?: number; audio_seconds?: number; error?: string };
 export type Performance = { logical_processors: number; physical_cores: number; adapters: { id: number; name: string; memory_mb: number }[]; gpu_ready: boolean; gpu_message: string; configuration: Configuration; cpu_percent: number | null; memory: { state: 'unloaded' | 'idle' | 'busy' | 'releasing'; message: string }; benchmark: { state: string; completed: number; total: number; message: string; results: Measurement[] }; warmup: { state: string; message: string }; recommendation: { cpu: Measurement; best: Measurement; results: Measurement[] } | null };
@@ -12,7 +12,7 @@ export type ImportBatch = { documents: Document[]; errors: { name: string; messa
 export type Job = { id: string; title: string; document_id: string; voice: string; speed: number; words: number; preview: boolean; state: string; completed: number; total: number; duration: number; position: number; message: string; created: number; last_listened?: number; available_duration?: number; engine?: Configuration; throughput?: number; cache_hits?: number; first_audio_seconds?: number; can_resume?: boolean; resume_message?: string; pronunciation_warnings?: string[]; unread_count?: number };
 export type Prepared = { title: string; text: string; words: number; chunks: { text: string; pause: number; block: number }[]; omissions: { code_blocks: number; metadata: number }; unread_count?: number };
 export type Model = { state: string; percent: number; message: string; voices: string[] };
-export type State = { documents: DocumentSummary[]; jobs: Job[]; active: Job | null; model: Model; settings: Settings; storage: string; performance: Performance | null; cache: Cache };
+export type State = { documents: DocumentSummary[]; jobs: Job[]; active: Job | null; model: Model; settings: Settings; storage: string; performance: Performance | null; cache: Cache; recovery?: { count: number; message: string } };
 export type API = {
   get_state(): Promise<State>;
   get_stream(id: string): Promise<Stream>;
@@ -75,7 +75,7 @@ export async function getAPI(): Promise<{ api: API; preview: boolean }> {
       if (typeof api?.get_state === 'function' && typeof api?.save_settings === 'function' && typeof api?.generate === 'function') return { api, preview: false };
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    throw new Error('Lilt could not connect to its desktop service. Retry, or close and reopen Lilt. Your readings and recordings remain saved.');
+    throw new Error('Violilt could not connect to its desktop service. Retry, or close and reopen Violilt. Your readings and recordings remain saved.');
   }
   // Only used for frontend development and visual verification. No simulated speech.
   let doc: Document = { id: 'preview-document', title: 'The art of paying attention', markdown: sampleText, created: Date.now() / 1000 };
@@ -102,7 +102,7 @@ export async function withTimeout<T>(operation: Promise<T>, milliseconds = 10000
   let timer: ReturnType<typeof setTimeout>;
   try {
     return await Promise.race([operation, new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error('Your library is taking too long to respond. Retry, or close and reopen Lilt. Your saved files are kept.')), milliseconds);
+      timer = setTimeout(() => reject(new Error('Your library is taking too long to respond. Retry, or close and reopen Violilt. Your saved files are kept.')), milliseconds);
     })]);
   } finally { clearTimeout(timer!); }
 }

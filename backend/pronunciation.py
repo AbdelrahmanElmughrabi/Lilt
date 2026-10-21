@@ -20,9 +20,9 @@ from .speech_text import symbol_identity
 MISAKI_VERSION = '0.9.4'
 MODEL_PACKAGE = 'en_core_web_sm'
 MODEL_VERSION = '3.8.0'
-PRONUNCIATION_REVISION = 'lilt-misaki-english-v4'
+PRONUNCIATION_REVISION = 'violilt-misaki-english-v4'
 FALLBACK_POLICY = 'latin-english-contextual-punctuation-and-spelling-v3'
-ADAPTER_REVISION = 'lilt-kokoro-0.6.1-v1'
+ADAPTER_REVISION = 'violilt-kokoro-0.6.1-v1'
 _LEXICONS = ('gb_gold.json', 'gb_silver.json', 'us_gold.json', 'us_silver.json')
 _CODE_PACKAGES = ('misaki', 'spacy', 'thinc', 'regex', 'addict', 'numpy', 'num2words')
 _LOADED_CODE_IDENTITY = None
@@ -155,14 +155,14 @@ class EnglishPronunciation:
         self.identity = pronunciation_identity()
         versions = self.identity['versions']
         if versions['misaki'] != MISAKI_VERSION:
-            raise PronunciationError(f'Lilt needs the bundled Misaki {MISAKI_VERSION} pronunciation package. Repair this evaluation build.')
+            raise PronunciationError(f'Violilt needs the bundled Misaki {MISAKI_VERSION} pronunciation package. Repair this evaluation build.')
         if versions[MODEL_PACKAGE] != MODEL_VERSION or self.identity['model_sha256'] == 'missing':
             raise PronunciationError('The bundled English pronunciation model is missing or unsupported. Repair this evaluation build; pronunciation never downloads models.')
         if self.identity['lexicon_sha256'] == 'missing' or self.identity['num2words_sha256'] == 'missing':
             raise PronunciationError('The local pronunciation dictionaries or replaceable number-reading library are missing. Repair this evaluation build.')
         code_identity = (tuple(sorted(versions.items())), self.identity['num2words_sha256'])
         if _LOADED_CODE_IDENTITY is not None and code_identity != _LOADED_CODE_IDENTITY:
-            raise PronunciationError('A pronunciation library changed while Lilt was running. Restart Lilt to use the replacement safely.')
+            raise PronunciationError('A pronunciation library changed while Violilt was running. Restart Violilt to use the replacement safely.')
 
         # Import only after checking the local artifacts. In particular, do not
         # use G2P.__init__: it can invoke spacy.cli.download on missing assets.
@@ -184,7 +184,7 @@ class EnglishPronunciation:
     def _unsupported(text):
         character = next((c for c in text if not c.isascii()), text[:1])
         code = f'U+{ord(character):04X}' if character else 'unknown'
-        raise PronunciationError(f'Lilt cannot pronounce a character in this text ({code}). Replace it with an English description and try again.')
+        raise PronunciationError(f'Violilt cannot pronounce a character in this text ({code}). Replace it with an English description and try again.')
 
     def _word(self, lexicon, name):
         pieces = []
@@ -300,9 +300,9 @@ class EnglishPronunciation:
     def phonemize(self, text, lang='en-us'):
         self.last_warnings = []
         if lang not in {'en-us', 'en-gb'}:
-            raise PronunciationError('This Lilt build supports English pronunciation only.')
+            raise PronunciationError('This Violilt build supports English pronunciation only.')
         if pronunciation_identity() != self.identity:
-            raise PronunciationError('Pronunciation assets changed during this reading. Restart Lilt before continuing.')
+            raise PronunciationError('Pronunciation assets changed during this reading. Restart Violilt before continuing.')
         engine = self._engine(lang == 'en-gb')
         _, tokens = engine(text, preprocess=False)
         original = ''.join(c for c in unicodedata.normalize('NFKC', text) if c.isalnum())

@@ -9,7 +9,8 @@ from pathlib import Path
 
 from .documents import prepare
 from .jobs import public_job
-from .performance import validate
+from .limits import MAX_FILE_BATCH, MAX_MARKDOWN_BYTES
+from .settings import validate_settings
 from .windows_shell import select_file
 
 
@@ -28,7 +29,7 @@ class Bridge:
         return {"documents": documents, "jobs": [public_job(job) for job in readings],
                 "active": self._jobs.state(), "model": self._models.status(), "settings": self._store.settings(),
                 "storage": str(self._store.root), "performance": self._jobs.performance_state(),
-                "cache": self._jobs.cache_state()}
+                "cache": self._jobs.cache_state(), "recovery": self._store.recovery_summary()}
 
     def get_stream(self, key):
         return self._jobs.stream(key)
@@ -129,6 +130,8 @@ class Bridge:
     def import_dropped_documents(self, paths):
         if not isinstance(paths, list) or not paths:
             raise ValueError('Drop a Markdown (.md or .markdown) file to add a reading.')
+        if len(paths) > MAX_FILE_BATCH:
+            raise ValueError(f'Add up to {MAX_FILE_BATCH} Markdown files at a time.')
         documents, errors = [], []
         seen = set()
         for source in paths:
@@ -151,7 +154,11 @@ class Bridge:
         if not path.is_file():
             raise ValueError('This file could not be found. Drop a file rather than a folder.')
         try:
-            markdown = path.read_text(encoding="utf-8-sig")
+            with path.open('rb') as source_file:
+                body = source_file.read(MAX_MARKDOWN_BYTES + 1)
+            if len(body) > MAX_MARKDOWN_BYTES:
+                raise ValueError('Choose a Markdown file up to 2 MB. Split larger files into smaller readings.')
+            markdown = body.decode('utf-8-sig')
         except UnicodeDecodeError:
             raise ValueError("This file is not UTF-8. Save it as UTF-8 and try again.") from None
         except OSError:
@@ -165,15 +172,15 @@ class Bridge:
 
     def save_settings(self, settings):
         with self._lock:
-            validate(settings)
+            if not isinstance(settings, dict):
+                raise ValueError('Settings must be an object.')
             settings = {key: value for key, value in settings.items() if key != 'benchmark_result'}
-            if "theme" in settings and settings["theme"] not in {"light", "dark", "system"}:
-                raise ValueError("Unknown appearance setting.")
-            if "palette" in settings and settings["palette"] not in {"lilt", "classic"}:
-                raise ValueError("Unknown theme palette.")
-            if "speed" in settings and not 0.5 <= float(settings["speed"]) <= 2:
-                raise ValueError("Choose a speed between 0.5× and 2×.")
-            return self._store.save_settings(settings)
+            voices = None
+            if self._models is not None:
+                model = self._models.status()
+                if isinstance(model, dict) and model.get('state') == 'ready':
+                    voices = model['voices']
+            return self._store.save_settings(validate_settings(settings, voices=voices))
 
     def generate(self, key, markdown, settings):
         with self._lock:
@@ -182,7 +189,7 @@ class Bridge:
             document = self._store.document(markdown, prepared["title"], key=key)
             return self._jobs.start(prepared, document, settings["voice"], settings["speed"])
 
-    def preview_voice(self, voice, speed, sample="Every good reading begins with a little curiosity. This is Lilt: your words, out loud."):
+    def preview_voice(self, voice, speed, sample="Every good reading begins with a little curiosity. This is Violilt: your words, out loud."):
         document = {"id": "preview", "title": "A little voice preview", "markdown": sample[:350]}
         return self._jobs.start(prepare(document["markdown"]), document, voice, speed, preview=True)
 
@@ -203,7 +210,7 @@ class Bridge:
         if job["state"] != "completed":
             raise ValueError("Finish this recording before exporting it.")
         import re
-        filename = re.sub(r'[<>:"/\\|?*]', "", job["title"]).strip()[:100] or "Lilt recording"
+        filename = re.sub(r'[<>:"/\\|?*]', "", job["title"]).strip()[:100] or "Violilt recording"
         path = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename=filename + ".wav",
                                                file_types=("WAV audio (*.wav)",))
         if not path:
@@ -220,11 +227,21 @@ class Bridge:
         return str(target)
 
     def setup_model(self):
-        return self._models.download()
+        with self._jobs.lock:
+            if self._jobs.state() or getattr(self._jobs, 'operation', None):
+                raise ValueError('Finish the current reading or engine preparation before changing model files.')
+            self._jobs.release_engine()
+            return self._models.download()
 
     def import_model(self):
         import webview
         if self._jobs.state() or getattr(self._jobs, 'operation', None):
             raise ValueError("Finish the current reading before changing model files.")
         paths = self._window.create_file_dialog(webview.FileDialog.FOLDER)
-        return self._models.import_directory(paths[0]) if paths else None
+        if not paths:
+            return None
+        with self._jobs.lock:
+            if self._jobs.state() or getattr(self._jobs, 'operation', None):
+                raise ValueError('Finish the current reading or engine preparation before changing model files.')
+            self._jobs.release_engine()
+            return self._models.import_directory(paths[0])

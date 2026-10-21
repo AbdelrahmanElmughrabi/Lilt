@@ -17,7 +17,7 @@ class StorageServerTests(unittest.TestCase):
         self.store = Store(self.root / 'data')
         assets = self.root / 'assets'
         assets.mkdir()
-        (assets / 'index.html').write_text('Lilt', encoding='utf-8')
+        (assets / 'index.html').write_text('Violilt', encoding='utf-8')
         self.server = AppServer(assets, self.store)
         self.server.start()
 
@@ -71,6 +71,9 @@ class StorageServerTests(unittest.TestCase):
             self.assertEqual(response.headers['Content-Length'], str(len(saved)))
         with urllib.request.urlopen(f'{self.server.url}/media/{key}.wav') as response:
             self.assertEqual(response.read(), saved)
+            self.assertEqual(response.headers['X-Frame-Options'], 'DENY')
+            self.assertEqual(response.headers['Content-Security-Policy'], "frame-ancestors 'none'")
+            self.assertEqual(response.headers['Cross-Origin-Resource-Policy'], 'same-origin')
         self.assertEqual(self.server.store.get('jobs', key)['position'], 12)
 
     def test_media_range_for_seeking_and_unknown_recording(self):

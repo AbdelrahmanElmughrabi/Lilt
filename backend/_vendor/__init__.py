@@ -1,1 +1,1 @@
-"""Licensed third-party helpers retained by Lilt."""
+"""Licensed third-party helpers retained by Violilt."""

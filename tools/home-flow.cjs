@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
-const { chromium } = require(process.env.LILT_PLAYWRIGHT || 'playwright');
+const { chromium } = require(process.env.VIOLILT_PLAYWRIGHT || 'playwright');
 const root = path.resolve(__dirname, '..');
 const assets = path.join(root, 'frontend/dist');
 const methods = [...fs.readFileSync(path.join(root, 'backend/bridge.py'), 'utf8').matchAll(/^    def ([a-z]\w*)\(/gm)].map(match => ({func: match[1], params: []}));
@@ -38,7 +38,7 @@ const server = http.createServer((request, response) => {
         window.pywebview = {api: {}}; // An empty object must not count as ready.
         const docs = [{id: 'first', title: 'The art of paying attention', markdown: '# The art of paying attention\n\nA quiet thought.', created: 1, opened: 10, words: 120, source: 'C:/notes/attention.md'}, {id: 'second', title: 'A slower kind of morning', markdown: '# A slower kind of morning\n\nYour next sentence is waiting.', created: 2, opened: 20, words: 230}];
         const job = {id: '0123456789abcdef0123456789abcdef', document_id: 'first', title: docs[0].title, voice: 'af_heart', speed: 1, words: 120, preview: false, state: 'completed', completed: 1, total: 1, duration: 12, available_duration: 12, position: 3, created: 1, message: 'Ready'};
-        const state = {documents: scenario === 'empty-library' ? [] : docs, jobs: scenario === 'empty-library' ? [] : [job], active: null, model: {state: 'ready', percent: 100, message: 'Ready', voices: ['af_heart']}, settings: {palette: 'lilt', theme: 'light'}, storage: 'C:/test/Lilt', performance: null, cache: {count: 0, bytes: 0, limit_mb: 256}};
+        const state = {documents: scenario === 'empty-library' ? [] : docs, jobs: scenario === 'empty-library' ? [] : [job], active: null, model: {state: 'ready', percent: 100, message: 'Ready', voices: ['af_heart']}, settings: {palette: 'violilt', theme: 'light'}, storage: 'C:/test/Violilt', performance: null, cache: {count: 0, bytes: 0, limit_mb: 256}};
         window.__state = state;
         window.chrome ||= {};
         window.chrome.webview = {postMessage: ([name, params, id]) => {
@@ -240,10 +240,10 @@ const server = http.createServer((request, response) => {
         // Ordinary editor/text drags do not trigger the file affordance.
         await page.evaluate(() => { const d = new DataTransfer(); d.setData('text/plain', 'hello'); window.dispatchEvent(new DragEvent('dragenter', {dataTransfer: d})); });
         assert(!(await overlay.isVisible()));
-        for (const palette of ['lilt', 'classic']) {
+        for (const palette of ['violilt', 'classic']) {
           for (const appearance of ['light', 'dark']) {
             await page.getByRole('button', {name: 'Settings', exact: true}).click();
-            await page.getByRole('group', {name: 'Theme palette'}).getByRole('button', {name: palette === 'lilt' ? /Lilt/ : /Classic/}).click();
+            await page.getByRole('group', {name: 'Theme palette'}).getByRole('button', {name: palette === 'violilt' ? /Violilt/ : /Classic/}).click();
             await page.getByRole('button', {name: appearance === 'light' ? /Daylight/ : /After hours/}).click();
             await drag('dragenter');
             await overlay.waitFor({state: 'visible'});

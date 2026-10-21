@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { chromium } = require(process.env.LILT_PLAYWRIGHT || 'playwright');
+const { chromium } = require(process.env.VIOLILT_PLAYWRIGHT || 'playwright');
 
 (async () => {
   const root = path.resolve(process.argv[2]);

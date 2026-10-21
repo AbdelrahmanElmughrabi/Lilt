@@ -34,7 +34,7 @@ def safe_name(value: str) -> str:
 
 def fetch(url: str, destination: Path, expected_sha256: str | None = None) -> dict:
     if not destination.exists():
-        request = urllib.request.Request(url, headers={'User-Agent': 'Lilt-Pronunciation-Evaluation/1'})
+        request = urllib.request.Request(url, headers={'User-Agent': 'Violilt-Pronunciation-Evaluation/1'})
         with urllib.request.urlopen(request, timeout=60) as response:
             payload = response.read(100_000_001)
         if len(payload) > 100_000_000:
@@ -57,7 +57,7 @@ def prepare_sources() -> list[dict]:
     for name in ('num2words', 'certifi', 'tqdm', 'soundfile', 'proxy_tools'):
         version = metadata.version(name)
         url = f'https://pypi.org/pypi/{name}/{version}/json'
-        request = urllib.request.Request(url, headers={'User-Agent': 'Lilt-Pronunciation-Evaluation/1'})
+        request = urllib.request.Request(url, headers={'User-Agent': 'Violilt-Pronunciation-Evaluation/1'})
         with urllib.request.urlopen(request, timeout=30) as response:
             release = json.load(response)
         artifact = next(item for item in release['urls'] if item['packagetype'] == 'sdist')
@@ -167,7 +167,7 @@ def assemble(output: Path) -> dict:
         'Kokoro-82M by hexgrad: Apache-2.0. https://huggingface.co/hexgrad/Kokoro-82M\n'
         'ONNX conversion/artifacts supplied through the kokoro-onnx release chain: '
         'https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.0\n'
-        'The Lilt inference adapter is derived from the MIT kokoro-onnx 0.6.1 wrapper; '
+        'The Violilt inference adapter is derived from the MIT kokoro-onnx 0.6.1 wrapper; '
         'it removes the eSpeak/Phonemizer stage and consumes English Misaki phonemes.\n'
         'Misaki 0.9.4 English dictionaries: declared Apache-2.0 coverage in the package; '
         'independent dictionary provenance review remains open. https://github.com/hexgrad/misaki\n'
@@ -200,7 +200,7 @@ def assemble(output: Path) -> dict:
         'Matching unmodified upstream source archives and notices are supplied in sources/. '
         'External runtime Python source is in _internal/num2words, _internal/certifi and '
         '_internal/tqdm when these components are collected. Recipients may inspect, '
-        'modify and replace these components under their own licenses. No Lilt terms '
+        'modify and replace these components under their own licenses. No Violilt terms '
         'may restrict those component rights. Compatible replacements must retain '
         'the relevant public interfaces.\n\n'
         'libsndfile is an external replaceable DLL in _internal/_soundfile_data/. '
@@ -208,7 +208,7 @@ def assemble(output: Path) -> dict:
         'materials; exact DLL build/embedded codec source remains unresolved. '
         'Replacement testing and full matching LGPL source/build arrangement are '
         'required before external release. These source rights concern third-party '
-        'components; independent Lilt application files remain separate.\n', encoding='utf-8')
+        'components; independent Violilt application files remain separate.\n', encoding='utf-8')
     report = {'schema': 1, 'status': 'development evaluation; distribution review pending',
               'packages': packages, 'frontend': frontend, 'source_archives': sources,
               'missing_evidence': missing,

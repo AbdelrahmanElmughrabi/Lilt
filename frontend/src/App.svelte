@@ -10,7 +10,7 @@
   import FileDrop from './FileDrop.svelte';
   import { fileContext, type FileMenu, type FileItem } from './context-menu';
   import DocumentFind from './DocumentFind.svelte';
-  import brandIcon from './assets/lilt.png';
+  import brandIcon from './assets/violilt.png';
   import PerformanceSettings from './PerformanceSettings.svelte';
   import { primeAudio, StreamPlayer } from './stream-player';
 
@@ -31,6 +31,7 @@
   let busy = $state(false);
   let toast = $state('');
   let error = $state('');
+  let dismissedRecoveryCount = $state(0);
   let help = $state(false);
   let removal = $state<{ id: string; title: string; kind: 'document' | 'recording' } | null>(null);
   let deleteAudio = $state(false);
@@ -329,7 +330,7 @@
 <div class:dark class="app-shell" data-palette={settings.palette}>
   <FileDrop enabled={ready} importFiles={importDroppedFiles} />
   <aside class:opened={shelf} class="sidebar">
-    <button class="brand" onclick={showHome} disabled={!ready} aria-label="Lilt home"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Lilt<span>YOUR WORDS, OUT LOUD</span></span></button>
+    <button class="brand" onclick={showHome} disabled={!ready} aria-label="Violilt home"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Violilt<span>YOUR WORDS, OUT LOUD</span></span></button>
     <div class="sidebar-rule"></div>
     <nav aria-label="Main navigation">
       <button class:current={page === 'home'} onclick={showHome} disabled={!ready}><House size={19} strokeWidth={1.6} /><span>Home</span><span class="nav-dot"></span></button>
@@ -347,7 +348,7 @@
     <div class="sidebar-bottom">
       <div class="quiet-note"><p>A little less scrolling.<br /><strong>A little more listening.</strong></p></div>
       <button class:current={page === 'settings'} class="sidebar-settings" disabled={!ready} onclick={() => { page = 'settings'; shelf = false; }}><Settings2 size={18} strokeWidth={1.5} /><span>Settings</span></button>
-      <div class="sidebar-footer"><img class="footer-mark" src={brandIcon} alt="" /><div>Made for your own pace<small>Lilt · local audio studio</small></div><button title="About Lilt" onclick={() => help = true}><CircleHelp size={16} /></button></div>
+      <div class="sidebar-footer"><img class="footer-mark" src={brandIcon} alt="" /><div>Made for your own pace<small>Violilt · local audio studio</small></div><button title="About Violilt" onclick={() => help = true}><CircleHelp size={16} /></button></div>
     </div>
   </aside>
 
@@ -358,9 +359,10 @@
     </header>
 
     {#if error}<div class="error-banner" role="alert"><AlertCircle size={17} /><span>{error}</span><button title="Dismiss error" onclick={() => error = ''}><X size={16} /></button></div>{/if}
+    {#if appState?.recovery && appState.recovery.count > dismissedRecoveryCount}<div class="error-banner" role="alert"><AlertCircle size={17} /><span>{appState.recovery.message}</span><button title="Dismiss recovery notice" onclick={() => dismissedRecoveryCount = appState?.recovery?.count || 0}><X size={16} /></button></div>{/if}
 
     {#if !ready}
-      <div class="loading-screen"><img class="loading-brand" src={brandIcon} alt="Lilt" />
+      <div class="loading-screen"><img class="loading-brand" src={brandIcon} alt="Violilt" />
         {#if startupError}<AlertCircle size={24} /><h2>Let’s get you back to your library.</h2><p class="startup-message" role="alert">{startupError}</p><button class="primary-button" onclick={initialize}><RotateCcw size={16} /> Retry connection</button>
         {:else}<LoaderCircle size={23} class="spin" /><p>Opening your library…</p>{/if}
       </div>
@@ -422,10 +424,10 @@
         <section class="settings-card"><div class="settings-title"><AudioLines size={23} strokeWidth={1.4} /><div><h2>Your local voice engine</h2><p>Download once. Read with it whenever you like.</p></div><span class:ready={engineReady} class="status-dot"></span></div><div class="model-detail"><div><strong>{engineReady ? 'Your voice is ready.' : appState?.model.state === 'downloading' ? 'Making room for your voice…' : 'A voice for every good page.'}</strong><p>{appState?.model.message}</p></div><span class="model-size">KOKORO<br /><strong>~120 MB</strong></span></div>{#if appState?.model.state === 'downloading'}<div class="progress-track"><span style:width={`${appState.model.percent}%`}></span></div>{/if}<div class="settings-actions"><button class="primary-button" disabled={engineReady || appState?.model.state === 'downloading' || preview} onclick={() => act(async () => { await api.setup_model(); await refresh(); })}>{#if engineReady}<Check size={17} /> Ready for local reading{:else}<Download size={17} /> Download voice engine{/if}</button><button class="secondary-button" disabled={!!active || appState?.model.state === 'downloading' || preview} onclick={() => act(async () => { await api.import_model(); await refresh(); })}><FolderOpen size={16} /> Use existing files</button></div><p class="settings-hint">Model files come from the Kokoro-ONNX project. Your documents are processed on this device.</p></section>
         <PerformanceSettings bind:settings performance={appState?.performance || null} cache={appState?.cache || {count:0,bytes:0,limit_mb:256}} busy={!!active || testing || appState?.performance?.warmup.state === 'loading'} ready={!!engineReady && !preview} onchange={changeSettings} action={performanceAction} />
         <section class="settings-card"><div class="settings-title"><Sun size={22} strokeWidth={1.4} /><div><h2>A space that feels like yours</h2><p>Choose your palette, then the light you like to read in.</p></div></div><div class="palette-choices" role="group" aria-label="Theme palette">
-          {#each [{id: 'lilt', name: 'Lilt', description: 'Ivory, lilac & soft sage', colors: ['#F7F5EF', '#202726', '#7C83C9', '#A8C3B6']}, {id: 'classic', name: 'Classic', description: 'Warm paper, copper & sage', colors: ['#F7F5EF', '#252B27', '#B75C36', '#DBE3D5']}] as palette}
+          {#each [{id: 'violilt', name: 'Violilt', description: 'Ivory, lilac & soft sage', colors: ['#F7F5EF', '#202726', '#7C83C9', '#A8C3B6']}, {id: 'classic', name: 'Classic', description: 'Warm paper, copper & sage', colors: ['#F7F5EF', '#252B27', '#B75C36', '#DBE3D5']}] as palette}
             <button class:selected={settings.palette === palette.id} aria-pressed={settings.palette === palette.id} onclick={() => { settings.palette = palette.id as Settings['palette']; void changeSettings(); }}>
               <span class="palette-swatches" aria-hidden="true">{#each palette.colors as color}<span style:background={color}></span>{/each}</span>
-              <strong>{palette.name}{#if palette.id === 'lilt'}<small>DEFAULT</small>{/if}</strong><span class="palette-description">{palette.description}</span>{#if settings.palette === palette.id}<Check class="theme-check" size={16} />{/if}
+              <strong>{palette.name}{#if palette.id === 'violilt'}<small>DEFAULT</small>{/if}</strong><span class="palette-description">{palette.description}</span>{#if settings.palette === palette.id}<Check class="theme-check" size={16} />{/if}
             </button>
           {/each}
         </div><div class="appearance-label">APPEARANCE</div><div class="theme-choices">{#each [{ id: 'light', name: 'Daylight', description: 'Warm paper & quiet contrast', icon: Sun }, { id: 'dark', name: 'After hours', description: 'Soft light for late reading', icon: Moon }, { id: 'system', name: 'Follow your device', description: 'Changes with your system', icon: Monitor }] as theme}<button class:selected={settings.theme === theme.id} onclick={() => { settings.theme = theme.id as Settings['theme']; void changeSettings(); }}><theme.icon size={23} strokeWidth={1.4} /><strong>{theme.name}</strong><span>{theme.description}</span>{#if settings.theme === theme.id}<Check class="theme-check" size={16} />{/if}</button>{/each}</div></section>
@@ -441,7 +443,7 @@
     <audio bind:this={audio} preload="metadata" src={selectedJob && !streaming ? `/media/${selectedJob.id}.wav` : undefined} onloadedmetadata={loadedAudio} ontimeupdate={timeUpdate} onplay={() => { if (!streaming) playing = true; }} onpause={() => { if (!streaming) { playing = false; if (selectedJob) void api.save_position(selectedJob.id, position); } }} onended={() => { if (!streaming) playing = false; }} onerror={() => { if (selectedJob && !streaming) error = 'This recording could not be opened. Check that its audio file is still available.'; }}></audio>
   </div>
   {#if toast}<div class="toast" role="status"><Check size={17} />{toast}<button title="Dismiss notification" onclick={() => toast = ''}><X size={15} /></button></div>{/if}
-  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Lilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Lilt is your local reading room. Bring Markdown, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import Markdown <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
+  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Violilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Violilt is your local reading room. Bring Markdown, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import Markdown <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
   {#if fileMenu}
     {#key fileMenu}<FileContextMenu menu={fileMenu} canDelete={!busy && (fileMenu.item.kind === 'document' || ['completed', 'cancelled', 'failed', 'interrupted'].includes(fileMenu.item.state || ''))} close={() => fileMenu = null} remove={requestFileRemoval} reveal={revealFile} />{/key}
   {/if}
@@ -452,7 +454,7 @@
       <span class="eyebrow">MAKE ROOM ON YOUR SHELF</span>
       <h2 id="removal-title">Remove this {removal.kind === 'document' ? 'reading' : 'recording'}?</h2>
       <p><strong>{removal.title}</strong></p>
-      <p>{removal.kind === 'document' ? 'This removes the working copy from Lilt. Your original file and existing recordings stay where they are.' : 'Remove this recording from the library. Its saved audio stays on disk unless you choose to delete it below.'}</p>
+      <p>{removal.kind === 'document' ? 'This removes the working copy from Violilt. Your original file and existing recordings stay where they are.' : 'Remove this recording from the library. Its saved audio stays on disk unless you choose to delete it below.'}</p>
       {#if removal.kind === 'recording'}<label class="delete-audio"><input type="checkbox" bind:checked={deleteAudio} /> Also delete the saved audio files</label>{/if}
       <div class="settings-actions"><button class="secondary-button" onclick={() => removal = null}>Keep it</button><button class="primary-button" disabled={busy} onclick={confirmRemoval}><Trash2 size={16} /> Remove</button></div>
     {/if}

@@ -117,7 +117,7 @@ def main():
         raise ValueError('Use a new evidence directory; existing libraries and recordings are never overwritten.')
     arguments.output.mkdir(parents=True)
     if arguments.device == 'gpu':
-        os.environ['LILT_GPU_RUNTIME_DIR'] = str(arguments.runtime.resolve())
+        os.environ['VIOLILT_GPU_RUNTIME'] = str(arguments.runtime.resolve())
     evidence = integration(arguments)
     (arguments.output / 'results.json').write_text(json.dumps(evidence, indent=2, ensure_ascii=False), encoding='utf-8')
     print(json.dumps({'success': True, 'evidence': str(arguments.output / 'results.json')}), flush=True)

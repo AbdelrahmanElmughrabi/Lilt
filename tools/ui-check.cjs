@@ -1,4 +1,4 @@
-const { chromium } = require(process.env.LILT_PLAYWRIGHT || 'playwright');
+const { chromium } = require(process.env.VIOLILT_PLAYWRIGHT || 'playwright');
 const path = require('node:path');
 const fs = require('node:fs');
 

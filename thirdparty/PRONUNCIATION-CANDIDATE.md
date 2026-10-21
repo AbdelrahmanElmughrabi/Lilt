@@ -1,7 +1,7 @@
 # English pronunciation candidate: third-party terms and release review
 
 This development build evaluates Misaki 0.9.4 English without its `en` extras or
-eSpeak fallback. Lilt-owned application code may remain proprietary. Third-party
+eSpeak fallback. Violilt-owned application code may remain proprietary. Third-party
 code and data retain their own terms; this document is not blanket release clearance.
 
 `third-party/` beside the candidate executable contains versioned package notices,
@@ -20,12 +20,12 @@ replace it with a compatible modified version. A matching upstream source archiv
 and its license are supplied under `third-party/sources`. certifi and tqdm contain
 MPL-covered code; their covered source and license texts are supplied there too,
 and external Python source is retained when collected. These component licenses
-do not turn independent Lilt files into open-source files.
+do not turn independent Violilt files into open-source files.
 
 SoundFile's bundled libsndfile DLL is an external dynamic library at
 `_internal/_soundfile_data/libsndfile_x64.dll`; it can be replaced by a compatible
 DLL. Its LGPL terms permit modification and debugging of those modifications.
-Any eventual Lilt EULA must preserve the recipient's corresponding LGPL/MPL
+Any eventual Violilt EULA must preserve the recipient's corresponding LGPL/MPL
 rights. Upstream libsndfile source is supplied for review, but exact DLL build and
 embedded codec source/provenance arrangements still require completion before
 distribution. Replacing source or DLLs must be tested with the candidate app.

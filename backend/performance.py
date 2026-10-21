@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import platform
 import time
@@ -18,19 +19,21 @@ DEFAULTS = {'performance_mode': 'balanced', 'cpu_threads': 0, 'processing_device
 
 
 def validate(settings):
+    if not isinstance(settings, dict):
+        raise ValueError('Settings must be an object.')
     for key, values in {'performance_mode': {'quiet', 'balanced', 'fast', 'custom'},
                         'processing_device': {'auto', 'cpu', 'gpu'},
                         'buffer_mode': {'sooner', 'balanced', 'smooth'},
                         'model_release': {'idle', 'immediate', 'keep'}}.items():
-        if key in settings and settings[key] not in values:
+        if key in settings and (not isinstance(settings[key], str) or settings[key] not in values):
             raise ValueError(f'Unknown {key.replace("_", " ")} setting.')
     if 'cpu_threads' in settings:
         value = settings['cpu_threads']
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != value or not 0 <= value <= (os.cpu_count() or 1):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or int(value) != value or not 0 <= value <= (os.cpu_count() or 1):
             raise ValueError('Choose Auto or an available CPU thread count.')
     if 'gpu_device' in settings and (isinstance(settings['gpu_device'], bool) or not isinstance(settings['gpu_device'], int) or settings['gpu_device'] < -1):
         raise ValueError('Unknown GPU device.')
-    if 'cache_limit_mb' in settings and settings['cache_limit_mb'] not in {128, 256, 512}:
+    if 'cache_limit_mb' in settings and (type(settings['cache_limit_mb']) is not int or settings['cache_limit_mb'] not in {128, 256, 512}):
         raise ValueError('Choose a cache limit of 128, 256, or 512 MB.')
     for key in ('auto_listen', 'warm_start', 'cache_enabled'):
         if key in settings and not isinstance(settings[key], bool):
@@ -48,6 +51,11 @@ def model_identity(path):
 
 
 def create_engine(model, voices, config):
+    from .model_trust import verify_file
+    if Path(model).name not in {FILES[0], GPU_FILE} or Path(voices).name != FILES[1]:
+        raise ValueError('Choose the approved model and voice files.')
+    verify_file(model)
+    verify_file(voices)
     import onnxruntime as ort
     from .kokoro_engine import Kokoro
     options = ort.SessionOptions()
@@ -119,7 +127,7 @@ class Performance:
         return result if result and result.get('identity') == self.identity() else None
 
     def gpu_ready(self):
-        return ('CUDAExecutionProvider' in self.providers or 'DmlExecutionProvider' in self.providers) and bool(self.gpu_devices()) and (self.models.root / GPU_FILE).is_file()
+        return ('CUDAExecutionProvider' in self.providers or 'DmlExecutionProvider' in self.providers) and bool(self.gpu_devices()) and self.models.gpu_verified
 
     def gpu_devices(self):
         return [adapter for adapter in self.adapters if 'NVIDIA' in adapter['name']] if 'CUDAExecutionProvider' in self.providers else self.adapters
@@ -187,6 +195,6 @@ class Performance:
         except ValueError as error:
             configuration = {'label': 'Unavailable', 'threads': 0, 'message': str(error)}
         return {'logical_processors': self.logical, 'physical_cores': self.physical, 'adapters': self.gpu_devices(),
-                'gpu_ready': self.gpu_ready(), 'gpu_message': 'Optional GPU runtime and model ready.' if self.gpu_ready() else 'GPU needs the optional runtime and GPU model.',
+                'gpu_ready': self.gpu_ready(), 'gpu_message': 'Optional GPU runtime and model ready.' if self.gpu_ready() else (self.models.gpu_error or 'GPU needs the optional runtime and GPU model.'),
                 'benchmark': self.benchmark.copy(), 'warmup': self.warmup.copy(), 'recommendation': self.recommendation(),
                 'configuration': configuration, 'cpu_percent': self.usage(process)}

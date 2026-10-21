@@ -1,4 +1,4 @@
-const {chromium} = require(process.env.LILT_PLAYWRIGHT);
+const {chromium} = require(process.env.VIOLILT_PLAYWRIGHT);
 const fs = require('fs');
 const assert = require('assert');
 const delay = ms => new Promise(resolve => setTimeout(resolve,ms));

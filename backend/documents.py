@@ -6,6 +6,7 @@ from html.parser import HTMLParser
 from markdown_it import MarkdownIt
 
 from .speech_text import normalize_symbols
+from .limits import markdown_text
 
 DEFAULT_OPTIONS = {"include_code": False, "heading_pause": 0.6, "paragraph_pause": 0.3}
 
@@ -87,8 +88,11 @@ def section_text(text, limit=420):
 
 
 def prepare(markdown: str, options: dict | None = None, fallback_title="Untitled reading"):
-    if not isinstance(markdown, str):
-        raise ValueError("The document must contain text.")
+    markdown_text(markdown)
+    if options is not None and not isinstance(options, dict):
+        raise ValueError('Reading options must be an object.')
+    from .settings import validate_settings
+    validate_settings({key: value for key, value in (options or {}).items() if key in DEFAULT_OPTIONS})
     settings = DEFAULT_OPTIONS | {key: value for key, value in (options or {}).items() if key in DEFAULT_OPTIONS}
     for key in ("heading_pause", "paragraph_pause"):
         settings[key] = max(0.0, min(2.0, float(settings[key])))

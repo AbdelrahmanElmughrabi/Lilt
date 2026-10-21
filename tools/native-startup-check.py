@@ -28,7 +28,7 @@ def main():
     from backend.server import AppServer
     from backend.storage import Store
 
-    with tempfile.TemporaryDirectory(prefix='lilt-startup-') as temporary:
+    with tempfile.TemporaryDirectory(prefix='violilt-startup-') as temporary:
         store = Store(Path(temporary))
         first = store.document('# The art of paying attention\n\nA quiet thought.', 'The art of paying attention', 'C:/notes/attention.md')
         store.document('# A slower kind of morning\n\nThe next sentence is waiting.', 'A slower kind of morning')
@@ -48,7 +48,7 @@ def main():
         server = AppServer(ROOT / 'frontend/dist', store)
         server.start()
         install_csp_bridge(ROOT / 'assets/desktop-api.js')
-        window = webview.create_window('Lilt startup check', server.url, js_api=bridge, width=1120, height=800)
+        window = webview.create_window('Violilt startup check', server.url, js_api=bridge, width=1120, height=800)
         bridge._window = window
         failures = []
 

@@ -86,6 +86,9 @@ class AppServer:
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Referrer-Policy", "no-referrer")
+                self.send_header("X-Frame-Options", "DENY")
+                self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
+                self.send_header("Cross-Origin-Resource-Policy", "same-origin")
                 if status == 206:
                     self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
                 self.end_headers()

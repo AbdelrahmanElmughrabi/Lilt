@@ -37,7 +37,7 @@ def create_samples(arguments):
         ('ordinary-us', 'af_heart', 'The next sentence is waiting. Listen to the first words while the next thought is prepared.'),
         ('numbers-us', 'af_heart', 'Dr. Smith paid $12.50 on October 12, 2026. The CPU uses 4 threads; version 2.0 is ready.'),
         ('ordinary-gb', 'bf_emma', 'A quiet library gives each thought a little room. The colour of the sky changes as we read.'),
-        ('fallback-gb', 'bf_emma', 'Zorblyx met José at the café. Their new project was called LiltTTS.'),
+        ('fallback-gb', 'bf_emma', 'Zorblyx met José at the café. Their new project was called VioliltTTS.'),
     ]
     results = []
     for name, voice, text in corpus:

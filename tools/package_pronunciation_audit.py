@@ -50,7 +50,7 @@ def digest(path: Path) -> str:
 
 
 def audit(package: Path) -> dict:
-    executable = package / 'Lilt.exe'
+    executable = package / 'Violilt.exe'
     archive = CArchiveReader(str(executable))
     modules = []
     obsolete_imports = []
@@ -94,7 +94,7 @@ def audit(package: Path) -> dict:
             if relative.startswith('gpu-runtime/nvidia/') and path.suffix.lower() in ('.h', '.hpp', '.lib'):
                 violations.append(f'GPU development file bundled: {relative}')
         files.append({'path': relative, 'bytes': path.stat().st_size, 'sha256': digest(path)})
-    required = ['lilt-candidate.json', '_internal/misaki/data/us_gold.json', '_internal/misaki/data/us_silver.json',
+    required = ['violilt-candidate.json', '_internal/misaki/data/us_gold.json', '_internal/misaki/data/us_silver.json',
                 '_internal/misaki/data/gb_gold.json', '_internal/misaki/data/gb_silver.json',
                 '_internal/num2words/__init__.py', 'third-party/manifest.json',
                 'third-party/sources/source-manifest.json', '_internal/_soundfile_data/libsndfile_x64.dll']
@@ -121,7 +121,7 @@ def audit(package: Path) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--package', type=Path, default=ROOT / 'dist/pronunciation/Lilt')
+    parser.add_argument('--package', type=Path, default=ROOT / 'dist/pronunciation/Violilt')
     arguments = parser.parse_args()
     report = audit(arguments.package.resolve())
     print(json.dumps({'status': report['status'], 'frozen_modules': len(report['frozen_modules']),

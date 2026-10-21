@@ -14,7 +14,7 @@ window.pywebview._createApi = function (functions) {
         try {
           if (func === 'import_dropped_documents' && bridge.platform === 'edgechromium') {
             window.chrome.webview.postMessageWithAdditionalObjects(
-              { type: 'lilt:file-drop', id }, Array.from(args[0])
+              { type: 'violilt:file-drop', id }, Array.from(args[0])
             );
           } else bridge._jsApiCallback(func, args, id);
         } catch (error) {

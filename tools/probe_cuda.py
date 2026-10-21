@@ -44,5 +44,5 @@ if __name__ == '__main__':
     result = {'success': True, 'runtime': ort.__version__, 'load_seconds': load, 'results': results, 'cuda_nodes': len(cuda_nodes)}
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(json.dumps(result, indent=2))
-    (runtime / 'lilt-runtime.json').write_text(json.dumps({'provider': 'CUDAExecutionProvider', 'runtime': ort.__version__, 'tested_model': GPU_FILE}))
+    (runtime / 'violilt-runtime.json').write_text(json.dumps({'provider': 'CUDAExecutionProvider', 'runtime': ort.__version__, 'tested_model': GPU_FILE}))
     print(json.dumps(result), flush=True)

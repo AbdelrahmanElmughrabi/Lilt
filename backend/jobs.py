@@ -57,7 +57,7 @@ class Jobs:
 
     def _worker(self):
         if self.closing:
-            raise ValueError('Lilt is closing.')
+            raise ValueError('Violilt is closing.')
         if self.releasing:
             raise ValueError('The voice process is still releasing memory. Try again shortly.')
         if not self.process or not self.process.is_alive():

@@ -7,7 +7,7 @@ import re
 import unicodedata
 
 
-SYMBOL_POLICY = 'lilt-speech-symbols-v3'
+SYMBOL_POLICY = 'violilt-speech-symbols-v3'
 SYMBOL_NAMES = {
     '→': 'right arrow', '➔': 'right arrow', '➜': 'right arrow',
     '➝': 'right arrow', '➞': 'right arrow', '➡': 'right arrow', '➤': 'right arrow',
