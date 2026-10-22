@@ -11,7 +11,7 @@ import uuid
 from .cache import SectionCache
 from .models import FILES, GPU_FILE
 from .performance import Performance, model_identity
-from .pronunciation import pronunciation_identity
+from .pronunciation import pronunciation_compatible, pronunciation_identity
 from .runtime import gpu_runtime_directory
 from .sections import listening_chunks, manifest, published_sections
 from .speech import speech_worker
@@ -27,7 +27,7 @@ def public_job(job):
         'chunks', 'markdown', 'sections', 'audio_identity', 'pronunciation_identity', 'fingerprint'}}
     result.pop('unread_symbols', None)
     result['unread_count'] = len(job.get('unread_symbols', []))
-    compatible = job['state'] in RESUMABLE and job.get('pronunciation_identity') == pronunciation_identity()
+    compatible = job['state'] in RESUMABLE and pronunciation_compatible(job.get('pronunciation_identity'), pronunciation_identity())
     result.update(can_resume=compatible, resume_message=PRONUNCIATION_CHANGED
                   if job['state'] in RESUMABLE and not compatible else '')
     return result
@@ -171,7 +171,7 @@ class Jobs:
                 if job['state'] not in RESUMABLE:
                     raise ValueError('This reading cannot be continued.')
                 # Old sections remain listenable, but must never be extended by another engine.
-                if job.get('pronunciation_identity') != pronunciation:
+                if not pronunciation_compatible(job.get('pronunciation_identity'), pronunciation):
                     raise ValueError(PRONUNCIATION_CHANGED)
             status = self.models.status()
             if status['state'] != 'ready':
@@ -189,7 +189,9 @@ class Jobs:
                 if filename not in {FILES[0], GPU_FILE}:
                     raise ValueError('Unknown saved voice model.')
                 config = self.performance.resolve(settings | {'processing_device': 'gpu' if filename != FILES[0] else 'cpu'})
-                identity = self._audio_identity(filename, pronunciation)
+                # Retain the saved brand label and its cache keys after checking
+                # compatibility; model, voice and runtime inputs still match exactly.
+                identity = self._audio_identity(filename, job['pronunciation_identity'])
                 if job.get('audio_identity') != identity or job['markdown'] != document['markdown'] or job['voice'] != voice or job['speed'] != speed or job['options'] != prepared['options']:
                     raise ValueError('Continue with the original text, voice, and model files.')
                 job.update(state='preparing', message='Continuing your reading…')

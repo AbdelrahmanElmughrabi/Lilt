@@ -56,6 +56,9 @@ def create_engine(model, voices, config):
         raise ValueError('Choose the approved model and voice files.')
     verify_file(model)
     verify_file(voices)
+    if config['provider'] == 'CUDAExecutionProvider':
+        from .runtime import load_cuda_libraries
+        load_cuda_libraries()
     import onnxruntime as ort
     from .kokoro_engine import Kokoro
     options = ort.SessionOptions()
@@ -73,14 +76,6 @@ def create_engine(model, voices, config):
     elif config['provider'] == 'CUDAExecutionProvider':
         if 'CUDAExecutionProvider' not in ort.get_available_providers():
             raise ValueError('The optional NVIDIA runtime is unavailable. Choose CPU.')
-        import sys
-        # cuDNN loads further sublibraries at inference time, beyond ORT's preload.
-        for entry in sys.path:
-            folder = Path(entry) / 'nvidia'
-            if folder.is_dir():
-                bins = [str(path) for path in folder.glob('*/bin') if path.is_dir()]
-                os.environ['PATH'] = os.pathsep.join(bins + [os.environ.get('PATH', '')])
-        ort.preload_dlls(directory='')
         providers = [('CUDAExecutionProvider', {'device_id': str(config.get('cuda_device', 0)),
                       'cudnn_conv_algo_search': 'HEURISTIC', 'do_copy_in_default_stream': '1'}), 'CPUExecutionProvider']
     session = ort.InferenceSession(str(model), sess_options=options, providers=providers)

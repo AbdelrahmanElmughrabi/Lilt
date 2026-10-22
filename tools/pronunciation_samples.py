@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -22,13 +21,11 @@ def create_samples(arguments):
     model = arguments.models / ('kokoro-v1.0.fp16-gpu.onnx' if arguments.device == 'gpu' else 'kokoro-v1.0.int8.onnx')
     voices = arguments.models / 'voices-v1.0.bin'
     if arguments.device == 'gpu':
-        from backend.runtime import gpu_runtime_directory
+        from backend.runtime import activate_gpu_runtime, gpu_runtime_directory
         runtime = gpu_runtime_directory()
         if runtime is None:
             raise ValueError('Validate the optional GPU runtime before generating GPU samples.')
-        sys.path.insert(0, str(runtime))
-        bins = [str(path) for path in (runtime / 'nvidia').glob('*/bin')]
-        os.environ['PATH'] = os.pathsep.join(bins + [os.environ.get('PATH', '')])
+        activate_gpu_runtime(runtime)
     started = time.perf_counter()
     from backend.performance import create_engine
     engine = create_engine(model, voices, config)

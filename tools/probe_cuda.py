@@ -8,6 +8,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root))
 from backend.models import GPU_FILE, FILES
+from backend.runtime import activate_gpu_runtime, MARKER
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
@@ -18,7 +19,7 @@ if __name__ == '__main__':
     runtime = arguments.runtime.resolve()
     if not (runtime / 'onnxruntime/__init__.py').is_file():
         parser.error('Install the optional GPU runtime in the selected directory first.')
-    sys.path.insert(0, str(runtime))
+    activate_gpu_runtime(runtime)
     import numpy as np
     import onnxruntime as ort
     from backend.performance import create_engine
@@ -44,5 +45,5 @@ if __name__ == '__main__':
     result = {'success': True, 'runtime': ort.__version__, 'load_seconds': load, 'results': results, 'cuda_nodes': len(cuda_nodes)}
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(json.dumps(result, indent=2))
-    (runtime / 'violilt-runtime.json').write_text(json.dumps({'provider': 'CUDAExecutionProvider', 'runtime': ort.__version__, 'tested_model': GPU_FILE}))
+    (runtime / 'violilt-runtime.json').write_text(json.dumps(MARKER | {'tested_model': GPU_FILE}))
     print(json.dumps(result), flush=True)

@@ -39,23 +39,9 @@ foreach ($violiltModelName in @('kokoro-v1.0.int8.onnx', 'voices-v1.0.bin')) {
 }
 if ($IncludeGpu) {
     $violiltGpuSource = if ([IO.Path]::IsPathRooted($GpuRuntimeDirectory)) { [IO.Path]::GetFullPath($GpuRuntimeDirectory) } else { [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $GpuRuntimeDirectory)) }
-    if (!(Test-Path -LiteralPath (Join-Path $violiltGpuSource 'violilt-runtime.json'))) { throw 'Run the real CUDA probe before including the GPU runtime.' }
     $violiltGpuDestination = Join-Path $violiltCandidateFolder 'gpu-runtime'
-    New-Item -ItemType Directory -Path $violiltGpuDestination -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $violiltGpuSource 'onnxruntime') -Destination $violiltGpuDestination -Recurse -Force
-    # The optional Nvidia portion contains only runtime DLLs and license texts;
-    # headers and import/development libraries are deliberately omitted.
-    foreach ($violiltGpuFile in Get-ChildItem -LiteralPath (Join-Path $violiltGpuSource 'nvidia') -Recurse -File) {
-        if ($violiltGpuFile.Extension -ne '.dll' -and $violiltGpuFile.Name -notmatch '(?i)license|copying|notice|eula') { continue }
-        $violiltGpuRelative = $violiltGpuFile.FullName.Substring($violiltGpuSource.Length + 1)
-        $violiltGpuTarget = Join-Path $violiltGpuDestination $violiltGpuRelative
-        New-Item -ItemType Directory -Path (Split-Path -Parent $violiltGpuTarget) -Force | Out-Null
-        Copy-Item -LiteralPath $violiltGpuFile.FullName -Destination $violiltGpuTarget -Force
-    }
-    Copy-Item -LiteralPath (Join-Path $violiltGpuSource 'violilt-runtime.json') -Destination $violiltGpuDestination -Force
-    Get-ChildItem -LiteralPath $violiltGpuSource -Directory | Where-Object { $_.Name -like 'nvidia*.dist-info' -or $_.Name -like 'onnxruntime_gpu*.dist-info' } | ForEach-Object {
-        Copy-Item -LiteralPath $_.FullName -Destination $violiltGpuDestination -Recurse -Force
-    }
+    & $violiltCandidatePython tools\prepare_gpu_runtime.py --source $violiltGpuSource --output $violiltGpuDestination
+    if ($LASTEXITCODE -ne 0) { throw 'Approved GPU runtime preparation failed. Use a fresh output directory.' }
     Copy-Item -LiteralPath (Join-Path $violiltCandidateModelSource 'kokoro-v1.0.fp16-gpu.onnx') -Destination $violiltCandidateModels -Force
 }
 & $violiltCandidatePython tools\assemble_pronunciation_notices.py --output (Join-Path $violiltCandidateFolder 'third-party')

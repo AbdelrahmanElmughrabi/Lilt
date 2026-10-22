@@ -9,13 +9,13 @@ from pathlib import Path
 
 def speech_worker(commands, events, cancel, runtime_directory=None):
     if runtime_directory:
-        import sys
-        sys.path.insert(0, str(runtime_directory))
+        from .runtime import activate_gpu_runtime
+        activate_gpu_runtime(runtime_directory)
     import numpy as np
     import soundfile as sf
     from .cache import SectionCache, audio_info, section_key
     from .performance import create_engine
-    from .pronunciation import pronunciation_identity
+    from .pronunciation import pronunciation_compatible, pronunciation_identity
 
     engine, identity = None, None
     process_pronunciation = pronunciation_identity()
@@ -100,7 +100,7 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
         warnings = list(job.get('pronunciation_warnings', []))
         total = len(job['chunks'])
         try:
-            if job.get('pronunciation_identity') != process_pronunciation:
+            if not pronunciation_compatible(job.get('pronunciation_identity'), process_pronunciation):
                 raise ValueError('This reading uses different pronunciation files. Start a new reading after restarting Violilt.')
             priority(command['config'])
             events.put({'id': key, 'state': 'preparing', 'message': 'Preparing your first words…'})

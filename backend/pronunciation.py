@@ -20,9 +20,14 @@ from .speech_text import symbol_identity
 MISAKI_VERSION = '0.9.4'
 MODEL_PACKAGE = 'en_core_web_sm'
 MODEL_VERSION = '3.8.0'
-PRONUNCIATION_REVISION = 'violilt-misaki-english-v4'
+# Keep persisted algorithm revisions stable across product branding changes.
+PRONUNCIATION_REVISION = 'lilt-misaki-english-v4'
 FALLBACK_POLICY = 'latin-english-contextual-punctuation-and-spelling-v3'
-ADAPTER_REVISION = 'violilt-kokoro-0.6.1-v1'
+ADAPTER_REVISION = 'lilt-kokoro-0.6.1-v1'
+_BRAND_IDENTITIES = (
+    ('lilt-misaki-english-v4', 'lilt-kokoro-0.6.1-v1', 'lilt-speech-symbols-v3'),
+    ('violilt-misaki-english-v4', 'violilt-kokoro-0.6.1-v1', 'violilt-speech-symbols-v3'),
+)
 _LEXICONS = ('gb_gold.json', 'gb_silver.json', 'us_gold.json', 'us_silver.json')
 _CODE_PACKAGES = ('misaki', 'spacy', 'thinc', 'regex', 'addict', 'numpy', 'num2words')
 _LOADED_CODE_IDENTITY = None
@@ -97,6 +102,27 @@ def pronunciation_identity():
         'fallback': FALLBACK_POLICY,
         'symbols': symbol_identity(),
     }
+
+
+def pronunciation_compatible(saved, current):
+    """Accept exact identities and the two known, algorithm-identical brands.
+
+    All asset/version fields still compare exactly. Recompute the symbol digest
+    using each historical label so a changed rule or hash cannot become an alias.
+    Unknown future revisions must never inherit this branding exception.
+    """
+    if saved == current:
+        return True
+    if not isinstance(current, dict):
+        return False
+    for revision, adapter, symbols in _BRAND_IDENTITIES:
+        if (current.get('revision') == revision and current.get('adapter') == adapter
+                and current.get('symbols') == symbol_identity(revision=symbols)):
+            return any(saved == current | {
+                'revision': other_revision, 'adapter': other_adapter,
+                'symbols': symbol_identity(revision=other_symbols),
+            } for other_revision, other_adapter, other_symbols in _BRAND_IDENTITIES)
+    return False
 
 
 _DIGITS = ('zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine')

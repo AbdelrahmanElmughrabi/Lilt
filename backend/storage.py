@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import hashlib
-import math
 import os
 import shutil
 import sqlite3
@@ -13,7 +12,7 @@ import uuid
 from contextlib import closing, contextmanager
 from pathlib import Path
 
-from .settings import defaults as default_settings, validate_settings
+from .settings import defaults as default_settings, finite_number, validate_settings
 
 SCHEMA_VERSION = 1
 LIBRARY_FOLDERS = {'jobs', 'models', 'previews', 'section-cache', 'backups'}
@@ -242,15 +241,64 @@ class Store:
                 raise ValueError('Invalid saved item identity.')
             if table == 'documents':
                 if (not isinstance(item.get('title'), str) or not isinstance(item.get('markdown'), str)
-                        or isinstance(item.get('created'), bool) or not isinstance(item.get('created'), (int, float))
-                        or not math.isfinite(item['created'])):
+                        or not finite_number(item.get('created')) or item['created'] < 0):
                     raise ValueError('Invalid saved reading.')
-            elif not isinstance(item.get('state'), str):
-                raise ValueError('Invalid saved recording.')
+                opened = item.get('opened')
+                if opened is not None and (not finite_number(opened) or opened < 0):
+                    raise ValueError('Invalid saved reading date.')
+                if item.get('source') is not None and not isinstance(item['source'], str):
+                    raise ValueError('Invalid saved reading source.')
+            else:
+                self._validate_job(item)
             return item
-        except (ValueError, TypeError, UnicodeError, RecursionError) as error:
+        except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError) as error:
             self._quarantine(table, key, body, 'The saved item has invalid JSON or fields.')
             raise ValueError('This saved item needs recovery. Its original data has been kept.') from error
+
+    @staticmethod
+    def _validate_job(item):
+        if not isinstance(item.get('state'), str) or item['state'] not in {
+                'preparing', 'generating', 'assembling', 'cancelling',
+                'completed', 'cancelled', 'failed', 'interrupted'}:
+            raise ValueError('Invalid saved recording state.')
+        # Legacy recordings may omit newer metadata. Validate supplied fields
+        # without filling in or rewriting the saved snapshot.
+        for key in ('title', 'document_id', 'markdown', 'message', 'model_file'):
+            if key in item and not isinstance(item[key], str):
+                raise ValueError('Invalid saved recording text.')
+        for key in ('created', 'attempt_started', 'last_listened', 'position', 'duration',
+                    'available_duration', 'first_audio_seconds', 'processing_seconds', 'throughput'):
+            if key in item and (not finite_number(item[key]) or item[key] < 0):
+                raise ValueError('Invalid saved recording timing.')
+        for key in ('words', 'completed', 'total', 'cache_hits', 'generated_sections'):
+            if key in item and (type(item[key]) is not int or not finite_number(item[key]) or item[key] < 0):
+                raise ValueError('Invalid saved recording count.')
+        if 'preview' in item and not isinstance(item['preview'], bool):
+            raise ValueError('Invalid saved recording preview flag.')
+        for key in ('unread_symbols', 'pronunciation_warnings'):
+            if key in item and (not isinstance(item[key], list)
+                                or any(not isinstance(value, str) for value in item[key])):
+                raise ValueError('Invalid saved recording warnings.')
+        validate_settings({key: item[key] for key in ('voice', 'speed') if key in item})
+        if 'options' in item:
+            validate_settings(item['options'])
+        if 'engine' in item and not isinstance(item['engine'], dict):
+            raise ValueError('Invalid saved recording engine.')
+        if 'chunks' in item:
+            if not isinstance(item['chunks'], list):
+                raise ValueError('Invalid saved speech sections.')
+            for chunk in item['chunks']:
+                if (not isinstance(chunk, dict) or not isinstance(chunk.get('text'), str)
+                        or not finite_number(chunk.get('pause')) or chunk['pause'] < 0):
+                    raise ValueError('Invalid saved speech section.')
+        if 'sections' in item:
+            if not isinstance(item['sections'], list):
+                raise ValueError('Invalid saved audio sections.')
+            for section in item['sections']:
+                if (not isinstance(section, dict) or type(section.get('index')) is not int or section['index'] < 0
+                        or any(not finite_number(section.get(key)) or section[key] < 0
+                               for key in ('start', 'duration', 'pause'))):
+                    raise ValueError('Invalid saved audio section.')
 
     @contextmanager
     def connect(self):
@@ -305,7 +353,7 @@ class Store:
             try:
                 value = json.loads(raw)
                 defaults.update(validate_settings({key: value}, internal=True))
-            except (ValueError, TypeError, UnicodeError, RecursionError):
+            except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError):
                 self._quarantine('settings', key, raw, 'The saved preference has invalid JSON or fields.')
         return defaults
 

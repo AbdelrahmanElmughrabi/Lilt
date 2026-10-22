@@ -7,12 +7,17 @@ import hashlib
 import json
 import marshal
 import re
+import sys
 import types
 from pathlib import Path
 
 from PyInstaller.archive.readers import CArchiveReader
 
 ROOT = Path(__file__).resolve().parents[1]
+if __package__ in (None, ''):
+    sys.path.insert(0, str(ROOT))
+
+from backend.runtime import verify_gpu_runtime
 FORBIDDEN_MODULES = ('kokoro_onnx', 'phonemizer', 'phonemizer_fork', 'espeakng_loader',
                      'misaki.espeak', 'torch', 'transformers', 'spacy_curated_transformers',
                      'curated_transformers', 'PyInstaller.utils', 'pythonnet._pyinstaller',
@@ -49,7 +54,7 @@ def digest(path: Path) -> str:
     return value.hexdigest()
 
 
-def audit(package: Path) -> dict:
+def audit(package: Path, *, write_report: bool = True) -> dict:
     executable = package / 'Violilt.exe'
     archive = CArchiveReader(str(executable))
     modules = []
@@ -89,7 +94,8 @@ def audit(package: Path) -> dict:
             # Only top-level third-party packages are rejected here. ONNX Runtime
             # has its own MIT `onnxruntime/transformers` optimization subpackage;
             # that name is not the Hugging Face transformers dependency.
-            if re.search(r'^(?:_internal/|gpu_runtime/)?(?:phonemizer[^/]*|espeak[^/]*|torch[^/]*|transformers[^/]*)(/|\.|$)', normalized) or re.search(r'(^|/)espeak[^/]*\.dll$', normalized):
+            if (re.search(r'^(?:_internal/|gpu_runtime/)?(?:torch[^/]*|transformers[^/]*)(/|\.|$)', normalized)
+                    or re.search(r'(^|/)(?:phonemizer[^/]*|espeak[^/]*)(/|\.|$)', normalized)):
                 violations.append(f'Forbidden runtime file: {relative}')
             if relative.startswith('gpu-runtime/nvidia/') and path.suffix.lower() in ('.h', '.hpp', '.lib'):
                 violations.append(f'GPU development file bundled: {relative}')
@@ -107,6 +113,11 @@ def audit(package: Path) -> dict:
     for prefix in ('misaki', 'spacy', 'thinc', 'regex', 'addict', 'numpy', 'en_core_web_sm', 'num2words'):
         if not list((package / '_internal').glob(prefix + '-*.dist-info')) and not list((package / '_internal').glob(prefix.replace('_', '-') + '-*.dist-info')):
             violations.append(f'Required frozen metadata missing: {prefix}')
+    if (package / 'gpu-runtime').exists():
+        try:
+            verify_gpu_runtime(package / 'gpu-runtime')
+        except (ValueError, OSError, UnicodeError, RuntimeError) as error:
+            violations.append(f'GPU runtime verification failed: {error}')
     report = {'schema': 1, 'status': 'pass' if not violations else 'fail', 'violations': violations,
               'scope': 'actual executable PYZ modules and package files; legal/artifact provenance review remains pending',
               'archive_entries': archive_names, 'frozen_modules': modules, 'files': files,
@@ -115,7 +126,8 @@ def audit(package: Path) -> dict:
               'limitations': ['Inactive extras in upstream metadata are not active runtime dependencies.',
                               'No automatic inference of every native/vendored component license.',
                               'Successful GPL-path exclusion is not blanket commercial release clearance.']}
-    (package / 'package-audit.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+    if write_report:
+        (package / 'package-audit.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     return report
 
 

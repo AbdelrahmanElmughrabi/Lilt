@@ -7,7 +7,8 @@ import re
 import unicodedata
 
 
-SYMBOL_POLICY = 'violilt-speech-symbols-v3'
+# Persisted speech identities are versioned independently of the product name.
+SYMBOL_POLICY = 'lilt-speech-symbols-v3'
 SYMBOL_NAMES = {
     '→': 'right arrow', '➔': 'right arrow', '➜': 'right arrow',
     '➝': 'right arrow', '➞': 'right arrow', '➡': 'right arrow', '➤': 'right arrow',
@@ -33,11 +34,12 @@ _ADDRESS = re.compile(r'(?<![a-z0-9+.-])(?:[a-z][a-z0-9+.-]*://|www\.)\S+|'
                       r"[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}", re.I)
 
 
-def symbol_identity():
-    """Cheap identity; importing pronunciation identity must not load regex/G2P."""
-    policy = [SYMBOL_POLICY, SYMBOL_NAMES, sorted(_PASSTHROUGH), unicodedata.unidata_version,
+def symbol_identity(*, revision=None):
+    """Cheap identity; an explicit revision verifies the historical brand alias."""
+    revision = SYMBOL_POLICY if revision is None else revision
+    policy = [revision, SYMBOL_NAMES, sorted(_PASSTHROUGH), unicodedata.unidata_version,
               sorted(_SPACING_MARKS), _ADDRESS.pattern, 'non-numeric-comma-spacing-v1']
-    return {'revision': SYMBOL_POLICY,
+    return {'revision': revision,
             'sha256': hashlib.sha256(json.dumps(policy, sort_keys=True, ensure_ascii=False).encode()).hexdigest()}
 
 

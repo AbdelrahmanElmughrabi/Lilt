@@ -30,7 +30,7 @@ assert first == pronunciation_identity()
 print(json.dumps(first))
 """
         result = subprocess.run([sys.executable, '-X', 'utf8', '-c', code], cwd=root, capture_output=True, text=True, check=True)
-        self.assertEqual(json.loads(result.stdout)['revision'], 'violilt-misaki-english-v4')
+        self.assertEqual(json.loads(result.stdout)['revision'], 'lilt-misaki-english-v4')
 
     def test_actual_lexicon_model_and_replaceable_library_change_identity(self):
         with tempfile.TemporaryDirectory() as folder:
