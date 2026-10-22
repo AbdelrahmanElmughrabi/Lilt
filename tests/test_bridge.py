@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 from backend.bridge import Bridge
 from backend.jobs import Jobs
 from backend.storage import Store
+from tests.test_pcm_audio import pcm
 
 
 class Dialogs:
@@ -43,7 +44,7 @@ class BridgeTests(unittest.TestCase):
         directory = self.store.root / 'jobs' / key
         directory.mkdir()
         audio = directory / 'recording.wav'
-        audio.write_bytes(b'test audio content')
+        audio.write_bytes(pcm())
         self.store.put('jobs', {'id': key, 'state': 'completed', 'title': 'A reading', 'duration': 12})
         return key, audio
 
@@ -64,6 +65,17 @@ class BridgeTests(unittest.TestCase):
         result = Path(self.bridge.export_recording(key))
         self.assertEqual(result.suffix, '.wav')
         self.assertEqual(result.read_bytes(), source.read_bytes())
+
+    def test_export_rejects_unsupported_audio_without_replacing_existing_file(self):
+        key, source = self.recording()
+        source.write_bytes(b'FORM' + bytes(60))
+        target = self.root / 'export.wav'; target.write_bytes(b'previous complete export')
+        self.bridge._window = Dialogs(target)
+        with self.assertRaisesRegex(ValueError, 'supported PCM WAV'):
+            self.bridge.export_recording(key)
+        self.assertEqual(target.read_bytes(), b'previous complete export')
+        self.assertEqual(source.read_bytes(), b'FORM' + bytes(60))
+        self.assertEqual(list(self.root.glob('.violilt-export-*')), [])
 
     def test_drop_imports_multiple_files_preserves_sources_and_skips_duplicates(self):
         first, second = self.root / 'one.MD', self.root / 'two.markdown'

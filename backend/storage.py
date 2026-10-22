@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import logging
 import os
 import shutil
 import sqlite3
@@ -180,6 +181,7 @@ def _import_library_locked(legacy, root):
 class Store:
     def __init__(self, root: Path):
         self.root = root
+        self._quarantine_write_failed = False
         for folder in (root, root / "jobs", root / "models", root / "previews"):
             folder.mkdir(parents=True, exist_ok=True)
         self.db = root / "library.sqlite3"
@@ -224,15 +226,25 @@ class Store:
     def _quarantine(self, collection, key, body, reason):
         raw = body if isinstance(body, bytes) else str(body).encode('utf-8')
         fingerprint = hashlib.sha256(collection.encode() + b'\0' + str(key).encode() + b'\0' + raw).hexdigest()
-        with self.connect() as connection:
-            connection.execute('INSERT OR IGNORE INTO recovery_rows VALUES (?, ?, ?, ?, ?, ?)',
-                               (fingerprint, collection, str(key), body, reason, time.time()))
+        try:
+            with self.connect() as connection:
+                connection.execute('INSERT OR IGNORE INTO recovery_rows VALUES (?, ?, ?, ?, ?, ?)',
+                                   (fingerprint, collection, str(key), body, reason, time.time()))
+            self._quarantine_write_failed = False
+        except (OSError, sqlite3.Error):
+            if not self._quarantine_write_failed:
+                logging.exception('Could not save recovery bookkeeping; original rows are retained')
+            self._quarantine_write_failed = True
 
     def recovery_summary(self):
         with self.connect() as connection:
             count = connection.execute('SELECT COUNT(*) FROM recovery_rows').fetchone()[0]
-        return {'count': count, 'message': ('Some saved items could not be loaded. Their original data is kept for recovery. '
-                'Back up your library and contact support before attempting a repair.') if count else ''}
+        message = ('Some saved items could not be loaded. Their original data is kept for recovery. '
+                   'Back up your library and contact support before attempting a repair.') if count else ''
+        if self._quarantine_write_failed:
+            count += 1
+            message += ' Recovery details could not be saved. Free storage or check library access; original rows are kept.'
+        return {'count': count, 'message': message.strip()}
 
     def _decode_record(self, table, key, body):
         try:

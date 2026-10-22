@@ -17,6 +17,8 @@ Traced 21 October 2026 against the hardened working tree and its separate CPU/GP
 
 ## Primary references checked for these versions
 
+R-02 source probe update, 22 October: canceled native navigation retained the trusted document and blocked the controlled foreign page's script/native access, but preliminary GETs reached the controlled destination. No Referer/Cookie was observed in those requests. Cancellation does not establish zero external contact; Microsoft documents preliminary requests before cancellation takes effect in [NavigationStartingEventArgs](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2navigationstartingeventargs). Do not turn this limited source observation into an installed-package privacy claim. Raw local known-port/recording-UUID audio access also remains possible; browser fetch/media/frame isolation passed its synthetic probe. See [R-02 results](r02-results-2026-10-22.md). Runtime diagnostics, installed traffic/permissions and public disclosures are still open.
+
 - [WebView2 data and privacy](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/data-privacy): required diagnostic collection, Windows optional diagnostics, SmartScreen notice, and default crash reporting. Exact application/runtime behavior still needs verification.
 - [ONNX Runtime 1.30.0 privacy](https://github.com/microsoft/onnxruntime/blob/v1.30.0/docs/Privacy.md): Windows ETW behavior and non-essential-event controls; a minimal initialization event can precede the API call.
 - [ONNX Runtime 1.24.4 privacy](https://github.com/microsoft/onnxruntime/blob/v1.24.4/docs/Privacy.md): official Windows builds use platform telemetry and provide control APIs.

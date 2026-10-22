@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "runtime_directory": ".tmp/r03-updates-20261022/runtime/python",
+  "environment_directory": ".tmp/r03-updates-20261022/env",
+  "frontend_directory": ".tmp/r03-updates-20261022/frontend",
+  "artifact": {
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.12.15%2B20261021-x86_64-pc-windows-msvc-install_only.tar.gz",
+    "bytes": 46388793,
+    "sha256": "be7f14464d1d66f84429ad27e01f6d1482963afff64a2fb5256b2a51c7b5d398",
+    "entries": 3388,
+    "expanded_bytes": 149850603
+  },
+  "expected": {
+    "python": "3.12.15",
+    "implementation": "CPython",
+    "platform": "win32",
+    "bits": 64,
+    "abi": "cpython-312",
+    "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+    "expat": "expat_2.8.5"
+  },
+  "native_files": {
+    "python.exe": "a7c5b892d03cc5177b94ecd56c98ca93a18d688d44d173e057d842ab61171fb7",
+    "python312.dll": "e1debd208238e8979f6dada9b8f41f6b6fbb218312b77100d5e53025ada3ec72",
+    "DLLs/_ssl.pyd": "d9c375dd1dc1211b8e2c12b8fb7357547d233d005bae3690f4829bf8d2de8c6a",
+    "DLLs/libssl-3-x64.dll": "1e8c928656fd9cccc9b452ce0eaa11ba5c3b9a5b0dc23acf86595b16f310628b",
+    "DLLs/libcrypto-3-x64.dll": "3ec7e0234d2da9db6c94933b6e976972a07071e58097b6fe8355037b05086724",
+    "DLLs/pyexpat.pyd": "006e05dc2b21d5af39b7afee01eaaead2780f538a660e7ac4d89585bfa2ad4e7",
+    "DLLs/_elementtree.pyd": "21ce386f42af4f17195b125e200c5c234908b09095141443fa3ba473f06d7cb0",
+    "DLLs/_sqlite3.pyd": "215bdf93c2d25e4c865a1c67d3393023e4f756a5d1fde7405522f50666e68eca",
+    "DLLs/sqlite3.dll": "9479688cb1ff8ae89ce111405f80d9eba3eaa23fa8473a3d348fb7b4b4a6bd88"
+  },
+  "expat_disposition": {
+    "status": "proposed; independent review pending",
+    "CVE-2026-102633": "Upstream describes a 32-bit overflow; selected runtime is x64.",
+    "CVE-2026-77214": "CPython Parse/ParseFile and ElementTree bound caller lengths; no direct untrusted native Expat caller identified. Expat 2.8.5 does not claim the 2.9.0 patch.",
+    "review": "docs/r03-updates-trace-plan-2026-10-22.md"
+  },
+  "limits": [
+    "Source runtime selection is not final-package, installed-MSIX or redistribution clearance."
+  ]
+}

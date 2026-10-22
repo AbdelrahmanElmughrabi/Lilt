@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import codecs
+import logging
 import shutil
 import os
 import subprocess
 import sys
 import threading
+import tempfile
 from pathlib import Path
+
+from .pcm_audio import copy_pcm, open_pcm
 
 from .documents import plain_text_markdown, prepare
 from .jobs import public_job
@@ -30,10 +34,20 @@ class Bridge:
                       "words": len(doc["markdown"].split())} for doc in self._store.all("documents")]
         documents.sort(key=lambda doc: doc['opened'] or doc['created'], reverse=True)
         readings = sorted(self._store.all('jobs'), key=lambda job: job.get('created', 0), reverse=True)
+        pending = getattr(self._jobs, 'pending_storage', lambda: {})()
+        recovery = self._store.recovery_summary()
+        if isinstance(pending, dict) and pending.get('message'):
+            recovery = {'count': recovery['count'] + 1,
+                        'message': ' '.join(filter(None, (recovery['message'], pending['message'])))}
+            if isinstance(pending.get('job'), dict):
+                latest = pending['job']
+                if latest['state'] == 'completed':
+                    latest = latest | {'state': 'assembling', 'message': pending['message']}
+                readings = [latest] + [job for job in readings if job['id'] != latest['id']]
         return {"documents": documents, "jobs": [public_job(job) for job in readings],
                 "active": self._jobs.state(), "model": self._models.status(), "settings": self._store.settings(),
                 "storage": str(self._store.root), "performance": self._jobs.performance_state(),
-                "cache": self._jobs.cache_state(), "recovery": self._store.recovery_summary()}
+                "cache": self._jobs.cache_state(), "recovery": recovery}
 
     def get_stream(self, key):
         return self._jobs.stream(key)
@@ -241,10 +255,24 @@ class Bridge:
             target = target.with_suffix(".wav")
         source = self._store.root / "jobs" / key / "recording.wav"
         if target.resolve() == source.resolve():
+            with open_pcm(source):
+                pass
             return str(target)
         if target.exists() and not self._window.create_confirmation_dialog("Replace recording?", f"Replace {target.name}?"):
             return None
-        shutil.copyfile(source, target)
+        descriptor, name = tempfile.mkstemp(prefix='.violilt-export-', suffix='.part', dir=target.parent)
+        temporary = Path(name)
+        os.close(descriptor)
+        try:
+            copy_pcm(source, temporary)
+            with temporary.open('rb+') as copied:
+                os.fsync(copied.fileno())
+            temporary.replace(target)
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                logging.exception('Could not remove an incomplete export temporary file')
         return str(target)
 
     def setup_model(self):

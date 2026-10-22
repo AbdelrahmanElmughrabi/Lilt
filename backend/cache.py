@@ -3,24 +3,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
-import shutil
+import tempfile
 import time
 from pathlib import Path
+
+from .pcm_audio import audio_info, copy_pcm
 
 
 def section_key(text, voice, speed, identity):
     return hashlib.sha256(json.dumps([text, voice, float(speed), identity], ensure_ascii=False).encode()).hexdigest()
-
-
-def audio_info(path):
-    import soundfile as sf
-    try:
-        info = sf.info(path)
-        return info if info.frames > 0 and info.channels == 1 and info.samplerate == 24000 and info.subtype == 'PCM_16' else None
-    except (OSError, RuntimeError):
-        return None
 
 
 class SectionCache:
@@ -49,22 +43,40 @@ class SectionCache:
 
     def fetch(self, key, destination):
         path = self.root / (key + '.wav')
-        if not audio_info(path):
+        if not path.is_file():
             return False
-        temporary = destination.with_suffix('.cache-part')
-        shutil.copyfile(path, temporary)
-        self.write_warnings(destination, self.read_warnings(path))
-        temporary.replace(destination)
-        os.utime(path, None)
-        return True
+        descriptor, name = tempfile.mkstemp(prefix='.violilt-cache-', suffix='.part', dir=destination.parent)
+        os.close(descriptor)
+        temporary = Path(name)
+        try:
+            copy_pcm(path, temporary)
+            self.write_warnings(destination, self.read_warnings(path))
+            temporary.replace(destination)
+            os.utime(path, None)
+            return True
+        except (FileNotFoundError, ValueError):
+            return False
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                logging.warning('Could not remove an incomplete cached audio copy')
 
     def put(self, key, source):
         destination = self.root / (key + '.wav')
-        if not destination.exists():
-            temporary = destination.with_suffix('.part')
-            shutil.copyfile(source, temporary)
-            self.write_warnings(destination, self.read_warnings(source))
-            temporary.replace(destination)
+        if not destination.exists() or audio_info(destination) is None:
+            descriptor, name = tempfile.mkstemp(prefix='.violilt-cache-', suffix='.part', dir=destination.parent)
+            os.close(descriptor)
+            temporary = Path(name)
+            try:
+                copy_pcm(source, temporary)
+                self.write_warnings(destination, self.read_warnings(source))
+                temporary.replace(destination)
+            finally:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    logging.warning('Could not remove an incomplete reusable audio copy')
         else:
             self.write_warnings(destination, self.read_warnings(source))
         self.prune()

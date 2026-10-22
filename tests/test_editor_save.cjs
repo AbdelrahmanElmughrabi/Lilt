@@ -55,7 +55,9 @@ async function fixture(t) {
       processing_device: 'auto', gpu_device: -1, buffer_mode: 'balanced', auto_listen: false,
       warm_start: false, model_release: 'idle', cache_enabled: true, cache_limit_mb: 256};
     const controls = window.saveFixture = {documents, events: [], saves: [], preparations: [], generated: [],
-      holdSave: false, holdReview: false, failSave: false};
+      holdSave: false, holdReview: false, failSave: false, closeMessages: []};
+    window.chrome ||= {};
+    window.chrome.webview = {postMessage: message => controls.closeMessages.push(message)};
     const prepared = text => ({title: 'Disposable reading', text, words: text.split(/\s+/).filter(Boolean).length,
       chunks: [{text, pause: 0.3, block: 0}], omissions: {code_blocks: 0, metadata: 0}, unread_count: 0});
     window.pywebview = {api: {
@@ -227,4 +229,101 @@ test('Generate waits for pending saves and receives the latest edited text', asy
   const result = await state(page);
   assert.deepEqual(result.generated, [{id: 'doc-a', markdown: 'Latest generation input.'}]);
   assert(result.events.findIndex(event => event[0] === 'save-finish') < result.events.findIndex(event => event[0] === 'generate'));
+});
+
+async function requestClose(page, id = 'close123') {
+  await page.evaluate(id => window.dispatchEvent(new CustomEvent('violilt:close-request', {detail: {id}})), id);
+}
+const closeReplies = page => page.evaluate(() => window.saveFixture.closeMessages.filter(message => message.type === 'violilt:close-response'));
+const closed = page => settle(page, () => window.saveFixture.closeMessages.some(message => message.type === 'violilt:close-response' && message.saved));
+
+test('normal close saves the latest edit before its autosave timer and does not wait for Spoken preparation', async t => {
+  const page = await fixture(t);
+  await editor(page).fill('Saved by normal close.');
+  await page.evaluate(() => window.saveFixture.holdReview = true);
+  await requestClose(page);
+  await closed(page);
+  assert.equal((await state(page)).documents[0].markdown, 'Saved by normal close.');
+  assert.equal((await state(page)).saves.length, 1);
+  assert.deepEqual(await closeReplies(page), [{type: 'violilt:close-response', id: 'close123', saved: true}]);
+});
+
+test('normal close drains an in-flight save and the newer dirty snapshot in order', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.saveFixture.holdSave = true);
+  await editor(page).fill('Earlier close snapshot.');
+  await page.keyboard.press('Control+s');
+  await settle(page, () => typeof window.saveFixture.releaseSave === 'function');
+  await editor(page).fill('Latest close snapshot.');
+  await requestClose(page);
+  await page.getByRole('dialog', {name: 'Save before closing'}).waitFor();
+  assert.deepEqual(await closeReplies(page), []);
+  await page.evaluate(() => {window.saveFixture.holdSave = false; window.saveFixture.releaseSave();});
+  await closed(page);
+  assert.equal((await state(page)).documents[0].markdown, 'Latest close snapshot.');
+  assert.deepEqual((await state(page)).saves.map(save => save.markdown), ['Earlier close snapshot.', 'Latest close snapshot.']);
+});
+
+test('failed normal-close save retains the editor and offers a successful retry', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.saveFixture.failSave = true);
+  await editor(page).fill('Keep this failed-close edit.');
+  await requestClose(page);
+  await page.getByRole('dialog').getByRole('alert').filter({hasText: 'Disposable save failure'}).waitFor();
+  assert.deepEqual(await closeReplies(page), []);
+  assert.equal((await state(page)).documents[0].markdown, 'Original reading.');
+  assert.equal(await editor(page).inputValue(), 'Keep this failed-close edit.');
+  await page.evaluate(() => window.saveFixture.failSave = false);
+  await page.getByRole('button', {name: 'Retry save and close', exact: true}).click();
+  await closed(page);
+  assert.equal((await state(page)).documents[0].markdown, 'Keep this failed-close edit.');
+});
+
+test('keeping editing cancels close approval even when its pending save later succeeds', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.saveFixture.holdSave = true);
+  await editor(page).fill('Slow close save.');
+  await requestClose(page);
+  await settle(page, () => typeof window.saveFixture.releaseSave === 'function');
+  await page.getByRole('button', {name: 'Keep editing', exact: true}).click();
+  assert.deepEqual(await closeReplies(page), [{type: 'violilt:close-response', id: 'close123', saved: false}]);
+  await editor(page).fill('Edit after cancelling close.');
+  await page.evaluate(() => {window.saveFixture.holdSave = false; window.saveFixture.releaseSave();});
+  await page.keyboard.press('Control+s');
+  await settle(page, () => window.saveFixture.documents[0].markdown === 'Edit after cancelling close.');
+  assert.equal((await closeReplies(page)).some(message => message.saved), false);
+  await requestClose(page, 'close456');
+  await closed(page);
+  assert.equal((await closeReplies(page)).at(-1).id, 'close456');
+});
+
+test('a close save timeout stays recoverable and a late completion cannot close after cancellation', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.saveFixture.holdSave = true);
+  await editor(page).fill('Timeout close edit.');
+  await requestClose(page);
+  await settle(page, () => typeof window.saveFixture.releaseSave === 'function');
+  await page.clock.runFor(10000);
+  await page.getByRole('dialog').getByRole('alert').filter({hasText: 'taking longer'}).waitFor();
+  assert.deepEqual(await closeReplies(page), []);
+  await page.keyboard.press('Escape');
+  await page.getByRole('dialog').waitFor({state: 'hidden'});
+  await page.evaluate(() => {window.saveFixture.holdSave = false; window.saveFixture.releaseSave();});
+  await settle(page, () => window.saveFixture.documents[0].markdown === 'Timeout close edit.');
+  assert.deepEqual(await closeReplies(page), [{type: 'violilt:close-response', id: 'close123', saved: false}]);
+});
+
+test('repeated close requests and save shortcuts cannot duplicate or bypass the close transaction', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.saveFixture.holdSave = true);
+  await editor(page).fill('One close write.');
+  await requestClose(page);
+  await settle(page, () => typeof window.saveFixture.releaseSave === 'function');
+  await requestClose(page);
+  await page.keyboard.press('Control+s');
+  await page.keyboard.press('Control+o');
+  assert.equal((await state(page)).saves.length, 1);
+  await page.evaluate(() => {window.saveFixture.holdSave = false; window.saveFixture.releaseSave();});
+  await closed(page);
+  assert.equal((await closeReplies(page)).length, 1);
 });

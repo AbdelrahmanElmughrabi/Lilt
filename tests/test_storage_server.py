@@ -8,6 +8,7 @@ from pathlib import Path
 
 from backend.storage import Store
 from backend.server import AppServer
+from tests.test_pcm_audio import pcm
 
 
 class StorageServerTests(unittest.TestCase):
@@ -62,7 +63,7 @@ class StorageServerTests(unittest.TestCase):
         key = uuid.uuid4().hex
         folder = self.store.root / 'jobs' / key
         folder.mkdir()
-        saved = b'RIFF-existing-recording'
+        saved = pcm()
         (folder / 'recording.wav').write_bytes(saved)
         self.store.put('jobs', {'id': key, 'state': 'completed', 'position': 12})
         self.server.store = Store(self.store.root)
@@ -80,13 +81,14 @@ class StorageServerTests(unittest.TestCase):
         key = uuid.uuid4().hex
         folder = self.store.root / 'jobs' / key
         folder.mkdir()
-        (folder / 'recording.wav').write_bytes(b'0123456789')
+        saved = pcm(samples=b'0123456789')
+        (folder / 'recording.wav').write_bytes(saved)
         self.store.put('jobs', {'id': key, 'state': 'completed'})
-        request = urllib.request.Request(f'{self.server.url}/media/{key}.wav', headers={'Range': 'bytes=2-5'})
+        request = urllib.request.Request(f'{self.server.url}/media/{key}.wav', headers={'Range': 'bytes=46-49'})
         with urllib.request.urlopen(request) as response:
             self.assertEqual(response.status, 206)
             self.assertEqual(response.read(), b'2345')
-            self.assertEqual(response.headers['Content-Range'], 'bytes 2-5/10')
+            self.assertEqual(response.headers['Content-Range'], f'bytes 46-49/{len(saved)}')
         with self.assertRaises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(f'{self.server.url}/media/{uuid.uuid4().hex}.wav')
         self.assertEqual(error.exception.code, 404)

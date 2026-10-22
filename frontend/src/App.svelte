@@ -42,6 +42,10 @@
   async function revealFile(item: FileItem) { await act(() => item.kind === 'document' ? api.reveal_document(item.id) : api.reveal_recording(item.id)); }
   let helpDialog: HTMLDialogElement;
   let removalDialog: HTMLDialogElement;
+  let closeDialog: HTMLDialogElement;
+  let closeRequest = $state<string | null>(null);
+  let closeError = $state('');
+  let closeAttempt = 0;
   let shelf = $state(false);
   let voiceMenu = $state(false);
   let query = $state('');
@@ -97,6 +101,7 @@
   $effect(() => { page; untrack(() => { fileMenu = null; }); });
   $effect(() => { if (help) helpDialog?.showModal(); else helpDialog?.close(); });
   $effect(() => { if (removal) removalDialog?.showModal(); else removalDialog?.close(); });
+  $effect(() => { if (closeRequest) closeDialog?.showModal(); else closeDialog?.close(); });
 
   function notify(message: string) { toast = message; clearTimeout(toastTimer); toastTimer = setTimeout(() => toast = '', 4500); }
   async function act(operation: () => Promise<unknown>) {
@@ -164,7 +169,7 @@
     clearTimeout(maxSaveDelay);
     maxSaveDelay = undefined;
   }
-  async function flushSave() {
+  async function flushSave(prepareSpoken = true) {
     while (true) {
       cancelAutosave();
       if (document && dirty) {
@@ -191,10 +196,49 @@
         throw e;
       }
       if (saveChain !== pending || (document && dirty)) continue;
-      // Every save path updates preparation; slow previews never hold the write queue.
-      await review();
+      // Normal saves refresh Spoken; closing only needs the durable writes.
+      if (prepareSpoken) await review();
       if (saveChain === pending && (!document || !dirty)) return;
     }
+  }
+  function postCloseMessage(message: object) {
+    const desktop = window as Window & { chrome?: { webview?: { postMessage(message: object): void } } };
+    desktop.chrome?.webview?.postMessage(message);
+  }
+  function keepEditing() {
+    const id = closeRequest;
+    ++closeAttempt;
+    closeRequest = null;
+    closeError = '';
+    if (id) postCloseMessage({ type: 'violilt:close-response', id, saved: false });
+  }
+  async function saveBeforeClose() {
+    const id = closeRequest;
+    if (!id) return;
+    const attempt = ++closeAttempt;
+    closeError = '';
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // Drain durable writes without waiting for a Spoken preview. A timeout
+      // cancels close approval, never an already-running database write.
+      await Promise.race([flushSave(false), new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('Saving is taking longer than expected. Your window is still open. Keep editing or retry saving before closing.')), 10000);
+      })]);
+      if (attempt === closeAttempt && closeRequest === id) {
+        postCloseMessage({ type: 'violilt:close-response', id, saved: true });
+      }
+    } catch (e) {
+      if (attempt === closeAttempt && closeRequest === id) {
+        closeError = e instanceof Error ? e.message : String(e);
+      }
+    } finally { clearTimeout(timer); }
+  }
+  function requestNativeClose(event: Event) {
+    const id = (event as CustomEvent<{ id?: unknown }>).detail?.id;
+    if (closeRequest || typeof id !== 'string' || !/^[A-Za-z0-9]{1,64}$/.test(id)) return;
+    help = false; removal = null; fileMenu = null; voiceMenu = false;
+    closeRequest = id;
+    void saveBeforeClose();
   }
   async function changeSettings() {
     ++prepareVersion;
@@ -316,6 +360,10 @@
   }
   function keyboard(event: KeyboardEvent) {
     if (!ready) return;
+    if (closeRequest) {
+      if ((event.ctrlKey || event.metaKey) && ['o', 's'].includes(event.key)) event.preventDefault();
+      return;
+    }
     if (fileMenu) return;
     const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName);
     if ((event.ctrlKey || event.metaKey) && event.key === 'o') { event.preventDefault(); void importDocument(); }
@@ -336,6 +384,7 @@
       appState = state; settings = { ...defaultSettings, ...state.settings };
       completedSeen = new Set(state.jobs.filter(job => job.state === 'completed').map(job => job.id));
       failuresSeen = new Set(state.jobs.filter(job => job.state === 'failed').map(job => job.id));
+      if (!preview) postCloseMessage({ type: 'violilt:close-ready' });
       ready = true;
       const available = state.jobs.filter(job => !job.preview && (job.state === 'completed' || (job.available_duration || 0) > 0));
       const latest = [...available].filter(job => job.position > 0 && job.position < (job.duration || job.available_duration || 0) - 2).sort((a, b) => (b.last_listened || b.created) - (a.last_listened || a.created))[0] || available[0];
@@ -352,8 +401,12 @@
     systemDark = media.matches;
     const themeChanged = () => systemDark = media.matches;
     media.addEventListener('change', themeChanged);
+    window.addEventListener('violilt:close-request', requestNativeClose);
     void initialize();
-    return () => media.removeEventListener('change', themeChanged);
+    return () => {
+      media.removeEventListener('change', themeChanged);
+      window.removeEventListener('violilt:close-request', requestNativeClose);
+    };
   });
   onDestroy(() => { ++startupVersion; if (selectedJob) void api.save_position(selectedJob.id, position); streamPlayer?.dispose(); clearInterval(poll); cancelAutosave(); clearTimeout(toastTimer); });
 </script>
@@ -361,7 +414,7 @@
 <svelte:window onkeydown={keyboard} />
 
 <div class:dark class="app-shell" data-palette={settings.palette}>
-  <FileDrop enabled={ready} importFiles={importDroppedFiles} />
+  <FileDrop enabled={ready && !closeRequest} importFiles={importDroppedFiles} />
   <aside class:opened={shelf} class="sidebar">
     <button class="brand" onclick={showHome} disabled={!ready} aria-label="Violilt home"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Violilt<span>YOUR WORDS, OUT LOUD</span></span></button>
     <div class="sidebar-rule"></div>
@@ -506,6 +559,16 @@
   {#if fileMenu}
     {#key fileMenu}<FileContextMenu menu={fileMenu} canDelete={!busy && (fileMenu.item.kind === 'document' || ['completed', 'cancelled', 'failed', 'interrupted'].includes(fileMenu.item.state || ''))} close={() => fileMenu = null} remove={requestFileRemoval} reveal={revealFile} />{/key}
   {/if}
+
+  <dialog bind:this={closeDialog} class="about-modal removal-modal" aria-labelledby="save-close-title" oncancel={(event) => { event.preventDefault(); keepEditing(); }}>
+    <h2 id="save-close-title">Save before closing</h2>
+    {#if closeError}<p role="alert">{closeError}</p>
+    {:else}<p role="status"><LoaderCircle size={16} class="spin" /> Saving your changes before closing…</p>{/if}
+    <div class="settings-actions">
+      <button class="secondary-button" onclick={keepEditing}>Keep editing</button>
+      {#if closeError}<button class="primary-button" onclick={saveBeforeClose}>Retry save and close</button>{/if}
+    </div>
+  </dialog>
 
   <dialog bind:this={removalDialog} class="about-modal removal-modal" aria-labelledby="removal-title" onclose={() => removal = null} oncancel={() => removal = null}>
     {#if removal}

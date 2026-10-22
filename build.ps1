@@ -6,9 +6,12 @@ $violiltAllowedDistRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'dist'
 if (!$violiltCandidateDistRoot.StartsWith($violiltAllowedDistRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Build output must be a subdirectory of this workspace dist folder.' }
 $violiltOutputExecutable = Join-Path $violiltCandidateDistRoot 'Violilt\Violilt.exe'
 if (Get-Process -Name Violilt -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $violiltOutputExecutable }) { throw 'This output is running. Close that Violilt copy or choose another -OutputDirectory before building.' }
-$violiltCandidatePython = Join-Path $PSScriptRoot '.tmp\pronunciation-env\Scripts\python.exe'
+$violiltReleasePolicy = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'packaging\release-runtime.json') | ConvertFrom-Json
+$violiltCandidatePython = Join-Path $PSScriptRoot ($violiltReleasePolicy.environment_directory + '/Scripts/python.exe')
 if (!(Test-Path -LiteralPath $violiltCandidatePython)) { throw 'Run setup-pronunciation.ps1 first.' }
-$violiltCandidateTemp = Join-Path $PSScriptRoot '.tmp\pronunciation-pip-temp'
+& $violiltCandidatePython -B tools\verify_release_runtime.py
+if ($LASTEXITCODE -ne 0) { throw 'Selected runtime differs from reviewed release inputs.' }
+$violiltCandidateTemp = Join-Path $PSScriptRoot '.tmp\release-pip-temp'
 New-Item -ItemType Directory -Path $violiltCandidateTemp -Force | Out-Null
 $env:TEMP = $violiltCandidateTemp
 $env:TMP = $violiltCandidateTemp
@@ -17,13 +20,8 @@ $violiltModelCheckArguments = @('tools\verify_models.py', '--directory', $violil
 if ($IncludeGpu) { $violiltModelCheckArguments += '--include-gpu' }
 & $violiltCandidatePython @violiltModelCheckArguments
 if ($LASTEXITCODE -ne 0) { throw 'Model verification failed before packaging.' }
-Push-Location -LiteralPath (Join-Path $PSScriptRoot 'frontend')
-try {
-    npm.cmd run check
-    if ($LASTEXITCODE -ne 0) { throw 'Interface type check failed.' }
-    npm.cmd run build
-    if ($LASTEXITCODE -ne 0) { throw 'Interface build failed.' }
-} finally { Pop-Location }
+& $violiltCandidatePython -B tools\build_frontend.py
+if ($LASTEXITCODE -ne 0) { throw 'Isolated interface check/build failed.' }
 & $violiltCandidatePython -m PyInstaller --noconfirm --clean --distpath $violiltCandidateDistRoot --workpath build\pronunciation packaging\Violilt.spec
 if ($LASTEXITCODE -ne 0) { throw 'Candidate executable packaging failed.' }
 $violiltCandidateFolder = Join-Path $violiltCandidateDistRoot 'Violilt'
@@ -44,7 +42,7 @@ if ($IncludeGpu) {
     if ($LASTEXITCODE -ne 0) { throw 'Approved GPU runtime preparation failed. Use a fresh output directory.' }
     Copy-Item -LiteralPath (Join-Path $violiltCandidateModelSource 'kokoro-v1.0.fp16-gpu.onnx') -Destination $violiltCandidateModels -Force
 }
-& $violiltCandidatePython tools\assemble_pronunciation_notices.py --output (Join-Path $violiltCandidateFolder 'third-party')
+& $violiltCandidatePython tools\assemble_pronunciation_notices.py --frontend-directory (Join-Path $PSScriptRoot $violiltReleasePolicy.frontend_directory) --output (Join-Path $violiltCandidateFolder 'third-party')
 if ($LASTEXITCODE -ne 0) { throw 'Candidate notice assembly failed.' }
 & $violiltCandidatePython tools\package_pronunciation_audit.py --package $violiltCandidateFolder
 if ($LASTEXITCODE -ne 0) { throw 'Candidate package isolation audit failed.' }

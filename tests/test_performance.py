@@ -23,6 +23,7 @@ from backend.performance import Performance, validate
 from backend.sections import listening_chunks, published_sections
 from backend.server import AppServer
 from backend.storage import Store
+from tests.test_pcm_audio import pcm
 
 
 class PerformanceTests(unittest.TestCase):
@@ -299,9 +300,9 @@ class PerformanceTests(unittest.TestCase):
             folder = store.root / 'jobs' / key
             folder.mkdir()
             for name in ['section-000000.wav', 'section-000001.wav', 'recording.wav']:
-                (folder / name).write_bytes(b'0123456789')
+                (folder / name).write_bytes(pcm(samples=b'0123456789'))
             store.put('jobs', {'id': key, 'state': 'generating', 'completed': 1, 'total': 2})
-            with urllib.request.urlopen(urllib.request.Request(f'{server.url}/media/{key}/section-000000.wav', headers={'Range': 'bytes=2-5'})) as response:
+            with urllib.request.urlopen(urllib.request.Request(f'{server.url}/media/{key}/section-000000.wav', headers={'Range': 'bytes=46-49'})) as response:
                 self.assertEqual(response.status, 206)
                 self.assertEqual(response.read(), b'2345')
             for path in [f'/media/{key}.wav', f'/media/{key}/section-000001.wav', f'/media/{key}/section-000000.part']:

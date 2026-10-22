@@ -72,7 +72,7 @@ def prepare_sources() -> list[dict]:
     return sources
 
 
-def assemble(output: Path) -> dict:
+def assemble(output: Path, frontend_directory: Path | None = None) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     packages = []
     missing = []
@@ -127,11 +127,17 @@ def assemble(output: Path) -> dict:
                          'scope': 'installed build environment; actual inclusion recorded by package audit'})
 
     frontend = []
+    frontend_directory = frontend_directory or ROOT / 'frontend'
+    if (frontend_directory / 'package-lock.json').read_bytes() != (ROOT / 'frontend/package-lock.json').read_bytes():
+        raise ValueError('Frontend notice inputs differ from the canonical lock.')
     frontend_lock = json.loads((ROOT / 'frontend' / 'package-lock.json').read_text(encoding='utf-8'))
     for location, record in frontend_lock['packages'].items():
         if not location:
             continue
-        folder = ROOT / 'frontend' / location
+        folder = frontend_directory / location
+        installed_metadata = folder / 'package.json'
+        if installed_metadata.is_file() and json.loads(installed_metadata.read_text(encoding='utf-8')).get('version') != record.get('version'):
+            raise ValueError(f'Installed frontend notice version differs from the lock: {location}')
         names = []
         for source in sorted(folder.glob('*')):
             if not source.is_file() or not re.search('license|licence|copying|notice', source.name, re.I):
@@ -224,11 +230,12 @@ def assemble(output: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / '.tmp/pronunciation-notices')
+    parser.add_argument('--frontend-directory', type=Path, default=ROOT / 'frontend', help='Locked frontend dependencies used for this build')
     parser.add_argument('--download-sources', action='store_true', help='Download exact upstream component source archives; needs network access')
     arguments = parser.parse_args()
     if arguments.download_sources:
         prepare_sources()
-    report = assemble(arguments.output.resolve())
+    report = assemble(arguments.output.resolve(), arguments.frontend_directory.resolve())
     print(json.dumps({'packages': len(report['packages']), 'notice_files': len(report['files']),
                       'source_archives': len(report['source_archives']), 'missing_evidence': report['missing_evidence'],
                       'status': report['status']}, indent=2))

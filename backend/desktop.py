@@ -83,6 +83,21 @@ def _install_file_drop_transport(window):
     control.NavigationStarting += navigation
     control.CoreWebView2.FrameNavigationStarting += frame_navigation
 
+    completed = getattr(browser, 'on_navigation_completed', None)
+    if callable(completed) and hasattr(control, 'NavigationCompleted'):
+        def navigation_completed(sender, args):
+            # pywebview 6.2.1 reinjects on every completion, including canceled
+            # navigation. The original document is intact on cancellation;
+            # reinjection would reset callbacks for its in-flight save/poll.
+            if (not args.IsSuccess and str(args.WebErrorStatus) == 'OperationCanceled'
+                    and _trusted_page(window, sender.Source)):
+                return
+            return completed(sender, args)
+
+        control.NavigationCompleted -= completed
+        control.NavigationCompleted += navigation_completed
+        window._violilt_navigation_completed_handler = navigation_completed
+
     def receive(sender, args):
         # Guard ordinary pywebview calls as well as the custom file-drop path.
         # WebMessageReceived.Source is supplied by WebView2, not by message JSON.
@@ -94,6 +109,14 @@ def _install_file_drop_transport(window):
                 return
             message = json.loads(encoded)
         except (ValueError, TypeError, RecursionError):
+            return
+        if isinstance(message, dict) and message.get('type') in {'violilt:close-ready', 'violilt:close-response'}:
+            guard = getattr(window, '_violilt_close_guard', None)
+            if guard is not None:
+                if message['type'] == 'violilt:close-ready':
+                    guard.armed = True
+                elif _request_id(message.get('id')):
+                    guard.respond(message['id'], message.get('saved'))
             return
         if not isinstance(message, dict) or message.get('type') != 'violilt:file-drop':
             if _allowed_native_call(window, message):

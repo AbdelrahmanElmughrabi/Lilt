@@ -3,7 +3,9 @@ from __future__ import annotations
 import copy
 import json
 import math
+import logging
 import multiprocessing as mp
+import sqlite3
 import threading
 import time
 import uuid
@@ -45,6 +47,11 @@ class Jobs:
         self.releasing = False
         self.release_error = ''
         self.closing = False
+        self._pending_job = None
+        self._pending_benchmark = None
+        self._persistence_retry_at = 0
+        self.persistence_error = ''
+        self._idle_storage_error = False
         self.performance = Performance(store, models) if models else None
         self.cache = SectionCache(store.root / 'section-cache', store.settings()['cache_limit_mb'])
         self._identities = {}
@@ -123,7 +130,14 @@ class Jobs:
         now = time.monotonic()
         if self.idle_since is None:
             self.idle_since = now
-        policy = self.store.settings().get('model_release', 'idle')
+        try:
+            policy = self.store.settings().get('model_release', 'idle')
+            self._idle_storage_error = False
+        except (OSError, sqlite3.Error):
+            if not self._idle_storage_error:
+                logging.exception('Could not read the idle memory policy; retaining the worker')
+            self._idle_storage_error = True
+            return
         if policy == 'immediate' or (policy == 'idle' and now - self.idle_since >= 120):
             try:
                 self._release_worker()
@@ -161,6 +175,7 @@ class Jobs:
 
     def start(self, prepared, document, voice, speed, preview=False, resume=None):
         with self.lock:
+            self._require_persistence()
             if self.releasing or self.closing:
                 raise ValueError('The voice process is unavailable while releasing memory or closing.')
             if self.active or self.operation == 'benchmark':
@@ -238,6 +253,7 @@ class Jobs:
 
     def benchmark(self):
         with self.lock:
+            self._require_persistence()
             if self.releasing or self.closing:
                 raise ValueError('The voice process is unavailable while releasing memory or closing.')
             if self.active or self.operation:
@@ -274,7 +290,9 @@ class Jobs:
 
     def stream(self, key):
         with self.lock:
-            job = self.active if self.active and self.active['id'] == key else self.store.get('jobs', key)
+            job = (self.active if self.active and self.active['id'] == key else
+                   copy.deepcopy(self._pending_job) if self._pending_job and self._pending_job['id'] == key
+                   else self.store.get('jobs', key))
             if 'sections' not in job:
                 job['sections'], job['available_duration'] = published_sections(job, self.store.root / 'jobs' / key)
                 self.store.put('jobs', job)
@@ -282,7 +300,9 @@ class Jobs:
 
     def save_position(self, key, position):
         with self.lock:
-            job = self.active if self.active and self.active['id'] == key else self.store.get('jobs', key)
+            pending = self._pending_job is not None and self._pending_job['id'] == key
+            job = (self.active if self.active and self.active['id'] == key else
+                   copy.deepcopy(self._pending_job) if pending else self.store.get('jobs', key))
             value = float(position)
             if not math.isfinite(value):
                 raise ValueError('Choose a valid listening position.')
@@ -290,7 +310,12 @@ class Jobs:
             job['position'] = max(0, min(value, job.get('available_duration', job.get('duration', 0))))
             if abs(job['position'] - previous) >= 1:
                 job['last_listened'] = time.time()
-            self.store.put('jobs', job)
+            if pending:
+                self._save_progress(job)
+                if self.persistence_error:
+                    raise ValueError(self.persistence_error)
+            else:
+                self.store.put('jobs', job)
         return True
 
     def performance_state(self):
@@ -316,6 +341,40 @@ class Jobs:
             self._cache_sample = (0, {})
         return True
 
+    def _flush_persistence(self, force=False):
+        """Coalesce at most one reading and one speed-test result; caller holds lock."""
+        if not force and time.monotonic() < self._persistence_retry_at:
+            return
+        try:
+            if self._pending_job is not None:
+                self.store.put('jobs', self._pending_job)
+                self._pending_job = None
+            if self._pending_benchmark is not None:
+                self.store.save_settings({'benchmark_result': self._pending_benchmark})
+                self._pending_benchmark = None
+        except (OSError, sqlite3.Error):
+            if not self.persistence_error:
+                logging.exception('Recording progress or speed-test settings could not be saved')
+            self.persistence_error = ('Some recording progress or speed-test settings have not been saved. '
+                'Free storage or check library access. Keep Violilt open to retry; existing saved files are kept.')
+            self._persistence_retry_at = time.monotonic() + 2
+            return
+        self.persistence_error = ''
+        self._persistence_retry_at = 0
+
+    def _save_progress(self, job):
+        self._pending_job = copy.deepcopy(job)
+        self._flush_persistence()
+
+    def _require_persistence(self):
+        self._flush_persistence(force=True)
+        if self._pending_job is not None or self._pending_benchmark is not None:
+            raise ValueError(self.persistence_error)
+
+    def pending_storage(self):
+        with self.lock:
+            return {'job': copy.deepcopy(self._pending_job), 'message': self.persistence_error}
+
     def _listen(self):
         import queue
         while not self.closing:
@@ -328,10 +387,11 @@ class Jobs:
                         return
                     if event_queue is not self.events:
                         continue
+                    self._flush_persistence()
                     if self.process and not self.process.is_alive():
                         if self.active:
                             self.active.update(state='failed', message='The speech process stopped. Your completed sections are saved.')
-                            self.store.put('jobs', self.active)
+                            self._save_progress(self.active)
                             self.active = None
                         if self.operation:
                             getattr(self.performance, self.operation).update(state='failed', message='The speech process stopped. You can try again.')
@@ -343,6 +403,7 @@ class Jobs:
                     return
                 if event_queue is not self.events:
                     continue
+                self._flush_persistence()
                 kind = event.get('kind')
                 if kind == 'benchmark':
                     if self.operation != kind:
@@ -358,8 +419,9 @@ class Jobs:
                             maximum = max(item['throughput'] for item in cpu)
                             efficient = min((item for item in cpu if item['throughput'] >= maximum * 0.95), key=lambda item: item['threads'])
                             best = max(valid, key=lambda item: item['throughput'])
-                            self.store.save_settings({'benchmark_result': {'identity': self.performance.identity(),
-                                'created': time.time(), 'cpu': efficient, 'best': best, 'results': event['results']}})
+                            self._pending_benchmark = {'identity': self.performance.identity(),
+                                'created': time.time(), 'cpu': efficient, 'best': best, 'results': event['results']}
+                            self._flush_persistence()
                 elif kind == 'warmup':
                     self.performance.warmup.update(event)
                     self.operation = None
@@ -371,7 +433,7 @@ class Jobs:
                     if self.active['state'] == 'cancelling' and event['state'] not in TERMINAL:
                         event.update(state='cancelling', message='Stopping after the current section…')
                     self.active.update(event)
-                    self.store.put('jobs', self.active)
+                    self._save_progress(self.active)
                     if event['state'] in TERMINAL:
                         self.active = None
                 self._release_if_idle()
@@ -382,13 +444,17 @@ class Jobs:
 
     def close(self):
         self.closing = True
-        with self.lock:
-            if self.active:
-                self.active.update(state='interrupted', message='Continue this reading when you return.')
-                self.store.put('jobs', self.active)
+        try:
+            with self.lock:
+                if self.active:
+                    self.active.update(state='interrupted', message='Continue this reading when you return.')
+                    self._pending_job = copy.deepcopy(self.active)
+                self._flush_persistence(force=True)
+        finally:
+            with self.lock:
                 self.active = None
-            self.operation = None
-        self.cancel.set()
-        if self.process and self.process.is_alive():
-            self.process.terminate()
-            self.process.join(timeout=3)
+                self.operation = None
+            self.cancel.set()
+            if self.process and self.process.is_alive():
+                self.process.terminate()
+                self.process.join(timeout=3)

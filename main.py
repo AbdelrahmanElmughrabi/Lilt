@@ -86,6 +86,8 @@ def _run_application(root, candidate, msix_probe, arguments, library):
                                    width=1440, height=960, min_size=(1024, 720),
                                    background_color="#f7f5ef", text_select=True)
     bridge._window = window
+    from backend.window_close import install_close_guard
+    install_close_guard(window)
     def prepare_startup():
         if store.settings().get('warm_start'):
             try:
