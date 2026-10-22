@@ -116,9 +116,18 @@ def _install_file_drop_transport(window):
             except Exception as exc:
                 response = {'isError': True, 'value': json.dumps({
                     'name': type(exc).__name__, 'message': str(exc), 'stack': ''})}
-            if _trusted_page(window, control.CoreWebView2.Source):
-                window.run_js('window.pywebview._returnValuesCallbacks["import_dropped_documents"]['
-                              + json.dumps(request) + '](' + json.dumps(response) + ')')
+            script = ('window.pywebview._returnValuesCallbacks["import_dropped_documents"]['
+                      + json.dumps(request) + '](' + json.dumps(response) + ')')
+
+            def deliver():
+                core = control.CoreWebView2
+                if _trusted_page(window, core.Source):
+                    # Do not use run_js here: its result wait blocks the UI thread.
+                    core.ExecuteScriptAsync(script)
+
+            # WebView2 properties and script dispatch both belong to the UI thread.
+            from System import Action
+            control.BeginInvoke(Action(deliver))
 
         threading.Thread(target=import_files, daemon=True).start()
 

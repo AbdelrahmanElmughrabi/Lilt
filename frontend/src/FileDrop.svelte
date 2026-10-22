@@ -92,7 +92,7 @@
       <span class="drop-eyebrow">A LITTLE SPACE FOR YOUR WORDS</span>
       <h2>{#if importing}Making room<br />on your shelf.{:else}Drop your<br /><em>words here.</em>{/if}</h2>
       <p>{importing ? 'Adding your readings. Keep a little room for listening.' : count > 1 ? `${count} files. A few more things worth listening to.` : 'A note, an article, a whole chapter. Let it land.'}</p>
-      <div class="drop-filetypes"><span>.md</span><span>.markdown</span><span class="drop-divider"></span><small>Your originals stay untouched</small></div>
+      <div class="drop-filetypes"><span>.md</span><span>.markdown</span><span>.txt</span><span>.pdf</span><span class="drop-divider"></span><small>Your originals stay untouched</small></div>
     </div>
   {/if}
 </div>

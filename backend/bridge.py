@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import shutil
 import os
 import subprocess
@@ -7,11 +8,14 @@ import sys
 import threading
 from pathlib import Path
 
-from .documents import prepare
+from .documents import plain_text_markdown, prepare
 from .jobs import public_job
 from .limits import MAX_FILE_BATCH, MAX_MARKDOWN_BYTES
+from .pdf_import import MAX_PDF_BYTES, extract_pdf_text
 from .settings import validate_settings
 from .windows_shell import select_file
+
+DOCUMENT_SUFFIXES = {'.md', '.markdown', '.txt', '.pdf'}
 
 
 class Bridge:
@@ -55,7 +59,8 @@ class Bridge:
 
     def save_document(self, key, markdown):
         with self._lock:
-            prepared = prepare(markdown, self._store.settings())
+            title = self._store.get('documents', key)['title']
+            prepared = prepare(markdown, self._store.settings(), fallback_title=title)
             return self._store.document(markdown, prepared["title"], key=key)
 
     def new_document(self):
@@ -71,10 +76,10 @@ class Bridge:
         document = self._store.get('documents', key)
         source = document.get('source')
         if not source:
-            raise ValueError('This reading has no original Markdown file.')
+            raise ValueError('This reading has no original file.')
         path = Path(source)
-        if not path.is_absolute() or path.suffix.lower() not in {'.md', '.markdown'} or not path.is_file():
-            raise ValueError('The original Markdown file could not be found. It may have been moved or deleted.')
+        if not path.is_absolute() or path.suffix.lower() not in DOCUMENT_SUFFIXES or not path.is_file():
+            raise ValueError('The original file could not be found. It may have been moved or deleted.')
         return self._reveal_path(path, select=True)
 
     def reveal_recording(self, key):
@@ -122,16 +127,16 @@ class Bridge:
     def import_document(self):
         import webview
         paths = self._window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False,
-                                                file_types=("Markdown files (*.md;*.markdown)",))
+                                                file_types=("Documents (*.md;*.markdown;*.txt;*.pdf)",))
         if not paths:
             return None
         return self._import_document_path(paths[0])
 
     def import_dropped_documents(self, paths):
         if not isinstance(paths, list) or not paths:
-            raise ValueError('Drop a Markdown (.md or .markdown) file to add a reading.')
+            raise ValueError('Drop a Markdown, TXT or PDF (.md, .markdown, .txt or .pdf) file to add a reading.')
         if len(paths) > MAX_FILE_BATCH:
-            raise ValueError(f'Add up to {MAX_FILE_BATCH} Markdown files at a time.')
+            raise ValueError(f'Add up to {MAX_FILE_BATCH} files at a time.')
         documents, errors = [], []
         seen = set()
         for source in paths:
@@ -149,18 +154,33 @@ class Bridge:
 
     def _import_document_path(self, source):
         path = Path(source).resolve()
-        if path.suffix.lower() not in {".md", ".markdown"}:
-            raise ValueError("Choose a Markdown (.md or .markdown) file.")
+        if path.suffix.lower() not in DOCUMENT_SUFFIXES:
+            raise ValueError('Choose a Markdown, TXT or PDF (.md, .markdown, .txt or .pdf) file.')
         if not path.is_file():
             raise ValueError('This file could not be found. Drop a file rather than a folder.')
+        plain = path.suffix.lower() == '.txt'
+        pdf = path.suffix.lower() == '.pdf'
+        encoding_error = ('This TXT file must use UTF-8 or UTF-16 with a BOM. Save it as UTF-8 and try again.'
+                          if plain else 'This file is not UTF-8. Save it as UTF-8 and try again.')
         try:
             with path.open('rb') as source_file:
-                body = source_file.read(MAX_MARKDOWN_BYTES + 1)
-            if len(body) > MAX_MARKDOWN_BYTES:
-                raise ValueError('Choose a Markdown file up to 2 MB. Split larger files into smaller readings.')
-            markdown = body.decode('utf-8-sig')
+                body = source_file.read((MAX_PDF_BYTES if pdf else MAX_MARKDOWN_BYTES) + 1)
+            if pdf:
+                markdown = plain_text_markdown(extract_pdf_text(body), 'PDF')
+            elif len(body) > MAX_MARKDOWN_BYTES:
+                raise ValueError('Choose a file up to 2 MB. Split larger files into smaller readings.')
+            elif plain:
+                if body.startswith((codecs.BOM_UTF32_LE, codecs.BOM_UTF32_BE)):
+                    raise ValueError(encoding_error)
+                encoding = 'utf-16' if body.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)) else 'utf-8-sig'
+                text = body.decode(encoding)
+                if '\x00' in text:
+                    raise ValueError(encoding_error)
+                markdown = plain_text_markdown(text)
+            else:
+                markdown = body.decode('utf-8-sig')
         except UnicodeDecodeError:
-            raise ValueError("This file is not UTF-8. Save it as UTF-8 and try again.") from None
+            raise ValueError(encoding_error) from None
         except OSError:
             raise ValueError('This file could not be read. Check that it is available and try again.') from None
         prepared = prepare(markdown, self._store.settings(), path.stem)
@@ -185,7 +205,8 @@ class Bridge:
     def generate(self, key, markdown, settings):
         with self._lock:
             self.save_settings(settings)
-            prepared = prepare(markdown, settings)
+            title = self._store.get('documents', key)['title']
+            prepared = prepare(markdown, settings, fallback_title=title)
             document = self._store.document(markdown, prepared["title"], key=key)
             return self._jobs.start(prepared, document, settings["voice"], settings["speed"])
 

@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from .devices import gpu_adapters
+from .gpu_usage import GpuUsage
 from .models import FILES, GPU_FILE
 from .pronunciation import pronunciation_identity
 
@@ -104,6 +105,7 @@ class Performance:
         self._process = None
         self._sampled = 0
         self._usage = None
+        self._gpu_usage = GpuUsage()
         self._identity = None
         self._pronunciation_identity = None
 
@@ -184,12 +186,15 @@ class Performance:
             self._usage = None
         return self._usage
 
-    def status(self, process=None):
+    def status(self, process=None, *, engine=None):
         try:
             configuration = self.resolve(self.store.settings())
         except ValueError as error:
             configuration = {'label': 'Unavailable', 'threads': 0, 'message': str(error)}
+        gpu_pid = process.pid if (process and process.is_alive() and engine
+                                 and engine.get('provider') in {'CUDAExecutionProvider', 'DmlExecutionProvider'}) else None
+        gpu_percent = self._gpu_usage.read(gpu_pid)
         return {'logical_processors': self.logical, 'physical_cores': self.physical, 'adapters': self.gpu_devices(),
                 'gpu_ready': self.gpu_ready(), 'gpu_message': 'Optional GPU runtime and model ready.' if self.gpu_ready() else (self.models.gpu_error or 'GPU needs the optional runtime and GPU model.'),
                 'benchmark': self.benchmark.copy(), 'warmup': self.warmup.copy(), 'recommendation': self.recommendation(),
-                'configuration': configuration, 'cpu_percent': self.usage(process)}
+                'configuration': configuration, 'cpu_percent': self.usage(process), 'gpu_percent': gpu_percent if gpu_pid else None}

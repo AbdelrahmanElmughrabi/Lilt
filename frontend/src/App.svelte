@@ -29,6 +29,7 @@
   let prepared = $state<Prepared | null>(null);
   let dirty = $state(false);
   let busy = $state(false);
+  let startingGeneration = $state(false);
   let toast = $state('');
   let error = $state('');
   let dismissedRecoveryCount = $state(0);
@@ -62,9 +63,11 @@
   let failuresSeen = new Set<string>();
   let poll: ReturnType<typeof setInterval>;
   let debounce: ReturnType<typeof setTimeout>;
+  let maxSaveDelay: ReturnType<typeof setTimeout> | undefined;
   let toastTimer: ReturnType<typeof setTimeout>;
   let prepareVersion = 0;
   let saveChain = Promise.resolve();
+  let pendingSaves = $state(0);
   let lastPositionSaved = 0;
   let systemDark = $state(false);
 
@@ -134,9 +137,10 @@
   }
   async function review() {
     if (!document) return;
+    const snapshot = { id: document.id, markdown: document.markdown };
     const version = ++prepareVersion;
-    const result = await api.prepare_document(document.markdown, settings);
-    if (version === prepareVersion) prepared = result;
+    const result = await api.prepare_document(snapshot.markdown, { ...settings });
+    if (version === prepareVersion && document?.id === snapshot.id && document.markdown === snapshot.markdown) prepared = result;
   }
   async function selectDocument(id: string) {
     await flushSave();
@@ -149,24 +153,51 @@
   }
   function editChanged() {
     dirty = true;
+    ++prepareVersion;
     clearTimeout(debounce);
-    debounce = setTimeout(() => { void act(async () => { await flushSave(); await review(); }); }, 600);
+    debounce = setTimeout(() => { void act(flushSave); }, 1000);
+    // Continuous typing must not postpone saving indefinitely.
+    maxSaveDelay ??= setTimeout(() => { void act(flushSave); }, 5000);
+  }
+  function cancelAutosave() {
+    clearTimeout(debounce);
+    clearTimeout(maxSaveDelay);
+    maxSaveDelay = undefined;
   }
   async function flushSave() {
-    clearTimeout(debounce);
-    if (!document || !dirty) { await saveChain; return; }
-    const snapshot = { ...document };
-    dirty = false;
-    saveChain = saveChain.then(async () => {
-      try {
-        const saved = await api.save_document(snapshot.id, snapshot.markdown);
-        if (document?.id === snapshot.id && document.markdown === snapshot.markdown) document = saved;
-        await refresh();
-      } catch (e) { dirty = true; throw e; }
-    });
-    try { await saveChain; } finally { saveChain = saveChain.catch(() => {}); }
+    while (true) {
+      cancelAutosave();
+      if (document && dirty) {
+        const snapshot = { ...document };
+        dirty = false;
+        pendingSaves++;
+        saveChain = saveChain.catch(() => {}).then(async () => {
+          try {
+            const saved = await api.save_document(snapshot.id, snapshot.markdown);
+            if (document?.id === snapshot.id && document.markdown === snapshot.markdown) {
+              document = saved;
+              dirty = false;
+            }
+            await refresh();
+          } catch (e) {
+            if (document?.id === snapshot.id) dirty = true;
+            throw e;
+          } finally { pendingSaves--; }
+        });
+      }
+      const pending = saveChain;
+      try { await pending; } catch (e) {
+        if (saveChain === pending) saveChain = Promise.resolve();
+        throw e;
+      }
+      if (saveChain !== pending || (document && dirty)) continue;
+      // Every save path updates preparation; slow previews never hold the write queue.
+      await review();
+      if (saveChain === pending && (!document || !dirty)) return;
+    }
   }
   async function changeSettings() {
+    ++prepareVersion;
     streamPlayer?.preferences(settings.buffer_mode, playbackSpeed, volume);
     await act(async () => { await api.save_settings({ ...settings }); await review(); await refresh(); });
   }
@@ -204,8 +235,10 @@
     if (!engineReady) { page = 'settings'; return; }
     if (settings.auto_listen) primeAudio();
     busy = true;
-    await act(async () => { await flushSave(); const job = await api.generate(document!.id, document!.markdown, { ...settings }); selectRecording(job, settings.auto_listen); await refresh(); });
-    busy = false;
+    startingGeneration = true;
+    try {
+      await act(async () => { await flushSave(); const job = await api.generate(document!.id, document!.markdown, { ...settings }); selectRecording(job, settings.auto_listen); await refresh(); });
+    } finally { busy = false; startingGeneration = false; }
   }
   async function voicePreview() {
     if (!engineReady) { page = 'settings'; return; }
@@ -322,7 +355,7 @@
     void initialize();
     return () => media.removeEventListener('change', themeChanged);
   });
-  onDestroy(() => { ++startupVersion; if (selectedJob) void api.save_position(selectedJob.id, position); streamPlayer?.dispose(); clearInterval(poll); clearTimeout(debounce); clearTimeout(toastTimer); });
+  onDestroy(() => { ++startupVersion; if (selectedJob) void api.save_position(selectedJob.id, position); streamPlayer?.dispose(); clearInterval(poll); cancelAutosave(); clearTimeout(toastTimer); });
 </script>
 
 <svelte:window onkeydown={keyboard} />
@@ -340,7 +373,7 @@
     <div class="shelf-heading"><span>ON YOUR SHELF</span><button title="New reading" onclick={newDocument} disabled={!ready}><Plus size={16} /></button></div>
     <div class="document-list">
       {#each appState?.documents || [] as doc}
-        <button use:fileContext={{ item: { ...doc, kind: 'document' }, open: openFileMenu }} class:chosen={document?.id === doc.id && page === 'studio'} onclick={() => selectDocument(doc.id)}><FileText size={17} strokeWidth={1.5} /><span>{doc.title}<small>Markdown reading</small></span></button>
+        <button use:fileContext={{ item: { ...doc, kind: 'document' }, open: openFileMenu }} class:chosen={document?.id === doc.id && page === 'studio'} onclick={() => selectDocument(doc.id)}><FileText size={17} strokeWidth={1.5} /><span>{doc.title}<small>Reading</small></span></button>
       {/each}
       {#if ready && !appState?.documents.length}<p class="shelf-empty">A home for the words<br />you want to return to.</p>{/if}
     </div>
@@ -355,7 +388,7 @@
   <div class="workspace">
     <header class="topbar">
       <div class="breadcrumb"><button class="shelf-toggle" title="Toggle shelf" onclick={() => shelf = !shelf}><PanelLeft size={18} /></button><span>Workspace</span><span class="breadcrumb-slash">/</span><strong>{page === 'home' ? 'Home' : page === 'studio' ? 'Reading room' : page === 'library' ? 'Recordings' : 'Settings'}</strong></div>
-      <div class="top-actions">{#if preview}<span class="preview-label">Interface preview</span>{/if}<button class="engine-pill" disabled={!ready} onclick={() => page = 'settings'}><span class:ready={engineReady} class="status-dot"></span>{engineReady ? 'Voice engine ready' : appState?.model.state === 'downloading' ? 'Setting up voices' : 'Voice setup'}<ArrowUpRight size={13} /></button><span class="top-separator"></span><button class="import-button" onclick={importDocument} disabled={!ready}><FolderOpen size={16} /> Import Markdown <span>Ctrl O</span></button></div>
+      <div class="top-actions">{#if preview}<span class="preview-label">Interface preview</span>{/if}<button class="engine-pill" disabled={!ready} onclick={() => page = 'settings'}><span class:ready={engineReady} class="status-dot"></span>{engineReady ? 'Voice engine ready' : appState?.model.state === 'downloading' ? 'Setting up voices' : 'Voice setup'}<ArrowUpRight size={13} /></button><span class="top-separator"></span><button class="import-button" onclick={importDocument} disabled={!ready}><FolderOpen size={16} /> Import document <span>Ctrl O</span></button></div>
     </header>
 
     {#if error}<div class="error-banner" role="alert"><AlertCircle size={17} /><span>{error}</span><button title="Dismiss error" onclick={() => error = ''}><X size={16} /></button></div>{/if}
@@ -375,7 +408,8 @@
           <DocumentFind content={searchContent} revision={`${document?.id}:${tab}:${tab === 'spoken' ? prepared?.text : document?.markdown}`} enabled={!!document} />
           <div class="document-scroll">
             {#if document}
-              <div class="reading-meta"><span><FileText size={13} /> MARKDOWN</span><span class="meta-dot">·</span><span>{dirty ? 'Saving changes…' : 'Saved to your shelf'}</span></div>
+              <div class="reading-meta"><span><FileText size={13} /> READING</span><span class="meta-dot">·</span><span>{pendingSaves ? 'Saving changes…' : dirty ? 'Unsaved changes' : 'Saved to your shelf'}</span></div>
+              {#if document.source?.toLowerCase().endsWith('.pdf')}<div class="omission-note" role="note">PDF import includes selectable text only. Images and scanned pages are not included. Review the text and reading order before generating.</div>{/if}
               {#if tab === 'edit'}
                 <div class="editor-heading"><h1>Your words.<br /><em>Your way.</em></h1><p>Write or paste Markdown. Your working copy saves automatically.</p></div>
                 <textarea bind:this={searchContent} aria-label="Markdown editor" class="markdown-editor" spellcheck="false" bind:value={document.markdown} oninput={editChanged}></textarea>
@@ -390,7 +424,7 @@
               <div class="document-end"><span></span><AudioLines size={20} strokeWidth={1.3} /><span></span></div>
               <div class="endnote">Words worth keeping. A voice to carry them.</div>
             {:else}
-              <div class="empty-reading"><BookOpen size={38} strokeWidth={1} /><h1>Your next reading<br /><em>starts here.</em></h1><p>Bring a Markdown file, or begin with a blank page.</p><button class="primary-button" onclick={newDocument}><Plus size={17} /> New reading</button></div>
+              <div class="empty-reading"><BookOpen size={38} strokeWidth={1} /><h1>Your next reading<br /><em>starts here.</em></h1><p>Bring a Markdown, TXT or PDF file, or begin with a blank page.</p><button class="primary-button" onclick={newDocument}><Plus size={17} /> New reading</button></div>
             {/if}
           </div>
           <footer class="reading-footer"><span><span class="status-dot ready"></span> Working copy saved locally {#if document}<button class="icon-button remove-reading" title="Remove reading" onclick={() => { removal = { id: document!.id, title: document!.title, kind: 'document' }; }}><Trash2 size={13} /></button>{/if}</span><span>{words.toLocaleString()} words<span class="meta-dot">·</span>About {estimate} min of listening</span></footer>
@@ -409,8 +443,33 @@
           <div class="reading-options"><span class="control-label">THE LITTLE DETAILS</span><label class="toggle-row"><span>Read code blocks<small>Included only when you want them</small></span><input type="checkbox" bind:checked={settings.include_code} onchange={changeSettings} /><span class="toggle-track"></span></label><label class="pause-control"><span>Space between paragraphs</span><select aria-label="Paragraph pause" bind:value={settings.paragraph_pause} onchange={changeSettings}><option value={0.15}>Short</option><option value={0.3}>Natural</option><option value={0.6}>Unhurried</option></select></label></div>
           <div class="processing-control"><div><span>PROCESSING PACE</span><button onclick={() => page = 'settings'}>Tune it <ArrowUpRight size={12} /></button></div><div class="compact-presets">{#each ['quiet', 'balanced', 'fast', 'custom'] as mode}<button class:selected={settings.performance_mode === mode} onclick={() => { settings.performance_mode = mode as Settings['performance_mode']; void changeSettings(); }}>{mode.charAt(0).toUpperCase()+mode.slice(1)}</button>{/each}</div><p class="processing-caption">{active?.engine?.label || appState?.performance?.configuration.label || 'CPU'} · {active?.engine?.threads || appState?.performance?.configuration.threads || 4} threads{active ? ' · Changes apply to the next reading' : ' · Listen while the rest is prepared'}</p></div>
           </div><div class="generation-area">
-            {#if active}<div class="generation-progress"><div><span>{active.preview ? 'A little voice preview' : active.state === 'assembling' ? 'The finishing touches' : 'Making your reading'}</span><strong>{Math.round(active.completed / Math.max(1, active.total) * 100)}%</strong></div><div class="progress-track"><span style:width={`${active.completed / Math.max(1, active.total) * 100}%`}></span></div><p>{active.message}</p>{#if active.unread_count}<p class="settings-hint" title={`${appState?.storage}/jobs/${active.id}/unread.txt`}>{active.unread_count} symbol{active.unread_count === 1 ? '' : 's'} omitted from speech. Details saved in unread.txt.</p>{/if}{#each active.pronunciation_warnings || [] as warning}<p class="settings-hint">{warning}</p>{/each}<div class="live-metrics">{#if active.throughput}<span><strong>{active.throughput.toFixed(1)}×</strong> generation</span>{/if}{#if appState?.performance?.cpu_percent != null}<span><strong>{appState.performance.cpu_percent}%</strong> CPU</span>{/if}{#if (active.available_duration || 0) > 0}<span><strong>{formatTime(active.available_duration || 0)}</strong> ready</span>{/if}{#if active.first_audio_seconds != null}<span>First audio <strong>{active.first_audio_seconds.toFixed(1)}s</strong></span>{/if}{#if active.cache_hits}<span>{active.cache_hits} reused</span>{/if}</div></div><button class="secondary-button" onclick={() => act(async () => { await api.cancel_generation(); await refresh(); })} disabled={active.state === 'cancelling'}><Square size={13} /> {active.state === 'cancelling' ? 'Stopping after this section…' : 'Stop generation'}</button>
-            {:else}<div class="generation-summary"><span>Your next listen</span><strong>~{estimate} <small>min</small></strong></div><button class="primary-button generate-button" onclick={generate} disabled={busy || testing || !words}><Headphones size={18} /> {engineReady ? 'Create your audio' : 'Set up & start listening'} <ArrowRight size={17} /></button><p class="generation-footnote">{engineReady ? 'Listen as it arrives. Saved to your library.' : 'One free model download. Then local speech.'}</p>{/if}
+            {#if active}
+              {@const usingGpu = ['CUDAExecutionProvider', 'DmlExecutionProvider'].includes(active.engine?.provider || '')}
+              <div class="generation-progress" role="status">
+                <div><span>{active.state === 'preparing' ? 'Preparing your reading…' : active.state === 'assembling' ? 'Saving recording…' : active.state === 'cancelling' ? 'Stopping generation…' : 'Generating audio…'}</span><strong>{Math.round(active.completed / Math.max(1, active.total) * 100)}%</strong></div>
+                <div class="progress-track"><span style:width={`${active.completed / Math.max(1, active.total) * 100}%`}></span></div>
+                <p>{active.message}</p>
+                {#if active.unread_count}<p class="settings-hint" title={`${appState?.storage}/jobs/${active.id}/unread.txt`}>{active.unread_count} symbol{active.unread_count === 1 ? '' : 's'} omitted from speech. Details saved in unread.txt.</p>{/if}
+                {#each active.pronunciation_warnings || [] as warning}<p class="settings-hint">{warning}</p>{/each}
+                <div class="live-metrics">
+                  {#if active.state === 'generating'}<span>Model loaded</span>{/if}
+                  {#if active.throughput}<span><strong>{active.throughput.toFixed(1)}×</strong> generation</span>{/if}
+                  {#if (active.available_duration || 0) > 0}<span><strong>{formatTime(active.available_duration || 0)}</strong> ready</span>{/if}
+                  {#if active.first_audio_seconds != null}<span>First audio <strong>{active.first_audio_seconds.toFixed(1)}s</strong></span>{/if}
+                  {#if active.cache_hits}<span>{active.cache_hits} reused</span>{/if}
+                </div>
+                {#if appState?.performance?.cpu_percent != null || (usingGpu && appState?.performance?.gpu_percent != null)}
+                  <details class="hardware-usage">
+                    <summary>Performance details</summary>
+                    <div class="live-metrics">
+                      {#if appState?.performance?.cpu_percent != null}<span title="Speech worker usage, as a percentage of total CPU capacity."><strong>{appState.performance.cpu_percent}%</strong> CPU usage</span>{/if}
+                      {#if usingGpu && appState?.performance?.gpu_percent != null}<span title="Speech worker's busiest GPU engine. Other applications are excluded."><strong>{appState.performance.gpu_percent}%</strong> GPU usage</span>{/if}
+                    </div>
+                  </details>
+                {/if}
+              </div>
+              <button class="secondary-button" onclick={() => act(async () => { await api.cancel_generation(); await refresh(); })} disabled={active.state === 'cancelling'}><Square size={13} /> {active.state === 'cancelling' ? 'Stopping after this section…' : 'Stop generation'}</button>
+            {:else}<div class="generation-summary"><span>Your next listen</span><strong>~{estimate} <small>min</small></strong></div><button class="primary-button generate-button" onclick={generate} disabled={busy || testing || !words}>{#if startingGeneration}<LoaderCircle size={18} class="spin" /> Preparing your reading…{:else}<Headphones size={18} /> {engineReady ? 'Create your audio' : 'Set up & start listening'} <ArrowRight size={17} />{/if}</button><p class="generation-footnote">{engineReady ? 'Listen as it arrives. Saved to your library.' : 'One free model download. Then local speech.'}</p>{/if}
           </div>
         </aside>
       </div>
@@ -443,7 +502,7 @@
     <audio bind:this={audio} preload="metadata" src={selectedJob && !streaming ? `/media/${selectedJob.id}.wav` : undefined} onloadedmetadata={loadedAudio} ontimeupdate={timeUpdate} onplay={() => { if (!streaming) playing = true; }} onpause={() => { if (!streaming) { playing = false; if (selectedJob) void api.save_position(selectedJob.id, position); } }} onended={() => { if (!streaming) playing = false; }} onerror={() => { if (selectedJob && !streaming) error = 'This recording could not be opened. Check that its audio file is still available.'; }}></audio>
   </div>
   {#if toast}<div class="toast" role="status"><Check size={17} />{toast}<button title="Dismiss notification" onclick={() => toast = ''}><X size={15} /></button></div>{/if}
-  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Violilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Violilt is your local reading room. Bring Markdown, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import Markdown <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
+  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Violilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Violilt is your local reading room. Bring Markdown, TXT or PDF, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import document <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
   {#if fileMenu}
     {#key fileMenu}<FileContextMenu menu={fileMenu} canDelete={!busy && (fileMenu.item.kind === 'document' || ['completed', 'cancelled', 'failed', 'interrupted'].includes(fileMenu.item.state || ''))} close={() => fileMenu = null} remove={requestFileRemoval} reveal={revealFile} />{/key}
   {/if}

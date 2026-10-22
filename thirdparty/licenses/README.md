@@ -4,6 +4,11 @@ These verbatim upstream notices cover artifacts whose wheel or baseline package
 does not reliably collect their complete texts. Other versioned notices are
 collected from the installed candidate distributions by the notice assembler.
 
+- pypdf 6.21.2 BSD-3-Clause license: exact approved PyPI wheel, verified with
+  SHA-256 `1d44d1a3a200f25062adff0085b02040e4646431ac2ccac22e42679e91466084`.
+  The notice assembler also collects this wheel's installed license.
+  [Versioned upstream license](https://github.com/py-pdf/pypdf/blob/6.21.2/LICENSE).
+
 - WebView2 SDK 1.0.3856.49 LICENSE and NOTICE: inspected official NuGet SDK archive;
   the baseline pywebview Core/WinForms DLLs matched that archive. CPU bridge
   versions are held fixed in this candidate. [Official package](https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3856.49).

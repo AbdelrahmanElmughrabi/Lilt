@@ -295,7 +295,7 @@ class Jobs:
 
     def performance_state(self):
         with self.lock:
-            status = self.performance.status(self.process)
+            status = self.performance.status(self.process, engine=self.active.get('engine') if self.active else None)
             status['memory'] = {
                 'state': 'releasing' if self.releasing else 'busy' if self.active or self.operation
                          else 'idle' if self.process and self.process.is_alive() else 'unloaded',

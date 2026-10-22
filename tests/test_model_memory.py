@@ -28,7 +28,7 @@ class ModelMemoryTests(unittest.TestCase):
         # Policy tests control time and do not need a listener thread.
         with patch('backend.jobs.threading.Thread'):
             self.jobs = Jobs(self.store, None)
-        self.jobs.performance = SimpleNamespace(warmup={}, status=lambda process: {})
+        self.jobs.performance = SimpleNamespace(warmup={}, status=lambda process, **kwargs: {})
 
     def tearDown(self):
         self.jobs.close()

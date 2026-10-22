@@ -18,7 +18,7 @@ datas += collect_data_files('pythonnet', includes=['runtime/*'])
 datas += collect_data_files('clr_loader', includes=['ffi/dlls/**/*.dll'])
 binaries += collect_dynamic_libs('pythonnet')
 binaries += collect_dynamic_libs('clr_loader')
-for package in ('misaki', 'spacy', 'thinc', 'regex', 'addict', 'numpy', 'en-core-web-sm', 'num2words'):
+for package in ('misaki', 'spacy', 'thinc', 'regex', 'addict', 'numpy', 'en-core-web-sm', 'num2words', 'pypdf'):
     datas += copy_metadata(package)
 
 excludes = ['tools', 'tests', 'kokoro_onnx', 'phonemizer', 'phonemizer_fork', 'espeakng_loader',

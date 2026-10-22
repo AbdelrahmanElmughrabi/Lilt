@@ -379,6 +379,9 @@ kbd { font: 9px 'Segoe UI', sans-serif; color: var(--ink); border: 1px solid var
 .processing-caption { color: var(--muted); font-size: 10px; line-height: 1.5; margin: 9px 0 0; }
 .live-metrics { display: flex; flex-wrap: wrap; gap: 5px 10px; font-size: 10px; color: var(--prose); margin: 9px 0 12px; }
 .live-metrics strong { color: var(--accent); font-weight: 600; }
+.hardware-usage { margin: 0 0 12px; }
+.hardware-usage > summary { color: var(--muted); cursor: pointer; font-size: 10px; }
+.hardware-usage .live-metrics { margin-bottom: 0; }
 .stream-status { font-size: 10px; color: var(--accent); font-weight: 500; letter-spacing: .2px; }
 .player-track .stream-status { color: var(--accent); }
 @media (max-width: 1100px) { .performance-presets { grid-template-columns: repeat(2,1fr); } .cache-controls, .speed-test { align-items: flex-start; flex-wrap: wrap; } }

@@ -4,6 +4,7 @@ pywebview==6.2.1
 pythonnet==3.2.0
 pycparser==3.0
 markdown-it-py==4.2.0
+pypdf @ https://files.pythonhosted.org/packages/1b/4d/c9d2d67f204eff463237a1a8f5e25a6923b7b1043982b91fcaf104c8ef60/pypdf-6.21.2-py3-none-any.whl#sha256=1d44d1a3a200f25062adff0085b02040e4646431ac2ccac22e42679e91466084
 soundfile==0.13.1
 psutil==7.2.2
 numpy==2.5.3

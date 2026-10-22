@@ -20,7 +20,7 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
     engine, identity = None, None
     process_pronunciation = pronunciation_identity()
 
-    def load(command, config=None):
+    def load(command, config=None, job_id=None):
         nonlocal engine, identity
         config = config or command['config']
         if pronunciation_identity() != process_pronunciation:
@@ -31,6 +31,8 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
                    json.dumps(pronunciation_identity(), sort_keys=True))
         if version != identity:
             engine = None
+            if job_id is not None:
+                events.put({'id': job_id, 'state': 'preparing', 'message': 'Loading model…'})
             engine = create_engine(model, voices, config)
             identity = version
         return engine
@@ -103,7 +105,7 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
             if not pronunciation_compatible(job.get('pronunciation_identity'), process_pronunciation):
                 raise ValueError('This reading uses different pronunciation files. Start a new reading after restarting Violilt.')
             priority(command['config'])
-            events.put({'id': key, 'state': 'preparing', 'message': 'Preparing your first words…'})
+            events.put({'id': key, 'state': 'preparing', 'message': 'Checking saved audio…'})
             for index, chunk in enumerate(job['chunks']):
                 if cancel.is_set():
                     events.put({'id': key, 'state': 'cancelled', 'message': 'Stopped. Your available audio and completed sections are saved.'})
@@ -116,9 +118,12 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
                     info, reusable = audio_info(path), True
                     hits += 1
                 if not reusable:
+                    voice_engine = load(command, job_id=key)
+                    if cancel.is_set():
+                        events.put({'id': key, 'state': 'cancelled', 'message': 'Stopped. Your available audio and completed sections are saved.'})
+                        break
                     events.put({'id': key, 'state': 'generating', 'completed': index, 'total': total,
-                                'message': f'Reading section {index + 1} of {total}'})
-                    voice_engine = load(command)
+                                'message': f'Model loaded. Generating section {index + 1} of {total}…'})
                     samples, rate = voice_engine.create(chunk['text'], voice=job['voice'], speed=job['speed'],
                                                         lang='en-gb' if job['voice'].startswith('b') else 'en-us')
                     section_warnings = list(getattr(voice_engine, 'last_pronunciation_warnings', []))
@@ -139,11 +144,12 @@ def speech_worker(commands, events, cancel, runtime_directory=None):
                 sections.append({'index': index, 'start': available, 'duration': info.frames / 24000, 'pause': pause})
                 available += info.frames / 24000 + pause
                 elapsed = time.perf_counter() - started
-                event = {'id': key, 'state': 'generating', 'completed': index + 1, 'total': total,
+                event = {'id': key, 'state': 'generating' if generated else 'preparing', 'completed': index + 1, 'total': total,
                          'sections': sections.copy(), 'available_duration': available, 'throughput': available / max(elapsed, 0.001),
                          'processing_seconds': elapsed, 'cache_hits': hits, 'generated_sections': generated,
                          'pronunciation_warnings': warnings.copy(),
-                         'message': f'{index + 1} of {total} sections ready to listen'}
+                         'message': (f'Reusing saved audio. {index + 1} of {total} sections ready to listen'
+                                     if reusable else f'{index + 1} of {total} sections ready to listen')}
                 if index == 0:
                     event['first_audio_seconds'] = max(0, time.time() - job.get('attempt_started', job['created']))
                 events.put(event)
