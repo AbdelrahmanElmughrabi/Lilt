@@ -183,7 +183,6 @@
               document = saved;
               dirty = false;
             }
-            await refresh();
           } catch (e) {
             if (document?.id === snapshot.id) dirty = true;
             throw e;
@@ -196,8 +195,12 @@
         throw e;
       }
       if (saveChain !== pending || (document && dirty)) continue;
-      // Normal saves refresh Spoken; closing only needs the durable writes.
-      if (prepareSpoken) await review();
+      // Refresh errors must not mark a durable write dirty or delay close.
+      // Normal saves update the shelf and Spoken; closing only needs the writes.
+      if (prepareSpoken) {
+        void refresh().catch(e => error = e instanceof Error ? e.message : String(e));
+        await review();
+      }
       if (saveChain === pending && (!document || !dirty)) return;
     }
   }

@@ -55,15 +55,19 @@ async function fixture(t) {
       processing_device: 'auto', gpu_device: -1, buffer_mode: 'balanced', auto_listen: false,
       warm_start: false, model_release: 'idle', cache_enabled: true, cache_limit_mb: 256};
     const controls = window.saveFixture = {documents, events: [], saves: [], preparations: [], generated: [],
-      holdSave: false, holdReview: false, failSave: false, closeMessages: []};
+      holdSave: false, holdReview: false, failSave: false, failState: false, holdState: false, closeMessages: []};
     window.chrome ||= {};
     window.chrome.webview = {postMessage: message => controls.closeMessages.push(message)};
     const prepared = text => ({title: 'Disposable reading', text, words: text.split(/\s+/).filter(Boolean).length,
       chunks: [{text, pause: 0.3, block: 0}], omissions: {code_blocks: 0, metadata: 0}, unread_count: 0});
     window.pywebview = {api: {
-      get_state: async () => ({documents: structuredClone(documents), jobs: [], active: null,
+      get_state: async () => {
+        if (controls.failState) throw new Error('Disposable refresh failure; document storage is healthy.');
+        if (controls.holdState) await new Promise(resolve => controls.releaseState = resolve);
+        return {documents: structuredClone(documents), jobs: [], active: null,
         model: {state: 'ready', percent: 100, message: 'Fixture only', voices: ['af_heart']},
-        settings, storage: 'Disposable fixture', performance: null, cache: {count: 0, bytes: 0, limit_mb: 256}}),
+        settings, storage: 'Disposable fixture', performance: null, cache: controls.cache || {count: 0, bytes: 0, limit_mb: 256}};
+      },
       get_document: async id => structuredClone(documents.find(doc => doc.id === id)),
       save_document: async (id, markdown) => {
         controls.events.push(['save-start', id, markdown]);
@@ -236,6 +240,47 @@ async function requestClose(page, id = 'close123') {
 }
 const closeReplies = page => page.evaluate(() => window.saveFixture.closeMessages.filter(message => message.type === 'violilt:close-response'));
 const closed = page => settle(page, () => window.saveFixture.closeMessages.some(message => message.type === 'violilt:close-response' && message.saved));
+
+test('failed refresh after durable save reports separately and close does not repeat the write', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.saveFixture.failState = true);
+  await editor(page).fill('Durable despite failed refresh.');
+  await page.keyboard.press('Control+s');
+  await page.getByRole('alert').filter({hasText: 'Disposable refresh failure'}).waitFor();
+  assert.equal((await state(page)).documents[0].markdown, 'Durable despite failed refresh.');
+  await requestClose(page);
+  await closed(page);
+  assert.equal((await state(page)).saves.length, 1);
+});
+
+test('held refresh after durable save cannot hold close approval', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.saveFixture.holdState = true);
+  await editor(page).fill('Durable despite held refresh.');
+  await page.keyboard.press('Control+s');
+  await settle(page, () => typeof window.saveFixture.releaseState === 'function');
+  await requestClose(page);
+  await closed(page);
+  assert.equal((await state(page)).documents[0].markdown, 'Durable despite held refresh.');
+  assert.equal((await state(page)).saves.length, 1);
+  await page.evaluate(() => { window.saveFixture.holdState = false; window.saveFixture.releaseState(); });
+});
+
+test('unavailable cache shows its status instead of a successful zero-count scan and recovers', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.saveFixture.cache = {available: false, count: null, bytes: null, limit_mb: 256,
+    message: 'Reusable audio could not be accessed. Readings can continue; your recordings are kept.'});
+  await page.clock.runFor(900);
+  await page.getByRole('button', {name: 'Settings', exact: true}).click();
+  const card = page.locator('.performance-card');
+  await card.getByRole('status').filter({hasText: 'Reusable audio could not be accessed'}).waitFor();
+  assert.equal(await card.getByText('0 passages', {exact: false}).count(), 0);
+  assert.equal(await card.getByRole('button', {name: 'Clear reusable audio'}).isDisabled(), true);
+  await page.evaluate(() => window.saveFixture.cache = {available: true, count: 2, bytes: 1048576, limit_mb: 256, message: ''});
+  await page.clock.runFor(900);
+  await card.getByText('2 passages · 1.0 MB.', {exact: false}).waitFor();
+  assert.equal(await card.getByRole('button', {name: 'Clear reusable audio'}).isDisabled(), false);
+});
 
 test('normal close saves the latest edit before its autosave timer and does not wait for Spoken preparation', async t => {
   const page = await fixture(t);

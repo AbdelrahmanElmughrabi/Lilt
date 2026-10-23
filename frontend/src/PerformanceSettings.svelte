@@ -41,5 +41,6 @@
   <div class="performance-divider"></div>
   <label class="toggle-row"><span>Reuse unchanged passages<small>Quicker repeats and small edits, saved locally</small></span><input type="checkbox" bind:checked={settings.cache_enabled} onchange={onchange} /><span class="toggle-track"></span></label>
   <div class="cache-controls"><label><span>Reusable audio limit</span><select aria-label="Cache limit" bind:value={settings.cache_limit_mb} onchange={onchange}>{#each [128,256,512] as limit}<option value={limit}>{limit} MB</option>{/each}</select></label><button class="secondary-button" disabled={busy || !cache.count} onclick={() => action('clear')}><Trash2 size={14} /> Clear reusable audio</button></div>
-  <p class="settings-hint">{cache.count || 0} passages · {((cache.bytes || 0)/1048576).toFixed(1)} MB. Clearing reusable audio keeps your recordings.</p>
+  {#if cache.available === false}<p class="settings-hint" role="status">{cache.message}</p>
+  {:else}<p class="settings-hint">{cache.count || 0} passages · {((cache.bytes || 0)/1048576).toFixed(1)} MB. Clearing reusable audio keeps your recordings.</p>{/if}
 </section>

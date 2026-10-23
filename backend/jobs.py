@@ -53,9 +53,11 @@ class Jobs:
         self.persistence_error = ''
         self._idle_storage_error = False
         self.performance = Performance(store, models) if models else None
-        self.cache = SectionCache(store.root / 'section-cache', store.settings()['cache_limit_mb'])
+        self.cache_root = store.root / 'section-cache'
+        self.cache = None
         self._identities = {}
         self._cache_sample = (0, {})
+        self.cache_state()
         for job in store.all('jobs'):
             if job['state'] not in TERMINAL:
                 job.update(state='interrupted', message='This reading was interrupted. Your completed sections are saved.')
@@ -239,7 +241,7 @@ class Jobs:
             self._worker()
             self.commands.put({'kind': 'generate', 'job': job, 'directory': str(self.store.root / 'jobs' / job['id']),
                                'config': config, 'voices': str(self.models.root / FILES[1]),
-                               'cache': str(self.cache.root), 'cache_enabled': settings['cache_enabled'],
+                               'cache': str(self.cache_root), 'cache_enabled': settings['cache_enabled'],
                                'cache_limit_mb': settings['cache_limit_mb']})
             return public_job(job)
 
@@ -329,16 +331,35 @@ class Jobs:
             return status
 
     def cache_state(self):
-        if time.monotonic() - self._cache_sample[0] > 3:
-            self._cache_sample = (time.monotonic(), self.cache.status())
-        return self._cache_sample[1] | {'limit_mb': self.store.settings()['cache_limit_mb']}
+        with self.lock:
+            # Settings are required library data; only optional cache I/O falls back.
+            limit = self.store.settings()['cache_limit_mb']
+            now = time.monotonic()
+            if not self._cache_sample[1] or now - self._cache_sample[0] > 3:
+                try:
+                    if self.cache is None:
+                        self.cache = SectionCache(self.cache_root, limit)
+                    status = self.cache.status() | {'available': True, 'message': ''}
+                except OSError:
+                    if self._cache_sample[1].get('available', True):
+                        logging.exception('Reusable audio could not be accessed; keeping the library available')
+                    self.cache = None
+                    status = {'available': False, 'count': None, 'bytes': None,
+                              'message': 'Reusable audio could not be accessed. Readings can continue; your recordings are kept.'}
+                self._cache_sample = (now, status)
+            return self._cache_sample[1] | {'limit_mb': limit}
 
     def clear_cache(self):
         with self.lock:
             if self.active or self.operation:
                 raise ValueError('Finish the current reading or speed test before clearing reusable audio.')
-            self.cache.clear()
-            self._cache_sample = (0, {})
+            try:
+                if self.cache is None:
+                    self.cache = SectionCache(self.cache_root, self.store.settings()['cache_limit_mb'])
+                self.cache.clear()
+            finally:
+                # A failed clear may have removed some files; old counts are stale.
+                self._cache_sample = (0, {})
         return True
 
     def _flush_persistence(self, force=False):
