@@ -387,6 +387,15 @@ class Jobs:
         self._pending_job = copy.deepcopy(job)
         self._flush_persistence()
 
+    def discard_recording_update(self, key):
+        """Cancel an obsolete snapshot after its recording was successfully removed."""
+        with self.lock:
+            if self._pending_job is not None and self._pending_job['id'] == key:
+                self._pending_job = None
+                if self._pending_benchmark is None:
+                    self.persistence_error = ''
+                    self._persistence_retry_at = 0
+
     def _require_persistence(self):
         self._flush_persistence(force=True)
         if self._pending_job is not None or self._pending_benchmark is not None:

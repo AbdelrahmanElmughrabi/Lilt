@@ -28,6 +28,9 @@ class IdleJobs:
     def state(self):
         return None
 
+    def discard_recording_update(self, key):
+        pass
+
 
 class BridgeTests(unittest.TestCase):
     def setUp(self):

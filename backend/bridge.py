@@ -136,6 +136,7 @@ class Bridge:
             if delete_audio and directory.is_dir():
                 shutil.rmtree(directory)
             self._store.remove("jobs", key)
+            self._jobs.discard_recording_update(key)
         return True
 
     def import_document(self):
