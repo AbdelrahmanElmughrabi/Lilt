@@ -369,15 +369,58 @@ class GpuSamplerTests(unittest.TestCase):
             query.assert_called_once_with(321)
             monitor.read(None)
 
-    def test_sampler_releases_counter_when_ui_stops_polling(self):
-        closed = threading.Event()
+    def assert_idle_sampler_closes(self, *, start_delay=0):
+        opened, closed = threading.Event(), threading.Event()
         monitor = gpu_usage.GpuUsage()
-        query = SimpleNamespace(read=lambda: [], close=closed.set)
+        query = SimpleNamespace(read=lambda: [], close=Mock(side_effect=closed.set))
+        threads = []
+
+        def create_thread(*args, **kwargs):
+            if start_delay:
+                target = kwargs['target']
+
+                def delayed(*target_args, **target_kwargs):
+                    # Deliberately hold startup beyond the fixture's idle limit.
+                    threading.Event().wait(start_delay)
+                    return target(*target_args, **target_kwargs)
+
+                kwargs['target'] = delayed
+            thread = threading.Thread(*args, **kwargs)
+            threads.append(thread)
+            return thread
+
+        local_threading = SimpleNamespace(Lock=threading.Lock, Event=threading.Event,
+                                          Thread=create_thread)
+
+        def open_query(pid):
+            opened.set()
+            return query
+
         with patch.object(gpu_usage, 'SAMPLE_SECONDS', .01), patch.object(gpu_usage, 'IDLE_SECONDS', .02), \
-             patch.object(gpu_usage, '_GpuQuery', return_value=query):
-            monitor.read(321)
-            self.assertTrue(closed.wait(1))
-            self.assertIsNone(monitor._pid)
+             patch.object(gpu_usage, 'threading', local_threading), \
+             patch.object(gpu_usage, '_GpuQuery', side_effect=open_query) as factory:
+            try:
+                monitor.read(321)
+                deadline = time.perf_counter() + 1
+                while not opened.wait(.005):
+                    self.assertLess(time.perf_counter(), deadline, 'GPU counter did not open.')
+                    monitor.read(321)
+                # Stop refreshing only once there is a query whose idle close is observable.
+                self.assertTrue(closed.wait(1))
+                self.assertIsNone(monitor._pid)
+                factory.assert_called_once_with(321)
+                query.close.assert_called_once_with()
+            finally:
+                monitor.read(None)
+                for thread in threads:
+                    thread.join(1)
+                    self.assertFalse(thread.is_alive(), 'GPU sampler survived fixture cleanup.')
+
+    def test_sampler_releases_counter_when_ui_stops_polling(self):
+        self.assert_idle_sampler_closes()
+
+    def test_sampler_releases_counter_after_delayed_thread_start(self):
+        self.assert_idle_sampler_closes(start_delay=.05)
 
 
 if __name__ == '__main__':
