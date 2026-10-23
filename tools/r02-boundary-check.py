@@ -188,11 +188,12 @@ def main():
                     evaluate('(() => {const frame = document.createElement("iframe"); frame.src = ' + json.dumps(foreign_url + 'frame') + '; document.body.append(frame); return true;})()')
                     time.sleep(.25)
                     cdp_run = subprocess.run([shutil.which('node'), str(ROOT / 'tools/r02-navigation-cdp.cjs'),
-                                              str(debug_port), foreign_url, str(output / 'cdp-results.json')],
+                                              str(debug_port), foreign_url, str(output / 'cdp-results.json'), server.url, marker],
                                              capture_output=True, text=True, encoding='utf-8', timeout=30)
                     (output / 'cdp.log').write_text(cdp_run.stdout + cdp_run.stderr, encoding='utf-8')
                     result['cdp'] = json.loads((output / 'cdp-results.json').read_text())
-                    assert cdp_run.returncode == 0
+                    assert cdp_run.returncode == 0, result['cdp']
+                    assert result['cdp'].get('success') is True, result['cdp']
                     result['native_after_cdp'] = {'source': ui(lambda core: str(core.Source)),
                         'dom': evaluate('({body:!!document.body,marker:window.__r02Marker,text:document.querySelector("textarea.markdown-editor")?.value})')}
                     assert result['native_after_cdp']['source'].rstrip('/') == server.url
