@@ -251,29 +251,36 @@ class Bridge:
                                                file_types=("WAV audio (*.wav)",))
         if not path:
             return None
-        target = Path(path if isinstance(path, str) else path[0])
-        if target.suffix.lower() != ".wav":
-            target = target.with_suffix(".wav")
-        source = self._store.root / "jobs" / key / "recording.wav"
-        if target.resolve() == source.resolve():
-            with open_pcm(source):
-                pass
-            return str(target)
-        if target.exists() and not self._window.create_confirmation_dialog("Replace recording?", f"Replace {target.name}?"):
-            return None
-        descriptor, name = tempfile.mkstemp(prefix='.violilt-export-', suffix='.part', dir=target.parent)
-        temporary = Path(name)
-        os.close(descriptor)
         try:
-            copy_pcm(source, temporary)
-            with temporary.open('rb+') as copied:
-                os.fsync(copied.fileno())
-            temporary.replace(target)
-        finally:
+            target = Path(path if isinstance(path, str) else path[0])
+            if target.suffix.lower() != ".wav":
+                target = target.with_suffix(".wav")
+            source = self._store.root / "jobs" / key / "recording.wav"
+            if target.resolve() == source.resolve():
+                with open_pcm(source):
+                    pass
+                return str(target)
+            if target.exists() and not self._window.create_confirmation_dialog("Replace recording?", f"Replace {target.name}?"):
+                return None
+            descriptor, name = tempfile.mkstemp(prefix='.violilt-export-', suffix='.part', dir=target.parent)
+            temporary = Path(name)
+            os.close(descriptor)
             try:
-                temporary.unlink(missing_ok=True)
-            except OSError:
-                logging.exception('Could not remove an incomplete export temporary file')
+                copy_pcm(source, temporary)
+                with temporary.open('rb+') as copied:
+                    os.fsync(copied.fileno())
+                temporary.replace(target)
+            finally:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    logging.exception('Could not remove an incomplete export temporary file')
+        except OSError as error:
+            logging.exception('Recording export failed')
+            error_type = next((kind for kind in (PermissionError, FileNotFoundError, FileExistsError,
+                               IsADirectoryError, NotADirectoryError, TimeoutError,
+                               BlockingIOError, InterruptedError) if isinstance(error, kind)), OSError)
+            raise error_type('The recording could not be exported. Choose an available, writable folder and try again.') from None
         return str(target)
 
     def setup_model(self):

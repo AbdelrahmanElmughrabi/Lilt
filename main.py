@@ -50,8 +50,8 @@ def _run_application(root, candidate, msix_probe, arguments, library):
     if not assets.is_dir():
         raise RuntimeError("Build the interface first: cd frontend && npm run build")
     store = Store(library)
-    logging.basicConfig(filename=str(store.root / "violilt.log"), level=logging.INFO,
-                        format="%(asctime)s %(levelname)s %(message)s")
+    from backend.local_logging import configure_local_logging
+    configure_local_logging(store.root)
     bundled_models = Path(sys.executable).parent / "models" if getattr(sys, "frozen", False) else None
     models = Models(store.root / "models", bundled_models)
     jobs = Jobs(store, models)
