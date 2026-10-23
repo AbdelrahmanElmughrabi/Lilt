@@ -15,6 +15,7 @@ from .models import FILES, GPU_FILE
 from .performance import Performance, model_identity
 from .pronunciation import pronunciation_compatible, pronunciation_identity
 from .runtime import gpu_runtime_directory
+from .runtime_diagnostics import DIAGNOSTICS_FAILURE_MESSAGE
 from .sections import listening_chunks, manifest, published_sections
 from .speech import speech_worker
 
@@ -42,6 +43,7 @@ class Jobs:
         self.context = mp.get_context('spawn')
         self.commands, self.events = self.context.Queue(), self.context.Queue()
         self.cancel = self.context.Event()
+        self.diagnostics_failed = self.context.Event()
         self.process, self.active, self.operation = None, None, None
         self.idle_since = None
         self.releasing = False
@@ -71,12 +73,20 @@ class Jobs:
             raise ValueError('The voice process is still releasing memory. Try again shortly.')
         if not self.process or not self.process.is_alive():
             if self.process:
+                # start() admits a reading during warmup. Settle that retiring
+                # worker's operation before its failure signal is discarded.
+                if self.active and self.operation == 'warmup':
+                    self.performance.warmup.update(state='failed',
+                        message=DIAGNOSTICS_FAILURE_MESSAGE if self.diagnostics_failed.is_set()
+                        else 'The speech process stopped. You can try again.')
+                    self.operation = None
                 self.process.join(timeout=0)
                 self.process.close()
                 self.process = None
                 self._reset_channels()
             self.process = self.context.Process(target=speech_worker,
-                args=(self.commands, self.events, self.cancel, gpu_runtime_directory()), daemon=True)
+                args=(self.commands, self.events, self.cancel, gpu_runtime_directory(),
+                      self.diagnostics_failed), daemon=True)
             self.process.start()
         self.idle_since = None
         self.release_error = ''
@@ -87,6 +97,7 @@ class Jobs:
         old_commands, old_events = self.commands, self.events
         self.commands, self.events = self.context.Queue(), self.context.Queue()
         self.cancel = self.context.Event()
+        self.diagnostics_failed = self.context.Event()
         for channel in (old_commands, old_events):
             channel.cancel_join_thread()
             channel.close()
@@ -118,7 +129,7 @@ class Jobs:
         self.releasing = False
         self.idle_since = None
         self.release_error = ''
-        if self.performance:
+        if self.performance and self.performance.warmup.get('state') != 'failed':
             self.performance.warmup = {'state': 'idle', 'message': 'Voice memory released. It reloads for your next reading.'}
         return True
 
@@ -419,12 +430,18 @@ class Jobs:
                         continue
                     self._flush_persistence()
                     if self.process and not self.process.is_alive():
+                        # This flag belongs to the current worker's channels and
+                        # is set before startup exits, independently of queued events.
+                        diagnostics_failed = self.diagnostics_failed.is_set()
                         if self.active:
-                            self.active.update(state='failed', message='The speech process stopped. Your completed sections are saved.')
+                            self.active.update(state='failed', message=DIAGNOSTICS_FAILURE_MESSAGE if diagnostics_failed
+                                               else 'The speech process stopped. Your completed sections are saved.')
                             self._save_progress(self.active)
                             self.active = None
                         if self.operation:
-                            getattr(self.performance, self.operation).update(state='failed', message='The speech process stopped. You can try again.')
+                            getattr(self.performance, self.operation).update(state='failed',
+                                message=DIAGNOSTICS_FAILURE_MESSAGE if diagnostics_failed
+                                else 'The speech process stopped. You can try again.')
                             self.operation = None
                     self._release_if_idle()
                 continue

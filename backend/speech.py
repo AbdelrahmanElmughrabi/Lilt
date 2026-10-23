@@ -10,10 +10,20 @@ import uuid
 from pathlib import Path
 
 
-def speech_worker(commands, events, cancel, runtime_directory=None):
+def speech_worker(commands, events, cancel, runtime_directory=None, diagnostics_failed=None):
     if runtime_directory:
         from .runtime import activate_gpu_runtime
         activate_gpu_runtime(runtime_directory)
+    from .runtime_diagnostics import RuntimeDiagnosticsError, load_onnx_runtime
+    try:
+        load_onnx_runtime()
+    except RuntimeDiagnosticsError:
+        if diagnostics_failed is None:
+            raise
+        # A dedicated synchronous signal survives startup exit without relying
+        # on the event queue's feeder. Never transport the vendor exception.
+        diagnostics_failed.set()
+        return
     import numpy as np
     import soundfile as sf
     from .cache import SectionCache, audio_info, section_key

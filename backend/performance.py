@@ -13,6 +13,7 @@ from .devices import gpu_adapters
 from .gpu_usage import GpuUsage
 from .models import FILES, GPU_FILE
 from .pronunciation import pronunciation_identity
+from .runtime_diagnostics import load_onnx_runtime
 
 DEFAULTS = {'performance_mode': 'balanced', 'cpu_threads': 0, 'processing_device': 'auto',
             'gpu_device': -1, 'buffer_mode': 'balanced', 'auto_listen': True,
@@ -60,7 +61,7 @@ def create_engine(model, voices, config):
     if config['provider'] == 'CUDAExecutionProvider':
         from .runtime import load_cuda_libraries
         load_cuda_libraries()
-    import onnxruntime as ort
+    ort = load_onnx_runtime()
     from .kokoro_engine import Kokoro
     options = ort.SessionOptions()
     options.intra_op_num_threads = int(config['threads'])
@@ -89,7 +90,7 @@ def create_engine(model, voices, config):
 class Performance:
     def __init__(self, store, models):
         import psutil
-        import onnxruntime as ort
+        ort = load_onnx_runtime()
         self.store, self.models = store, models
         self.logical = psutil.cpu_count() or 1
         self.physical = psutil.cpu_count(logical=False) or self.logical

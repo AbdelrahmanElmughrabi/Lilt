@@ -13,7 +13,7 @@ from backend.performance import validate
 from backend.storage import Store
 
 
-def idle_worker(commands, events, cancel, runtime_directory=None):
+def idle_worker(commands, events, cancel, runtime_directory=None, diagnostics_failed=None):
     while True:
         command = commands.get()
         if command is None:
