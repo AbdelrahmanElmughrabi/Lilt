@@ -8,10 +8,20 @@ Local commits record completed work; they do not independently approve a release
 
 | Work | Current source position | Remaining release boundary |
 | --- | --- | --- |
-| R-01/R-02 | Normal-close work and all three returned R-02 corrections are implemented and locally validated. The corrections cover optional-cache isolation/save-refresh separation, recording-removal versus pending retries, and truthful CDP navigation acceptance. | Combined independent R-01/R-02 acceptance remains pending in the coordinator's recorded evidence. Final-package repetitions belong to the later campaign. |
+| R-01/R-02 | Normal-close work and all three returned R-02 corrections have independent source acceptance. The 24 October reconciliation found the existing 23 October final verdict applicable to d04b077, including the later reviewed R-05 overlap. | Accepted scope is the three returned corrections and affected durable-save/normal-close boundary. The new R-11 keyboard delta has local checks and separate independent review pending. Final-package checks belong to the later campaign. |
 | R-03 | Earlier bounded PCM/audio, isolated runtime selection and DOMPurify work is already committed in 60ebd2c. The GPU idle test fixture correction has scoped independent acceptance. Audio/runtime/sanitizer and Expat investigations have local evidence. The bounded native correspondence batch resolved specific supplier identities and recorded remaining component facts. | Applicable independent implementation/security dispositions remain. A missing supplier/build fact is not automatically a new defect: state the material security question, sufficient evidence or reviewed disposition, and owner. Test-directory cleanup has no demonstrated normal-use defect; its deferral is proposed. Final native inclusion/changed-boundary checks await the actual candidate. |
 | R-04 | Selected-component rights/provenance investigation and staged drafts are complete for their recorded inputs. | Independent review and the precise rights, source-delivery, attribution/notice, replacement and publisher-fact gaps remain. An inventory, hash or report alone is not redistribution clearance. |
 | R-05 | Diagnostic-control requests, startup failure/replacement handling, test cleanup, local logging/export corrections and retention source/procedure work have scoped source passes. No known unfixed R-05 source defect remains in those reviewed batches. | F04 policy/notices/contact/hosting preparation and integration remain. Actual native diagnostic effects, installed protection, retention and update/uninstall behavior need the final shared package campaign. Do not claim zero traffic, complete diagnostic suppression, encryption or secure erasure from source checks. |
+| R-11 first keyboard batch | Two source-line changes preserve native Performance details activation on Space and restore recording-search keyboard focus. Canonical isolated frontend build passed with zero Svelte errors/warnings; seven focused browser cases and three affected save/close guards pass locally. | Independent review of this delta remains pending. Other modal/popup-focus and semantic findings need their own bounded disposition; hardware/performance, actual screen-reader, contrast/scaling and final installed evidence remain open. This is not full R-11 acceptance. |
+
+Local evidence: [R-01/R-02 acceptance reconciliation](../.tmp/r01-r02-independent-20261024-85ba1516/reconciliation.md)
+and [R-11 keyboard/focus batch](../.tmp/r11-keyboard-focus-20261024-6d8e2b41/REPORT.md).
+The R-11 source/test changes form a separate keyboard/focus checkpoint; independent
+review remains pending. Its preserved baseline reproduced
+the summary/playback collision and absent search focus across four palette/theme
+combinations. Initial sandbox browser/build failures remain recorded separately;
+the successful local runs used existing tools outside that tool sandbox. No native
+app, real speech worker, inference, EXE/MSIX build or installation ran in this batch.
 
 The R-03 and R-05 chats finished their current authorized batches. Do not restart
 accepted unchanged work for repository organization. Reopen a boundary for a
@@ -20,7 +30,8 @@ Existing independent reviews remain scoped to the exact bytes they inspected.
 
 ## Local action commits
 
-Six code/test commits replace the previously uncommitted combined working state.
+The initial organization recorded six code/test commits from the previously
+uncommitted combined working state.
 Review corrections are grouped with their coherent final implementation rather
 than reconstructing invented intermediate history. Earlier commits are unchanged.
 
@@ -32,9 +43,10 @@ than reconstructing invented intermediate history. Earlier commits are unchanged
 | R03-01 | f361966d3a4c | GPU idle fixture observes query acquisition before release; delayed-start and fixture-cleanup regression coverage. No GPU product change. |
 | R05-01 | f1526ad34271 | ONNX non-essential diagnostic-control requests and fixed startup guidance, worker-owned failure signal, failed-warmup replacement settlement and tests. |
 | R05-02 | 16ea9a6500f3 | Bounded content-minimized local logging and actionable export failures with supported built-in error compatibility and tests. |
-| Organization | This documentation commit | Current release/source record, documentation pointers and exclusions for new detailed session journals. |
+| Organization | d04b07723f90 | Current release/source record, documentation pointers and exclusions for new detailed session journals. |
+| R11-01 | Keyboard/focus checkpoint (this change) | Native summary Space activation, recording-search keyboard focus, seven focused browser cases and the R-01/R-02 acceptance reconciliation. Independent R-11 review remains pending. |
 
-There is one new R-03 code/test commit, two R-05 implementation commits, three
+The initial organization contains one R-03 code/test commit, two R-05 implementation commits, three
 R-02 correction commits and one organization commit. R-04 and R-05 retention
 investigation/procedure notes required no additional application-code commit.
 The earlier R-01/R-03 checkpoint in 60ebd2c is not split or rewritten.

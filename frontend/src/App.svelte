@@ -371,7 +371,7 @@
     const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName);
     if ((event.ctrlKey || event.metaKey) && event.key === 'o') { event.preventDefault(); void importDocument(); }
     if ((event.ctrlKey || event.metaKey) && event.key === 's') { event.preventDefault(); void act(flushSave); }
-    if (event.code === 'Space' && !editing && selectedJob && !(event.target as HTMLElement)?.closest('button')) { event.preventDefault(); void togglePlay(); }
+    if (event.code === 'Space' && !editing && selectedJob && !(event.target as HTMLElement)?.closest('button, summary')) { event.preventDefault(); void togglePlay(); }
     if (event.key === 'Escape') { help = false; removal = null; voiceMenu = false; shelf = false; }
   }
 
