@@ -20,6 +20,10 @@ from .settings import validate_settings
 from .windows_shell import select_file
 
 DOCUMENT_SUFFIXES = {'.md', '.markdown', '.txt', '.pdf'}
+MICROSOFT_PRIVACY_LINKS = {
+    'privacy-statement': 'https://privacy.microsoft.com/privacystatement',
+    'smartscreen': 'https://learn.microsoft.com/en-us/legal/microsoft-edge/privacy#smartscreen',
+}
 
 
 class Bridge:
@@ -51,6 +55,16 @@ class Bridge:
 
     def get_stream(self, key):
         return self._jobs.stream(key)
+
+    def open_microsoft_privacy(self, reference):
+        # The bridge accepts reference IDs, never caller-provided URLs.
+        if type(reference) is not str or reference not in MICROSOFT_PRIVACY_LINKS:
+            raise ValueError('Choose a Microsoft privacy reference from the notice.')
+        try:
+            os.startfile(MICROSOFT_PRIVACY_LINKS[reference])
+        except OSError as exc:
+            raise RuntimeError('The browser could not be opened. Retry, or copy the address shown in the notice into your browser.') from exc
+        return True
 
     def start_benchmark(self):
         return self._jobs.benchmark()

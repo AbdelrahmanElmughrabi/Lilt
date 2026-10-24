@@ -12,9 +12,10 @@
   import DocumentFind from './DocumentFind.svelte';
   import brandIcon from './assets/violilt.png';
   import PerformanceSettings from './PerformanceSettings.svelte';
+  import MicrosoftNotice from './MicrosoftNotice.svelte';
   import { primeAudio, StreamPlayer } from './stream-player';
 
-  let api: API;
+  let api = $state.raw<API>(null!);
   let ready = $state(false);
   let startupError = $state('');
   let starting = false;
@@ -34,6 +35,8 @@
   let error = $state('');
   let dismissedRecoveryCount = $state(0);
   let help = $state(false);
+  // Re-display for every window, including existing libraries and upgrades.
+  let microsoftNotice = $state(true);
   let removal = $state<{ id: string; title: string; kind: 'document' | 'recording' } | null>(null);
   let deleteAudio = $state(false);
   let fileMenu = $state<FileMenu | null>(null);
@@ -239,7 +242,7 @@
   function requestNativeClose(event: Event) {
     const id = (event as CustomEvent<{ id?: unknown }>).detail?.id;
     if (closeRequest || typeof id !== 'string' || !/^[A-Za-z0-9]{1,64}$/.test(id)) return;
-    help = false; removal = null; fileMenu = null; voiceMenu = false;
+    microsoftNotice = false; help = false; removal = null; fileMenu = null; voiceMenu = false;
     closeRequest = id;
     void saveBeforeClose();
   }
@@ -362,6 +365,10 @@
     busy = false;
   }
   function keyboard(event: KeyboardEvent) {
+    if (microsoftNotice) {
+      if ((event.ctrlKey || event.metaKey) && ['o', 's'].includes(event.key)) event.preventDefault();
+      return; // Let the native dialog handle Tab, Enter, Space and Escape.
+    }
     if (!ready) return;
     if (closeRequest) {
       if ((event.ctrlKey || event.metaKey) && ['o', 's'].includes(event.key)) event.preventDefault();
@@ -417,7 +424,7 @@
 <svelte:window onkeydown={keyboard} />
 
 <div class:dark class="app-shell" data-palette={settings.palette}>
-  <FileDrop enabled={ready && !closeRequest} importFiles={importDroppedFiles} />
+  <FileDrop enabled={ready && !closeRequest && !microsoftNotice} importFiles={importDroppedFiles} />
   <aside class:opened={shelf} class="sidebar">
     <button class="brand" onclick={showHome} disabled={!ready} aria-label="Violilt home"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Violilt<span>YOUR WORDS, OUT LOUD</span></span></button>
     <div class="sidebar-rule"></div>
@@ -558,7 +565,9 @@
     <audio bind:this={audio} preload="metadata" src={selectedJob && !streaming ? `/media/${selectedJob.id}.wav` : undefined} onloadedmetadata={loadedAudio} ontimeupdate={timeUpdate} onplay={() => { if (!streaming) playing = true; }} onpause={() => { if (!streaming) { playing = false; if (selectedJob) void api.save_position(selectedJob.id, position); } }} onended={() => { if (!streaming) playing = false; }} onerror={() => { if (selectedJob && !streaming) error = 'This recording could not be opened. Check that its audio file is still available.'; }}></audio>
   </div>
   {#if toast}<div class="toast" role="status"><Check size={17} />{toast}<button title="Dismiss notification" onclick={() => toast = ''}><X size={15} /></button></div>{/if}
-  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Violilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Violilt is your local reading room. Bring Markdown, TXT or PDF, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import document <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Speech and documents stay in the local app. On Windows, Microsoft's WebView2 runtime has its own diagnostic behavior.</p></dialog>
+  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Violilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Violilt is your local reading room. Bring Markdown, TXT or PDF, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import document <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Narration processes your documents on this device. Microsoft's WebView2 runtime also handles security and diagnostic information.</p><button class="secondary-button" onclick={() => microsoftNotice = true}>Microsoft services &amp; privacy</button></dialog>
+
+  <MicrosoftNotice bind:open={microsoftNotice} {api} />
   {#if fileMenu}
     {#key fileMenu}<FileContextMenu menu={fileMenu} canDelete={!busy && (fileMenu.item.kind === 'document' || ['completed', 'cancelled', 'failed', 'interrupted'].includes(fileMenu.item.state || ''))} close={() => fileMenu = null} remove={requestFileRemoval} reveal={revealFile} />{/key}
   {/if}

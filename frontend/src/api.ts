@@ -40,6 +40,7 @@ export type API = {
   export_recording(id: string): Promise<string | null>;
   setup_model(): Promise<Model>;
   import_model(): Promise<Model | null>;
+  open_microsoft_privacy(reference: 'privacy-statement' | 'smartscreen'): Promise<boolean>;
 };
 
 declare global { interface Window { pywebview?: { api: API } } }
@@ -94,6 +95,7 @@ export async function getAPI(): Promise<{ api: API; preview: boolean }> {
     save_settings: async value => (settings = value),
     generate: unavailable, preview_voice: unavailable, cancel_generation: unavailable, resume_job: unavailable,
     save_position: async () => true, export_recording: unavailable, setup_model: unavailable, import_model: unavailable,
+    open_microsoft_privacy: unavailable,
   };
   return { api, preview: true };
 }
