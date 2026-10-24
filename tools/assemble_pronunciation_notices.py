@@ -154,6 +154,17 @@ def assemble(output: Path, frontend_directory: Path | None = None) -> dict:
     native.mkdir(exist_ok=True)
     additional = {
         'Python-LICENSE.txt': Path(sys.base_prefix) / 'LICENSE.txt',
+        # Supplement the runtime license with separate embedded-library and
+        # stdlib attributions. These fixed inputs follow the selected runtime;
+        # source/recipe references are not exact compiled-build attestations.
+        'Expat-2.8.5-COPYING.txt': ROOT / 'thirdparty/licenses/Expat-2.8.5-COPYING.txt',
+        'base-runtime-libffi-LICENSE.txt': ROOT / 'thirdparty/licenses/CPython-source-deps-16fad485-libffi-LICENSE.txt',
+        'CFFI-2.1.1-embedded-libffi-LICENSE.txt': ROOT / 'thirdparty/licenses/CFFI-2.1.1-embedded-libffi-LICENSE.txt',
+        'CPython-3.12.15-stdlib-notices.rst': ROOT / 'thirdparty/licenses/CPython-3.12.15-stdlib-notices.rst',
+        'CPython-3.12-mpdecimal-LICENSE.txt': ROOT / 'thirdparty/licenses/CPython-3.12-mpdecimal-LICENSE.txt',
+        'LGPL-2.1.txt': ROOT / 'thirdparty/licenses/LGPL-2.1.txt',
+        'MPL-2.0.txt': ROOT / 'thirdparty/licenses/MPL-2.0.txt',
+        'DOMPurify-3.4.17-license-choice.txt': ROOT / 'thirdparty/licenses/DOMPurify-3.4.17-license-choice.txt',
         'WebView2-SDK-LICENSE.txt': ROOT / 'thirdparty/licenses/WebView2-SDK-1.0.3856.49-LICENSE.txt',
         'WebView2-SDK-NOTICE.txt': ROOT / 'thirdparty/licenses/WebView2-SDK-1.0.3856.49-NOTICE.txt',
         'kokoro-onnx-MIT-LICENSE.txt': ROOT / 'thirdparty/licenses/kokoro-onnx-0.6.1-LICENSE.txt',

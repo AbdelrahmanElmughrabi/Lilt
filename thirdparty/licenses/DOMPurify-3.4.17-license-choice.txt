@@ -1,0 +1,14 @@
+# DOMPurify 3.4.17 license choice
+
+Violilt selects Apache License 2.0 for DOMPurify 3.4.17 under the package's
+Apache-2.0 OR MPL-2.0 alternative. This choice concerns DOMPurify only.
+
+The complete Apache-2.0 text is retained at native/Apache-2.0.txt. The complete
+installed DOMPurify license is also retained in the frontend notice collection.
+Retain applicable DOMPurify copyright, attribution and NOTICE material, including
+notices carried by bundled/minified code; record any distributed modifications
+as required by Apache-2.0. Minification does not waive those conditions.
+
+Sources: exact npm metadata https://registry.npmjs.org/dompurify/3.4.17
+and tagged license https://github.com/cure53/DOMPurify/blob/3.4.17/LICENSE .
+This choice does not establish which other frontend modules a final bundle contains.

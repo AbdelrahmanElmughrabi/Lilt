@@ -28,3 +28,46 @@ collected from the installed candidate distributions by the notice assembler.
 These notices do not cover the separate Microsoft VC/UCRT or NVIDIA runtime
 redistribution questions. Exact native artifact/source and model provenance review
 remain documented release gates.
+
+## Selected-runtime and frontend supplements
+
+The collector retains these additions alongside every existing package notice;
+they do not replace NumPy's legal files, both ONNX Runtime notice sets, spaCy's
+WordNet terms, Lucide/Feather, WebView2, or other existing notices.
+
+- Expat 2.8.5: verbatim `R_2_8_5/COPYING`. The actual selected Windows runtime
+  records Expat 2.8.5; the generic PBS table's 2.9.0 is a different declaration.
+  https://github.com/libexpat/libexpat/blob/R_2_8_5/COPYING
+- Base-runtime libffi: verbatim LICENSE at the Windows recipe's pinned CPython
+  source-deps commit `16fad4855b3d8c03b5910e405ff3a04395b39a98` (copyright through
+  2021). The recipe candidate declares 3.4.2; no measured compiled version/patch
+  set is asserted for `libffi-8.dll`. This supersedes the older generic PBS
+  1996-2019 candidate as the proposed source-pin notice, preserving prior evidence.
+  https://github.com/python/cpython-source-deps/blob/16fad4855b3d8c03b5910e405ff3a04395b39a98/LICENSE
+- CFFI 2.1.1 embedded libffi: distinct verbatim `src/c/libffi_x86_x64/LICENSE`,
+  copyright 1996-2003 Red Hat. Tagged MSVC setup compiles that directory;
+  CFFI's top-level MIT-0 label does not replace this attribution.
+  https://github.com/python-cffi/cffi/blob/v2.1.1/src/c/libffi_x86_x64/LICENSE
+- CPython 3.12.15 stdlib: complete versioned `Doc/license.rst`, retained
+  conservatively alongside the actual runtime's LICENSE.txt. This upstream list
+  calls itself incomplete; sections for optional/unshipped modules do not prove
+  inclusion. Its older OpenSSL discussion is historical, not the governing license
+  of selected OpenSSL 3.5.9. The selected Apache-2.0 text remains retained.
+  https://github.com/python/cpython/blob/v3.12.15/Doc/license.rst
+- libmpdec: PBS's tagged notice (copyright 2008-2020 Stefan Krah), whose complete
+  permission/disclaimer also appears in the selected CPython document's libmpdec
+  section. CPython 3.12's Windows recipe uses bundled libmpdec; final `_decimal`
+  inclusion still requires final-payload reconciliation.
+  https://github.com/astral-sh/python-build-standalone/blob/20261021/LICENSE.mpdecimal.txt
+- Full LGPL-2.1 and MPL-2.0 texts supplement, never replace, component-specific
+  notices and matched source archives. Source access and any LGPL section 6
+  arrangement need their separate completed release materials.
+  https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+  https://www.mozilla.org/MPL/2.0/
+- DOMPurify 3.4.17: `DOMPurify-3.4.17-license-choice.txt` documents the Apache
+  alternative. Existing frontend notices and the generic Apache text remain.
+
+These additions are scoped notice inputs. Binary/build correspondence, vendor
+authority, matching covered source, practical replacement and actual final
+payload inclusion remain separate reviews. Runtime/package changes require the
+affected versioned texts and mappings to be reviewed again.
