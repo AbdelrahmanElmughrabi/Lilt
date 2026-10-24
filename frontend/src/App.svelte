@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, untrack } from 'svelte';
+  import { onMount, onDestroy, tick, untrack } from 'svelte';
   import { House } from '@lucide/svelte';
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
@@ -51,6 +51,10 @@
   let closeAttempt = 0;
   let shelf = $state(false);
   let voiceMenu = $state(false);
+  let voiceTrigger = $state<HTMLButtonElement>();
+  let voicePopup = $state<HTMLDivElement>();
+  let shelfTrigger: HTMLButtonElement;
+  let shelfPanel: HTMLElement;
   let query = $state('');
   let audio: HTMLAudioElement;
   let selectedJob = $state<Job | null>(null);
@@ -364,6 +368,33 @@
     });
     busy = false;
   }
+  function capturePopupFocus(region: HTMLElement | undefined, trigger: HTMLButtonElement | undefined) {
+    const focused = window.document.activeElement;
+    return region && trigger && focused && region.contains(focused) ? { region, trigger, focused } : null;
+  }
+  async function restorePopupFocus(focus: ReturnType<typeof capturePopupFocus>, closed: () => boolean, hidden = false) {
+    if (!focus) return;
+    await tick();
+    const { region, trigger, focused } = focus;
+    const current = window.document.activeElement;
+    if (!closed() || closeRequest || window.document.querySelector('dialog[open]')) return;
+    if (hidden && getComputedStyle(region).display !== 'none') return;
+    // A different control may intentionally acquire focus while dismissal renders.
+    if (current && current !== window.document.body && current !== focused) return;
+    if (!trigger.isConnected || trigger.disabled || !trigger.getClientRects().length || getComputedStyle(trigger).visibility === 'hidden') return;
+    trigger.focus({ preventScroll: true });
+  }
+  function closeVoiceMenu() {
+    const focus = capturePopupFocus(voicePopup, voiceTrigger);
+    voiceMenu = false;
+    void restorePopupFocus(focus, () => !voiceMenu);
+  }
+  function dismissPopups() {
+    const voiceFocus = voiceMenu ? capturePopupFocus(voicePopup, voiceTrigger) : null;
+    const shelfFocus = !voiceFocus && shelf ? capturePopupFocus(shelfPanel, shelfTrigger) : null;
+    voiceMenu = false; shelf = false;
+    void restorePopupFocus(voiceFocus || shelfFocus, () => !voiceMenu && !shelf, !!shelfFocus);
+  }
   function keyboard(event: KeyboardEvent) {
     if (microsoftNotice) {
       if ((event.ctrlKey || event.metaKey) && ['o', 's'].includes(event.key)) event.preventDefault();
@@ -374,12 +405,16 @@
       if ((event.ctrlKey || event.metaKey) && ['o', 's'].includes(event.key)) event.preventDefault();
       return;
     }
+    if (help || removal || window.document.querySelector('dialog[open]')) {
+      if ((event.ctrlKey || event.metaKey) && ['o', 's'].includes(event.key.toLowerCase())) event.preventDefault();
+      return; // Preserve native modal button activation and Escape cancellation.
+    }
     if (fileMenu) return;
     const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName);
     if ((event.ctrlKey || event.metaKey) && event.key === 'o') { event.preventDefault(); void importDocument(); }
     if ((event.ctrlKey || event.metaKey) && event.key === 's') { event.preventDefault(); void act(flushSave); }
     if (event.code === 'Space' && !editing && selectedJob && !(event.target as HTMLElement)?.closest('button, summary')) { event.preventDefault(); void togglePlay(); }
-    if (event.key === 'Escape') { help = false; removal = null; voiceMenu = false; shelf = false; }
+    if (event.key === 'Escape') { help = false; removal = null; dismissPopups(); }
   }
 
   async function initialize() {
@@ -425,7 +460,7 @@
 
 <div class:dark class="app-shell" data-palette={settings.palette}>
   <FileDrop enabled={ready && !closeRequest && !microsoftNotice} importFiles={importDroppedFiles} />
-  <aside class:opened={shelf} class="sidebar">
+  <aside bind:this={shelfPanel} class:opened={shelf} class="sidebar">
     <button class="brand" onclick={showHome} disabled={!ready} aria-label="Violilt home"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Violilt<span>YOUR WORDS, OUT LOUD</span></span></button>
     <div class="sidebar-rule"></div>
     <nav aria-label="Main navigation">
@@ -450,7 +485,7 @@
 
   <div class="workspace">
     <header class="topbar">
-      <div class="breadcrumb"><button class="shelf-toggle" title="Toggle shelf" onclick={() => shelf = !shelf}><PanelLeft size={18} /></button><span>Workspace</span><span class="breadcrumb-slash">/</span><strong>{page === 'home' ? 'Home' : page === 'studio' ? 'Reading room' : page === 'library' ? 'Recordings' : 'Settings'}</strong></div>
+      <div class="breadcrumb"><button bind:this={shelfTrigger} class="shelf-toggle" title="Toggle shelf" onclick={() => shelf = !shelf}><PanelLeft size={18} /></button><span>Workspace</span><span class="breadcrumb-slash">/</span><strong>{page === 'home' ? 'Home' : page === 'studio' ? 'Reading room' : page === 'library' ? 'Recordings' : 'Settings'}</strong></div>
       <div class="top-actions">{#if preview}<span class="preview-label">Interface preview</span>{/if}<button class="engine-pill" disabled={!ready} onclick={() => page = 'settings'}><span class:ready={engineReady} class="status-dot"></span>{engineReady ? 'Voice engine ready' : appState?.model.state === 'downloading' ? 'Setting up voices' : 'Voice setup'}<ArrowUpRight size={13} /></button><span class="top-separator"></span><button class="import-button" onclick={importDocument} disabled={!ready}><FolderOpen size={16} /> Import document <span>Ctrl O</span></button></div>
     </header>
 
@@ -498,8 +533,8 @@
           <h2>Find your rhythm.</h2>
           <p class="panel-intro">A voice that feels right.<br />A pace that feels like you.</p>
           <div class="voice-art" aria-hidden="true"><div class="orb-rings"><span></span><span></span><span></span><span></span></div><div class="art-caption">a little warmth<br />in every word.</div><span class="art-number">01 / VOICE</span></div>
-          <div class="voice-selector-wrap"><button class:expanded={voiceMenu} class="voice-selector" onclick={() => voiceMenu = !voiceMenu} aria-expanded={voiceMenu}><div><small>YOUR NARRATOR</small><strong>{voice.name}</strong><span>{voice.accent}</span></div><ChevronDown size={17} /></button>
-            {#if voiceMenu}<div class="voice-menu">{#each voices as item}<button class:selected={item === settings.voice} onclick={() => { settings.voice = item; voiceMenu = false; void changeSettings(); }}><span>{voiceDetails[item]?.name || item.split('_').slice(1).join(' ')}<small>{item.startsWith('b') ? 'British' : 'American'} · {item.includes('m_') ? 'Male' : 'Female'}</small></span>{#if item === settings.voice}<Check size={16} />{/if}</button>{/each}</div>{/if}
+          <div class="voice-selector-wrap"><button bind:this={voiceTrigger} class:expanded={voiceMenu} class="voice-selector" onclick={() => voiceMenu = !voiceMenu} aria-expanded={voiceMenu}><div><small>YOUR NARRATOR</small><strong>{voice.name}</strong><span>{voice.accent}</span></div><ChevronDown size={17} /></button>
+            {#if voiceMenu}<div bind:this={voicePopup} class="voice-menu">{#each voices as item}<button class:selected={item === settings.voice} onclick={() => { settings.voice = item; closeVoiceMenu(); void changeSettings(); }}><span>{voiceDetails[item]?.name || item.split('_').slice(1).join(' ')}<small>{item.startsWith('b') ? 'British' : 'American'} · {item.includes('m_') ? 'Male' : 'Female'}</small></span>{#if item === settings.voice}<Check size={16} />{/if}</button>{/each}</div>{/if}
           </div>
           <button class="preview-voice" onclick={voicePreview} disabled={!!active || testing || busy}><Play size={13} fill="currentColor" /> Listen to a sample <span>{active?.preview ? 'Preparing…' : '≈ 8 sec'}</span></button>
           <div class="control-group"><div class="control-label"><span>Narration speed</span><strong>{settings.speed.toFixed(1)}<small>×</small></strong></div><input type="range" min="0.5" max="2" step="0.1" aria-label="Narration speed" bind:value={settings.speed} onchange={changeSettings} /><div class="range-labels"><span>A little slower</span><span>A little quicker</span></div></div>
