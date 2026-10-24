@@ -1,5 +1,169 @@
 # Violilt Microsoft Store release — handoff
 
+> **Current checkpoint — 24 October 2026:** [Source and release status](release-source-status.md)
+> supersedes the dated progress/paused language below. Completed R-03/R-05 batches
+> are organized into coherent local commits; R-05's recorded source corrections
+> are accepted within scope. Remaining reviews, security/rights decisions, notices
+> and final-package gates are explicit there. Detailed session journals are in the
+> separate Obsidian archive; local originals and earlier evidence are preserved.
+> This organization does not reopen investigations or approve publication.
+
+## Final returned R-02 finding corrected; combined review pending — 23 October 2026
+
+[Navigation-helper results](r02-navigation-helper-results-2026-10-23.md),
+[combined independent-review prompt](r02-corrections-independent-verification-prompt.md).
+Publisher authorized the last unresolved returned finding. The helper now requires
+exact app URL/document marker and valid body/assignment/runtime observations;
+errors, missing identity and timeouts fail. Its Python caller checks JSON success
+and exit code, then independently checks native state. Browser.close is not used.
+
+Same 21 offline VM checks: old helper 2 passed/19 failed; corrected helper 21 passed.
+A real debug-off native navigation workflow passed with the corrected tools,
+including fresh/old API replies, UI, CDP disconnect retaining the native document,
+and normal close preserving newest synthetic text in SQLite. Preliminary foreign
+GETs occurred without Referer/Cookie; no zero-network or installed-package claim.
+Evidence: `.tmp/r02-cdp-fix-20261023-2f7d8c51/`, including all 230 starting input
+copies, exact hashes, outcomes and native results. Product/frontend/assets stayed
+unchanged; no build, dependency or R-03 work.
+
+All three returned findings V-02-01/02/03 have locally validated corrections;
+independent acceptance of combined R-01/R-02 remains pending. Prior reports and
+evidence remain preserved with shared-input drift explicit. Deferred P3 native
+destroy-error wording remains separate. R-03 engineering stays paused, Argon is
+off the project and R-11 work needs review/assignment. All remaining rights/privacy/
+package/installed/update/performance/accessibility/certification gates remain open;
+actual final MSIX testing on another machine is mandatory. No installs, Git
+mutation, personal data, package build/install, publication or cross-chat messages.
+
+## R-02 removal/retry correction locally validated — 23 October 2026
+
+[Reasoning/results](r02-removal-retry-results-2026-10-23.md),
+[independent-review prompt](r02-removal-retry-independent-verification-prompt.md).
+The publisher authorized tracing, investigation, planning and correction, with
+brief reasoning before edits. Real-listener reproduction showed deleted failed/
+cancelled rows returning after approximately two seconds for both audio choices.
+The existing shared lock now protects successful deletion plus cancellation of
+only that recording's pending update. Failed deletions retain queued metadata;
+unrelated pending writes/warnings remain. No frontend/build/dependency changes.
+
+66 focused tests passed, including ten new removal methods and the cache guards.
+Four real-listener cases now stay absent after natural retries and reopened SQLite;
+an unrelated pending benchmark still saves and clears its warning afterward.
+Evidence/input snapshots: `.tmp/r02-removal-fix-20261023-849e3c2a/`. Before-fix
+assertion failures, natural resurrection and the completed baseline's lingering
+sandbox wrapper/interruption are retained separately. No broad R-03 reruns.
+
+Both V-02-01/02 remain pending independent acceptance. The review hub now targets
+this removal batch, preserving the cache report/evidence and recording shared
+source/index drift. V-02-03 navigation-helper repair remains next. R-03 engineering
+stays paused with its unexplained observations/unaccepted dispositions; Argon is
+off the project and R-11 work needs review/future assignment. All rights/privacy/
+exact-package/installed/update/performance/accessibility/certification gates remain;
+actual final MSIX testing on another machine is mandatory. No installs, Git
+mutation, personal data, package operation, publication or cross-chat messages.
+
+## R-02 cache correction locally validated — 23 October 2026
+
+[Correction/results](r02-cache-fix-results-2026-10-23.md),
+[independent-review prompt](r02-cache-fix-independent-verification-prompt.md).
+Publisher authorized implementation and confirmed Argon is off the project;
+this chat owned affected frontend files/build. Previous R-11 work still needs
+correction/review and future implementation assignment.
+
+V-02-01 now contains optional parent cache errors, uses existing sampling for
+recovery, reports unknown counts truthfully, preserves clear errors/worker path,
+and separates durable writes from optional refresh. Four product source files
+and two tests changed. 56 focused backend tests, 18 browser tests, clean Svelte
+check/build and five actual debug-off native scenarios passed (six runs, including
+one targeted capture repeat). SQLite reopening verified newest text; true write
+failure still blocks until retry. Old-source failures and sandbox-limited attempts
+are preserved in `.tmp/r02-cache-fix-20261023-6c9a2b71/`, along with exact input,
+evidence and build records. Previous shared assets remain preserved.
+
+Independent acceptance is pending. The review hub targets this correction;
+R-05 remains available for its recorded snapshot. V-02-02/03, paused R-03 and its
+unaccepted dispositions/unexplained tests, R-04/R-05 and all package/installed/
+update/other-machine/R-11/R-12 gates remain open. Actual final MSIX testing on
+another machine is mandatory. No real inference, R-03 remediation, installation,
+Git mutation, EXE/MSIX, personal library, publication or cross-chat messages.
+Earlier entries are historical and do not assign current work to Argon.
+
+## R-02 cache current-code baseline captured — 22 October 2026
+
+[Trace/results and real screenshots](r02-cache-baseline-2026-10-22.md),
+[correction plan/resolution record](r02-cache-failure-plan-2026-10-22.md).
+Publisher requested a visible debugging view before implementation. Six backend
+diagnostic cases and three completed actual-main debug-off native cases were
+recorded in `.tmp/r02-cache-trace-20261022-7a2d65c0/`. Healthy caching/close pass
+their controls; injected optional-cache failure still blocks close after a
+durable write; required-write failure correctly blocks close. Failed sandboxed
+native attempts are preserved separately, including loopback network denial.
+No source/shared-test/dependency/asset fix or build. Resolution and independent
+acceptance remain pending; R-03 stays paused and all release gates remain.
+
+## R-02 cache problem and correction order recorded — 22 October 2026
+
+[Problem/correction/resolution record](r02-cache-failure-plan-2026-10-22.md).
+Publisher requested a durable explanation before discussing implementation.
+Normal caching passed recorded paths; deliberate disposable fault injection
+exposed optional parent-cache coupling and save/refresh error-boundary defects.
+The record separates trigger, cause, planned correction, acceptance and eventual
+resolution. No fix or new app test is claimed. Correct responsibilities and
+failure behavior before message polish; verify recovery and actual save/close,
+then record results and independent review. Argon overlap remains coordinated
+through the publisher, R-03 stays paused and all release gates remain open.
+
+## Execution priorities clarified — 22 October 2026
+
+The publisher wants required application improvements completed and reviewed
+before building the release candidate. Follow the [canonical execution order](release-readiness.md#execution-order--finish-the-application-before-the-final-build):
+R-02 correctness fixes first; finish necessary R-11/R-05 source work and resolve
+release-input obligations; validate/review/freeze; build the candidate; test the
+exact final package/installation/update/another-machine boundaries; finish
+submission readiness. R numbers are work groups, not a rigid execution sequence.
+R-03 engineering remains paused until directed; its unresolved acceptance still
+prevents treating the selected runtime as final. Parallel rights/privacy review
+and publisher preparation can continue without overlapping product edits.
+Website hosting can follow later before submission. One planned candidate build
+is the goal; a package-discovered defect may require a rebuild. All release
+gates and publisher-mediated ownership/authorization limits remain unchanged.
+This update is documentation only; the R-05 review snapshot is preserved.
+
+## R-05 privacy investigation prepared by release coordinator — 22 October 2026
+
+[R-05 results/data-retention map](r05-results-2026-10-22.md),
+[trace/plan](r05-trace-plan-2026-10-22.md),
+[internal policy draft](r05-privacy-policy-draft-2026-10-22.md),
+[next runtime/installed plan](r05-runtime-validation-plan-2026-10-22.md) and
+[independent-review prompt](r05-independent-verification-prompt.md).
+Publisher authorized the bounded trace/investigation/documentation batch and
+will prepare the website later. Local evidence: eight data-lifecycle groups
+passed; a separate real export-error/pywebview dispatcher probe confirmed local
+path-bearing diagnostics. Synthetic fixtures only; idle fake Jobs in data tests,
+no native app/inference/traffic capture. Independent review and R-05 release
+closure remain open. No product/shared-test/dependency/frontend-dist changes.
+
+Evidence `.tmp/r05-20261022-privacy-a73f9b24/` preserves earlier index contents,
+202 before-input hashes, 35 supplemental source/runtime inputs, new manifests,
+probes/logs/results and primary references. HEAD remains `eda83ed`; existing
+working documents were preserved. Coordinator owns canonical indexes; previous
+chat remains Argon's R-11 validator. Product/build overlap is coordinated through
+the publisher. R-02 findings remain unresolved and R-03 engineering remains
+paused, including Expat 2.8.5 and mixed cleanup/GPU-deadline observations. All
+other gates remain, especially actual final-MSIX testing on another machine.
+No installation, Git mutation, personal-library access, package operation,
+security-setting change, publication or cross-chat message occurred.
+
+## Release coordination separated from Argon validation — 22 October 2026
+
+**Current continuation:** [release coordinator handoff and new-chat prompt](release-coordinator-continuation-2026-10-22.md). The publisher wants this chat to remain Argon's independent R-11 validator and a separate chat to continue the checklist. Argon's actual authorized accessibility investigation was reviewed read-only: **needs fixes, approximately 5/10** for evidence/plan; no implementation accepted. The [correction prompt](r11-argon-plan-correction-prompt.md) requests a preserved revision before fixes; delivery/completion is unconfirmed. Earlier statements that no Argon output had been reviewed are historical. R-02 corrections remain the recommended next release engineering batch; coordinate shared App.svelte/build ownership. R-04 rights/provenance and publisher preparation can progress independently when directed. R-03 engineering remains paused and final-MSIX testing on another machine remains mandatory. This update changes documentation only.
+
+## Release-chat continuation and Argon review — 22 October 2026
+
+**Latest continuation entry: [release continuation and Argon review handoff](store-release-continuation-handoff-2026-10-22.md).** It carries the committed `60ebd2c` / `eda83ed` checkpoint, unresolved R-02/R-03 findings, release priorities and copyable new-chat prompt. R-03 engineering stays paused. The publisher explicitly will not use our drafted Argon prompt; Argon may already be planning or acting under other instructions. Review its actual instructions/report/changes read-only first; earlier “Argon trace/plan-only” statements are not evidence of its actual authorization or execution. No Argon result has been reviewed here.
+
+This continuation update changes documentation only. New handoff/index hashes postdate the pause checkpoint; original batch manifests/evidence remain unchanged. No new tests, installations, package operations, commits or publication.
+
 ## R-03 paused; new-chat checkpoint recorded — 22 October 2026
 
 The publisher paused implementation and requested a complete record for another chat. **Start with [the paused R-03 handoff](r03-paused-handoff-2026-10-22.md) and [copyable new-chat prompt](r03-new-chat-prompt.md).** It records changes, runtime paths, passing/failing checks, unresolved causes, Expat dispositions, harness mistakes, existing work and release boundaries. This turn performed documentation/snapshot bookkeeping only; no fixes, tests, installs or package operations resumed.

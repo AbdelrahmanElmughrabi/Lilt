@@ -77,3 +77,10 @@ Desktop.ini
 /.obsidian/
 /tools/prepare_vault_handoff.py
 /tools/update_branding_notes.py
+
+# Detailed release-session journals are maintained in the separate Obsidian vault.
+# Local originals remain for sealed review references; tracked history stays tracked.
+/docs/r[0-9][0-9]-*.md
+/docs/diagnostics-*.md
+/docs/release-coordinator-continuation-*.md
+/docs/store-release-continuation-handoff-*.md

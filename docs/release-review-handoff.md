@@ -1,5 +1,15 @@
 # Release review handoff
 
+> **Current checkpoint — 24 October 2026:** Consult [source/release status](release-source-status.md)
+> before selecting any review target. The R-05 retention, logging/export, cleanup
+> and final startup-seam source passes are returned; old "running/pending" rows
+> below are dated records. R-03 dispositions and the recorded R-01/R-02 combined
+> acceptance remain separate. Reuse unchanged verdicts and review only a concrete
+> changed or uncovered boundary. No new review, execution or publication is
+> authorized merely by this index update.
+
+**Current continuation context — 23 October:** Latest ready target is the combined correction of all three returned R-02 findings, including affected R-01 save/close behavior. All are locally corrected, pending independent acceptance. The latest tooling batch leaves product/frontend/assets unchanged. Prior cache/removal/R-05 snapshots and their limits remain preserved. R-03 engineering remains paused; all release gates remain open. Argon is off the project; R-11 correction/review/assignment remain open. The previous validation chat remains independent and is not automatically retargeted. Publisher carries prompts/results; no automatic messages. HEAD remains `eda83ed`; implementation is uncommitted.
+
 Agreed with the publisher on 22 October 2026. This file is the reusable entry point for the independent review chat. After each R item is ready, the implementation chat adds a batch entry and supplies its review link. The publisher sends the prompt below to the review chat and brings its report back here. No automatic cross-chat messages are authorized.
 
 ## Prompt to send each time
@@ -16,6 +26,92 @@ check input hashes before and after and do not combine different snapshots silen
 Use this same prompt for each newly completed R item. The latest entry below identifies what is ready; planned/in-progress items are not automatically part of the review.
 
 ## Latest ready batch
+
+**Combined R-02 V-02-01/02/03 corrections and affected R-01 boundary — locally
+validated; independent acceptance pending.**
+[Latest navigation-helper results](r02-navigation-helper-results-2026-10-23.md),
+[cache results](r02-cache-fix-results-2026-10-23.md),
+[removal/retry results](r02-removal-retry-results-2026-10-23.md),
+[combined batch-specific prompt](r02-corrections-independent-verification-prompt.md).
+
+Latest exact inputs/evidence: `.tmp/r02-cdp-fix-20261023-2f7d8c51/`, with 230
+starting copies, final manifest/integrity/validation, before/after VM logs and
+actual debug-off native navigation results. The unchanged helper failed 19 of
+21 checks; the corrected helper passed all 21. Real native checks passed URL/
+marker preservation, API/UI after canceled navigation/CDP, and durable close.
+No product/frontend/dependency/asset change or build in the latest tooling batch.
+Prior 66 backend/18 editor-browser/native results retain their separate recorded
+scopes; do not add them into a new combined-suite count. Check exact snapshot
+changes and the cache report's earlier harness-provenance limitation.
+
+Review all three corrections and relevant R-01 overlap; no known returned finding
+remains unimplemented, but independent review may identify more. Deferred P3
+native-error wording, R-03 engineering pause/unaccepted dispositions/unknown tests,
+R-04/R-05 and all final package/installed/update/performance/accessibility/
+certification gates remain. Actual final MSIX on another machine is mandatory.
+
+## Previous ready batch — V-02-02 removal snapshot retained
+
+**R-02 V-02-02 removal/retry correction — implemented and locally validated;
+independent acceptance pending.**
+[Reasoning/results](r02-removal-retry-results-2026-10-23.md),
+[batch-specific review prompt](r02-removal-retry-independent-verification-prompt.md).
+
+Evidence: `.tmp/r02-removal-fix-20261023-849e3c2a/`; read `PLAN.md`, `before.json`,
+all 227 copied starting inputs, final hashes/integrity/validation, test logs and
+before/after real-listener results. Two backend files/two tests and coordinator
+indexes changed; frontend source/assets and all prior evidence are preserved.
+66 focused tests passed; four real-listener terminal/audio combinations stay
+removed after natural retry/shutdown while an unrelated benchmark still saves.
+Earlier assertion failures and four reproduced resurrection cases remain recorded.
+The completed sandbox baseline wrapper lingered and was interrupted; no shell
+zero-exit pass is claimed for it. Post-correction acceptance completed normally.
+
+Review the removal boundary and relevant shared cache behavior; prior native
+results are for their recorded source bytes. Both V-02-01/02 require independent
+acceptance. V-02-03 remains next; R-03 engineering remains paused. All other release
+gates, including actual final MSIX on another machine, remain open.
+
+## Previous ready batch — V-02-01 cache snapshot retained
+
+**R-02 V-02-01 cache/save-close correction — implemented and locally validated;
+independent acceptance pending.**
+[Results](r02-cache-fix-results-2026-10-23.md),
+[problem/plan](r02-cache-failure-plan-2026-10-22.md),
+[before-fix baseline](r02-cache-baseline-2026-10-22.md),
+[batch-specific review prompt](r02-cache-fix-independent-verification-prompt.md).
+
+Evidence: `.tmp/r02-cache-fix-20261023-6c9a2b71/`; inspect `source-hashes.json`,
+`before.json`, `after-integrity.json`, `validation.json`, build provenance,
+scoped logs and native results. Four product source files/two tests and built
+assets changed; old assets/evidence remain preserved. 56 focused backend tests,
+18 browser checks, clean Svelte check/build and five actual debug-off native
+scenarios passed (six runs including a capture repeat). This is local source
+validation, not independent, installed or release acceptance. V-02-02/03 and
+R-01/R-02 closure remain pending. R-03 engineering stays paused. All separate
+rights/privacy/package/installed/update/performance/accessibility/certification
+and mandatory final-MSIX-on-another-machine gates remain open.
+
+## Previous ready batch — R-05 snapshot retained
+
+**R-05 privacy investigation and disclosure preparation — locally complete;
+independent review pending; R-05 release gate open.**
+[Results/data map](r05-results-2026-10-22.md),
+[trace/plan](r05-trace-plan-2026-10-22.md),
+[internal draft](r05-privacy-policy-draft-2026-10-22.md),
+[future runtime plan](r05-runtime-validation-plan-2026-10-22.md),
+[batch-specific review prompt](r05-independent-verification-prompt.md).
+
+| Field | R-05 review target |
+| --- | --- |
+| Exact evidence | `.tmp/r05-20261022-privacy-a73f9b24/`, final `source-hashes.json`, before/supplemental manifests, preserved prior indexes, probes/results/logs, primary-reference records and validation/integrity records |
+| Base | `eda83ed1c4742b8585d68a1ce267225ca28d6bdd`; earlier modified/untracked documents preserved |
+| Executed | Eight asserted synthetic data-lifecycle groups; real export-error/pywebview dispatcher with five outcome checks plus fixture guard; source/vendor inspection and documentation/hash checks |
+| Changes | New R-05 documents/evidence and additive coordinator/privacy index updates only; no application/shared test/dependency/asset edits, native app/traffic capture or package operations |
+| Scope left open | Runtime/native-setting and CPU/GPU diagnostic effects, installed ACL/privacy/update/uninstall behavior, chosen controls/retention, publisher/contact/public URL and final disclosures |
+| Other work | Previous chat retains R-11 validation; R-02 unresolved; R-03 engineering paused; every final-package/other-machine/rights/certification gate remains |
+
+## Earlier ready batch — paused R-03 remediation
 
 **Current publisher instruction: R-03 implementation is paused.** The publisher requested documentation for a new chat. Read [the paused handoff](r03-paused-handoff-2026-10-22.md) and [new-chat prompt](r03-new-chat-prompt.md) first. Do not automatically launch more tests/fixes from this index. OneDrive is disabled per the publisher. The historical update manifest omitted `build.ps1`; the [pause-checkpoint manifest](../.tmp/r03-updates-20261022/handoff-checkpoint/source-hashes.json) includes current root build inputs. Prior manifests/evidence remain unchanged. This is documentation-time bookkeeping, not new test or package approval.
 
@@ -60,6 +156,7 @@ For every R item, follow **trace → plan → implement/investigate → validate
 
 | Batch | Implementation/evidence | Independent review |
 | --- | --- | --- |
+| R-05 investigation/documentation | [Results](r05-results-2026-10-22.md), [review prompt](r05-independent-verification-prompt.md), new manifests/evidence and provisional disclosure/runtime plans; no product controls | Pending scoped investigation review. R-05 runtime/installed/disclosure and release closure remain open. |
 | R-01 | [Normal-close report](r01-save-on-close-2026-10-22.md); original eleven-file manifest retained under `.tmp/r01-close-20261022/` | Pending; use the combined R-02 target for the changed native boundary. No prior verdict is assumed. |
 | R-02 + R-01 overlap | [R-02 report](r02-results-2026-10-22.md), [review prompt](r02-independent-verification-prompt.md), combined 69-file manifest | [Needs fixes](../.tmp/r02-independent-20261022-3d986790/review.md): parent cache, deletion/retry and helper acceptance; source remediation pending. |
 | R-03 investigation | [R-03 report](r03-results-2026-10-22.md), [review prompt](r03-independent-verification-prompt.md), new input/evidence manifest | [Scoped investigation pass](../.tmp/r03-independent-20261022-b019f803/review.md); runtime/audio/native coverage unresolved, sanitizer recommended, Expat 2.9.0 note recorded. |

@@ -1,5 +1,23 @@
 # Privacy release review
 
+> **Current checkpoint — 24 October 2026:** [Source/release status](release-source-status.md)
+> records accepted R-05 diagnostic-control/startup, local logging/export and
+> retention source milestones. The older trace below predates those changes.
+> Final policy/notices/contact preparation and native/installed privacy/lifecycle
+> checks remain; no optional publisher collection is included in this release.
+> Detailed dated reports are preserved in the separate Obsidian archive and local
+> ignored originals. Source acceptance is not proof of zero traffic or final
+> installed privacy acceptance.
+
+Current continuation: [R-05 investigation/results](r05-results-2026-10-22.md),
+[internal policy draft](r05-privacy-policy-draft-2026-10-22.md),
+[next runtime/installed plan](r05-runtime-validation-plan-2026-10-22.md) and
+[independent-review prompt](r05-independent-verification-prompt.md).
+The 22 October source/synthetic investigation is locally complete; independent
+acceptance and R-05 release closure remain open. Publisher website preparation
+is deferred; no final public policy or product control was applied. The dated
+trace below is preserved as historical evidence with its original scope.
+
 Traced 21 October 2026 against the hardened working tree and its separate CPU/GPU evaluation build. This is internal release evidence, **not a published privacy policy**. Publisher/contact details, public URLs, retention choices and installed-package verification remain open.
 
 ## Trace and proposed decisions

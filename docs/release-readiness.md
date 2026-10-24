@@ -1,10 +1,19 @@
 # Violilt release readiness
 
-Continuation notes: [handoff](C:/Users/fireball/OneDrive/Desktop/LiltTTS/docs/HANDOFF.md).
+Continuation notes: [handoff](HANDOFF.md).
+
+> **Current checkpoint — 24 October 2026:** [Source and release status](release-source-status.md)
+> controls the current source acceptance and commit map. Dated entries below retain
+> their historical scope. R-03/R-05 current batches are finished; R-05 source fixes
+> have scoped passes. Outstanding reviews/dispositions, R-04 rights, R-05 notices
+> and final-package/installed gates remain. Do not repeat accepted unchanged work
+> or interpret every missing build fact as an automatic product defect.
+
+**Current coordination — 23 October:** All three returned R-02 findings now have locally validated corrections: [cache/save-close](r02-cache-fix-results-2026-10-23.md), [removal/retry](r02-removal-retry-results-2026-10-23.md), and [navigation-helper acceptance](r02-navigation-helper-results-2026-10-23.md). [Combined independent review](r02-corrections-independent-verification-prompt.md) is pending; R-01/R-02 are not accepted as complete. Product/frontend/assets were unchanged in the last tooling batch. Prior snapshots remain preserved with explicit drift. Argon is off the project; R-11 correction/review/future assignment remain open. This coordinator owns the checklist; the previous validation chat remains independent. [R-05 investigation/draft](r05-results-2026-10-22.md) remains available for its recorded snapshot, with final privacy checks/review and website preparation open/deferred. HEAD remains `eda83ed`. R-03 engineering stays paused; actual final-MSIX testing on another machine is mandatory.
 
 **R-03 is paused at the publisher's request.** [Complete paused handoff](r03-paused-handoff-2026-10-22.md), [new-chat prompt](r03-new-chat-prompt.md). Documentation/snapshot bookkeeping only was authorized after the pause. Expat coverage, cleanup/GPU deadline findings and independent acceptance remain open. OneDrive functionality is disabled; do not use its folder name as a cause. The new pause checkpoint covers root build inputs omitted from the earlier update manifest. No final EXE/MSIX validation or publication approval follows from these records.
 
-Updated 22 October 2026. This combines the [release plan](ms-store-release.md), [security investigation](security-investigation-2026-10-21.md), and subsequent release review. The investigation remains historical evidence; this checklist tracks the work that follows it. Release scope: x64 Windows desktop MSIX, proprietary Violilt code, local English TTS, CPU and optional NVIDIA GPU support, Store-delivered updates. Pricing remains undecided; free without ads is the recommendation, not a final publisher decision. No ads or payments are being added.
+Updated 23 October 2026. This combines the [release plan](ms-store-release.md), [security investigation](security-investigation-2026-10-21.md), and subsequent release review. The investigation remains historical evidence; this checklist tracks the work that follows it. Release scope: x64 Windows desktop MSIX, proprietary Violilt code, local English TTS, CPU and optional NVIDIA GPU support, Store-delivered updates. Pricing remains undecided; free without ads is the recommendation, not a final publisher decision. No ads or payments are being added.
 
 ## Working method
 
@@ -17,6 +26,49 @@ Status: **passed** means evidence exists for the stated scope; **confirmed issue
 ## Release priorities agreed 22 October 2026
 
 This section controls the current sequencing and distinguishes release gates from improvements that can wait. Earlier test/build results remain evidence for their recorded revisions, not approval for the current package. These are project release gates; Microsoft certification is a separate decision.
+
+### Execution order — finish the application before the final build
+
+The publisher wants required application improvements finished and reviewed
+before producing the release candidate. R numbers identify work groups; they
+are not an instruction to build at R-06 before addressing R-11 application work.
+
+| Priority | Work and completion boundary |
+| --- | --- |
+| 1. Fix known application blockers | All three returned R-02 findings are corrected and locally validated. Complete combined independent R-01/R-02 review and reconcile any findings before closing that gate. The separate P3 native destroy-error wording remains deferred. Argon is off the project; previous R-11 correction/review and future assignment remain open. |
+| 2. Finish required version-1 source work | Complete reviewed R-11 keyboard/focus/usability corrections and any necessary performance work, then chosen R-05 diagnostic/log controls and notices. Resolve R-04 obligations that affect shipped inputs before freezing them. R-03 runtime/security and unexplained tests must also receive a supported disposition and independent acceptance before selecting final release inputs, but its engineering remains paused until the publisher resumes it. Unaffected source work can continue during that pause. |
+| 3. Validate and freeze the release inputs | Complete appropriate source checks and independent reviews; reconcile returned findings. Confirm production identity/version and required package configuration. Record the exact reviewed source, dependencies, models, assets and build configuration. Source preparation may exercise R-07 feature cases, but cannot close its package gate. |
+| 4. Build the candidate | R-06: produce fresh EXE/MSIX outputs from those fixed inputs, with inventories, hashes and payload audit. Aim for one planned candidate build after known changes; rebuild if actual package defects or required input changes demand it. No build is authorized by this ordering note. |
+| 5. Validate those exact outputs | R-07 final-package features, R-08 installed behavior, R-09 updates/data lifecycle and mandatory R-10 actual final-MSIX testing on another machine. Include applicable final R-05 privacy/ACL, R-11 performance/accessibility and R-12 certification checks. Keep low-end/no-GPU and supported NVIDIA evidence as needed. |
+| 6. Finish submission readiness | Finalize verified privacy/support pages, listing, price/markets and publisher requirements; reconcile every remaining gate and request publication authorization. Exact production identity is needed before the final MSIX; website publication can be prepared later, before submission. |
+
+Parallel preparation: R-04 rights/provenance, R-05 investigation review, test-case
+preparation, hardware arrangements and publisher/account/listing decisions can
+advance without shared product edits. Website hosting does not block source
+improvements. Optional feature expansion and nonessential polish can follow
+release unless a finding establishes a blocker; the plan is not an open-ended
+redesign. Preserve prior evidence and avoid changing inputs under review.
+
+**Current next acceptance step: independent review of the completed R-02 corrections.**
+All three returned findings are locally corrected; use the [combined review prompt](r02-corrections-independent-verification-prompt.md). Local checks do not close R-01/R-02 or any package/release gate.
+R-05 remains available for its historical snapshot; its runtime/control batch
+is a later action. Argon is off the project; previous R-11 work needs review and future assignment.
+R-03 remains paused. This prioritization changes no authorization or gate status.
+
+For the first R-02 correction, use the [cache failure problem and resolution plan](r02-cache-failure-plan-2026-10-22.md):
+deliberate fault injection exposed an optional-dependency/error-boundary defect;
+normal caching was not established to be broken. Engineering order is reproduce
+and define responsibilities → correct cache isolation and save/refresh separation
+→ complete truthful fallback/recovery → validate actual workflows and independently
+review. Design regression checks before edits. Harden acceptance tooling before
+relying on it; message polish follows behavioral correctness. The resolution
+record now links the locally validated correction; independent acceptance remains pending.
+
+Step 1 now has a [fresh current-code trace and visible baseline](r02-cache-baseline-2026-10-22.md):
+six backend diagnostic cases and three completed native cases distinguish
+healthy operation, the optional-cache/durable-save defect and correct blocking
+on a required-write error. Actual screenshots and retained failed sandbox runs
+are included. This is baseline evidence; no product correction is accepted.
 
 ### Evidence carried forward
 
@@ -35,13 +87,13 @@ This section controls the current sequencing and distinguishes release gates fro
 - [ ] **R-02 — Resolve remaining behavior/security questions. Independent review needs fixes.** Original [results](r02-results-2026-10-22.md) retain their scoped normal-path passes. [Independent findings](../.tmp/r02-independent-20261022-3d986790/review.md) require parent optional-cache/startup/save-close degradation, recommend removal/retry coordination and correction of the CDP helper's false-success path. R-01 overlaps the close/state-refresh boundary. [Fix plan](r03-review-reconciliation-2026-10-22.md) recorded; no remediation applied in reconciliation. Preliminary navigation GETs/raw known-ID access remain documented limits; installed checks remain separate.
 - [ ] **R-03 — Refresh advisory coverage. Investigation accepted; combined remediation/dispositions awaiting independent review.** [Audio fix](r03-audio-remediation-results-2026-10-22.md), [authorized runtime/sanitizer update results](r03-runtime-sanitizer-results-2026-10-22.md), [combined review prompt](r03-updates-independent-verification-prompt.md). Selected Python 3.12.15/OpenSSL 3.5.9 and DOMPurify 3.4.17 are implemented in isolated build inputs; prior environments preserved. Windows Expat is actually 2.8.5: proposed architecture/bounded-caller dispositions for the two 2.9.0 CVEs need independent acceptance, with no backport claim. CPU/CUDA/browser/native/media checks passed. Both corrected comparisons passed 305 methods (304 passed/one skipped); ordinary runs show unresolved cleanup errors or a GPU-counter one-second deadline failure. Focused GPU suites pass on both runtimes; no assertions relaxed. Exact final native coverage remains open. Empty feeds/version labels are not blanket clearance.
 - [ ] **R-04 — Complete exact redistribution evidence.** Resolve rights/notices for the shipped models, voices, dictionaries and native runtimes, including required source/replacement arrangements. File hashes alone do not establish distribution rights. Check required app/license terms against the exact components.
-- [ ] **R-05 — Complete privacy and data-policy review.** Verify shipped runtime traffic/diagnostics, logs, storage, export/deletion and retention; prepare accurate public/in-app disclosures. Preserve security protections such as SmartScreen. Test chosen controls in parent/worker processes as applicable; do not claim all processing-related diagnostics stay on the device without evidence.
+- [ ] **R-05 — Complete privacy and data-policy review. Scoped source/synthetic investigation complete; independent acceptance and release closure open.** [Results/data map](r05-results-2026-10-22.md), [internal disclosure draft](r05-privacy-policy-draft-2026-10-22.md), [next runtime/installed plan](r05-runtime-validation-plan-2026-10-22.md), [review prompt](r05-independent-verification-prompt.md). Eight data-lifecycle acceptance groups and a separate real-export-error/dispatcher probe passed. Retained snapshots/backups/recovery/cache and local path-bearing diagnostics are documented; no live app traffic/native-setting measurement or product control was performed. Choose diagnostic/log/retention behavior, verify parent/CPU/GPU worker and installed evidence, finalize policy/contact/hosting later, and preserve SmartScreen. No claim of zero traffic, app encryption or secure erasure.
 - [ ] **R-06 — Finalize production identity/configuration and build.** Obtain the intended publisher identity, then build fresh EXE/MSIX outputs from the reviewed revision with pinned inputs, a clean build environment and recorded inventories/hashes. Audit actual frozen/external payloads, approved model/GPU bytes and eSpeak exclusion; exclude unintended development material, secrets, test fixtures and personal libraries. Environment recreation is a final-build check, not a requirement after every small change.
 - [ ] **R-07 — Verify current features in the final package.** Exercise frozen PDF spawning, TXT/PDF errors and limits, title preservation, save/Spoken behavior and normal-close fix, native drop, generation feedback, CPU/CUDA generation and GPU-counter recovery, playback and restart. Include normal debug-off use; older/source-only passes do not clear this package.
 - [ ] **R-08 — Verify installed production-MSIX behavior and failure cases.** Check standard-user app operation, installed identity/permissions, workers/DLL loading, WebView2, dialogs/drop and offline launch. Exercise unavailable WebView2, unsupported/missing GPU or drivers, low GPU memory and blocked/interrupted model fallback setup as relevant; establish clear recovery/errors. Do not change system security settings to manufacture a pass.
 - [ ] **R-09 — Rehearse updates and the data lifecycle.** Update an older installed test version containing synthetic data; confirm documents/audio/settings/positions survive. Define and test interruption/recovery and any supported rollback procedure, separately from database recovery. Verify uninstall/reinstall retention against the stated policy; do not assume arbitrary package downgrades are supported.
 - [ ] **R-10 — Test the actual final MSIX on another machine (mandatory).** Use a separate machine without development-tool/project dependencies, preferably a clean physical CPU-only Windows PC near the proposed minimum. Exercise installation, imports, saving/closing/reopening, CPU generation/playback, offline operation, update retention and uninstall/reinstall. Portable/extracted payload tests are insufficient. Obtain separate low-end/no-GPU evidence if this machine does not cover it, and verify final-package CUDA on supported NVIDIA hardware.
-- [ ] **R-11 — Establish supported performance and accessibility.** Measure startup, first-audio time and memory on the supported baseline; choose minimum Windows/RAM/hardware commitments from results. Check core keyboard/focus, screen-reader names/state, contrast and text scaling.
+- [ ] **R-11 — Establish supported performance and accessibility. Accessibility investigation reviewed; corrections required, no implementation accepted.** Argon's source/synthetic-browser findings and plan contain material contradictions and acceptance-harness gaps; use the [review summary/work split](release-coordinator-continuation-2026-10-22.md) and [correction prompt](r11-argon-plan-correction-prompt.md). Measure startup, first-audio time and memory on the supported baseline; choose minimum Windows/RAM/hardware commitments from results. Check core keyboard/focus, actual screen-reader names/state, contrast and text scaling. The investigation does not close these gates.
 - [ ] **R-12 — Finish final certification and publisher readiness.** Run applicable WACK and local malware checks on the exact submission package; investigate failures. Finalize account/name verification, MFA/recovery, price/markets, support/privacy pages, age rating, listing assets, accurate feature/dependency requirements and capability/certification notes. Review policies effective at submission. Establish support/security reporting and a rehearsed patch route before requesting publication authorization.
 
 For each package/machine check record: **case, source revision, package identity/version/hash, OS/hardware, result, evidence location and limitations**. Package/source changes after validation require appropriate revalidation. Licensing/privacy and publisher setup can proceed alongside engineering; these numbered items are work groups, not a requirement to finish every investigation before beginning the next.
@@ -68,7 +120,7 @@ Serious failures discovered during these checks become release blockers. They ar
 
 Still needed: account/name-reservation status and production identity, pricing/markets, support/privacy contacts/pages, measured minimum hardware commitments, retention/delete/restore behavior and the desired optional code-protection effort. NVIDIA support stays in scope; deferred features are not silently added to version 1.
 
-**Next steps:** Send the [combined current R-03 revision](r03-updates-independent-verification-prompt.md) for independent review, including Expat dispositions and cleanup observations; do not repeat the unchanged investigation or close R-03 prematurely. Resolve R-02's parent-cache/removal/helper findings. R-04 rights/provenance and Argon's R-11 read-only trial can progress independently. Fresh-package/installed/mandatory other-machine/privacy/certification gates remain separate.
+**Next steps:** Independently review the [completed R-05 investigation](r05-independent-verification-prompt.md). The [R-02 correction plan](release-coordinator-continuation-2026-10-22.md) remains the next proposed engineering batch. Any R-05 runtime collection/control work needs the concrete [scope and acceptance plan](r05-runtime-validation-plan-2026-10-22.md), with overlapping UI/build ownership coordinated through the publisher. The previous chat retains Argon's R-11 validation; no corrected plan/implementation acceptance has been returned here. R-04 rights/provenance and publisher preparation can progress independently when directed. Keep R-03 engineering paused; its combined review, Expat dispositions and mixed tests remain open. All fresh-package/installed/mandatory other-machine/privacy/certification gates remain separate.
 
 The publisher's [21 October release guide](</C:/Users/fireball/OneDrive/Desktop/testing notes/violilt-release-guide (1).md>) has now been reviewed. Its earlier fix/commit/test snapshot is superseded by current evidence. Useful details were merged into R-06/R-08/R-09 and the evidence-recording rule: final-build hygiene, missing-runtime/driver/low-memory/download-failure cases and explicit update/recovery procedures. Most other content overlaps existing gates. The guide's backup requirement remains waived; its prompts do not authorize execution. Guard tests need not fail on a pre-fix baseline, additional review models are optional, and review-round limits cannot clear unresolved blockers. Public sample-upload services such as VirusTotal are not part of the local scan baseline and require a separate sharing decision.
 
