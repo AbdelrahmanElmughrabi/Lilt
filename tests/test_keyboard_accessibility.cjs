@@ -76,7 +76,7 @@ async function fixture(t, palette = 'violilt', theme = 'light') {
     window.pywebview = {api: {
       get_state: async () => ({documents: [document], jobs: [job],
         active: {...job, id: 'generating', state: 'generating', completed: 0, engine: configuration},
-        settings, model: {state: 'ready', percent: 100, message: 'Fixture only', voices: ['af_heart']},
+        settings, welcome_version: 1, model: {state: 'ready', percent: 100, message: 'Fixture only', voices: ['af_heart']},
         storage: 'Synthetic fixture', cache: {count: 0, bytes: 0, limit_mb: 256},
         performance: {configuration, cpu_percent: 20, gpu_percent: null, gpu_ready: false,
           logical_processors: 2, physical_cores: 2, adapters: [], gpu_message: '',
