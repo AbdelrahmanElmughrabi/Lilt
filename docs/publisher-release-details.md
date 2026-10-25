@@ -31,15 +31,23 @@ an application rebuild. Stable redirects can preserve older embedded links.
 Final production package/identity installation and update checks remain separate.
 
 The publisher's intended test devices run Windows 11, with a mix of machines
-without NVIDIA and machines with NVIDIA, including unspecified MX models. Plan
-one compatibility test payload containing CPU plus the optional NVIDIA runtime.
+without NVIDIA and machines with NVIDIA, including unspecified MX models. The
+prepared compatibility payload contains CPU plus the optional NVIDIA runtime.
 CPU operation is the baseline on each device; acceleration is checked against
 the actual GPU model/driver rather than promised for every MX-branded device.
 The existing unsigned Windows 11 test-MSIX route requires Administrator
 PowerShell to install executable content. A portable folder build remains an
 option when installation access is unavailable; it does not replace final MSIX
-installation/update testing. No concrete package has been created for this batch.
+installation/update testing. The subsequently authorized test-build batch
+created Windows 11 x64 MSIX 1.0.4.0, with every mapped archive entry verified.
+Installation and actual CPU/NVIDIA device tests remain pending.
 
-No package, installation, website publication or account operation is authorized
-or performed solely by recording these addresses. Existing release requirements
-remain as recorded in `release-source-status.md`.
+Test package: [dist/device-test-20261025-1.0.4.0/Violilt-MsixCompatibility-1.0.4.0-x64.msix](../dist/device-test-20261025-1.0.4.0/Violilt-MsixCompatibility-1.0.4.0-x64.msix).
+Instructions/checksum/inventory are beside it in `dist/device-test-20261025-1.0.4.0`. Source commit:
+`7ce6a21afd7a5f7d8dfe46b3081a11ec3947d764`. SHA-256:
+`8a27da0cf563143eedf93df2ee520ebbcee9e6e76ff56035df5a4e56c9cd3ea7`.
+
+No installation, website publication or account operation was performed. The
+link-recording phase and later package-building phase remain separate in the
+local evidence. Existing release requirements remain as recorded in
+`release-source-status.md`.
