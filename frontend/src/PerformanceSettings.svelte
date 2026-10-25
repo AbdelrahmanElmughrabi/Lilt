@@ -18,7 +18,7 @@
 
 <section class="settings-card performance-card">
   <div class="settings-title"><Gauge size={23} strokeWidth={1.4} /><div><h2>Less waiting. More listening.</h2><p>Give your PC a pace that feels comfortable.</p></div><span class="performance-badge">LOCAL</span></div>
-  <div class="performance-presets">{#each presets as preset}<button class:selected={settings.performance_mode === preset.id} onclick={() => { settings.performance_mode = preset.id; void onchange(); }}><strong>{preset.name}</strong><span>{preset.detail}</span></button>{/each}</div>
+  <div class="performance-presets">{#each presets as preset}<button class:selected={settings.performance_mode === preset.id} aria-pressed={settings.performance_mode === preset.id} onclick={() => { settings.performance_mode = preset.id; void onchange(); }}><strong>{preset.name}</strong><span>{preset.detail}</span></button>{/each}</div>
   <div class="performance-fields">
     <label><span>Processing device</span><select aria-label="Processing device" bind:value={settings.processing_device} onchange={onchange}><option value="auto">Auto · use speed test</option><option value="cpu">CPU</option><option value="gpu" disabled={!performance?.gpu_ready}>NVIDIA GPU {performance?.gpu_ready ? '' : '· runtime needed'}</option></select></label>
     <label><span>CPU threads</span><select aria-label="CPU threads" bind:value={settings.cpu_threads} disabled={settings.performance_mode !== 'custom'} onchange={onchange}><option value={0}>Auto · measured recommendation</option>{#each Array.from({length: performance?.logical_processors || 1}, (_,i) => i+1) as count}<option value={count}>{count} {count === 1 ? 'thread' : 'threads'}</option>{/each}</select></label>
