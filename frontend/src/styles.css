@@ -344,6 +344,10 @@ kbd { font: 9px 'Segoe UI', sans-serif; color: var(--ink); border: 1px solid var
   .settings-actions { flex-direction: column; }
   .toast { min-width: 80%; bottom: 110px; }
 }
+@media (max-height: 650px) {
+  .sidebar { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .sidebar > * { flex-shrink: 0; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 
 .performance-badge { margin-left: auto; font-size: 10px; letter-spacing: 1.5px; color: var(--accent); border: 1px solid var(--line-strong); padding: 6px 9px; border-radius: 6px; }

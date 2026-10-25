@@ -70,7 +70,7 @@ async function fixture(t, width = 1280) {
     window.chrome ||= {};
     window.chrome.webview = {postMessage: message => controls.closeMessages.push(message)};
     window.pywebview = {api: {
-      get_state: async () => ({documents: structuredClone(documents), jobs, active: null, settings,
+      get_state: async () => ({documents: structuredClone(documents), jobs, active: null, settings, welcome_version: 1,
         model: {state: 'ready', percent: 100, message: 'Fixture only', voices: ['af_heart', 'bf_emma']},
         storage: 'Synthetic fixture', performance: null, cache: {count: 0, bytes: 0, limit_mb: 256}}),
       get_document: async id => { controls.opens.push(id); return structuredClone(documents.find(doc => doc.id === id)); },
@@ -90,8 +90,6 @@ async function fixture(t, width = 1280) {
     }};
   });
   await page.goto(origin);
-  await page.getByRole('dialog', {name: 'Microsoft services & privacy', exact: true})
-    .getByRole('button', {name: 'Continue', exact: true}).click();
   await page.waitForFunction(() => window.stateFixture.closeMessages.some(message => message.type === 'violilt:close-ready'));
   await page.clock.install(); await page.clock.pauseAt(new Date());
   await page.evaluate(() => { window.stateFixture.playCalls = 0; window.stateFixture.pauseCalls = 0; });

@@ -66,7 +66,7 @@ async function fixture(t, width = 1280) {
     window.chrome ||= {};
     window.chrome.webview = {postMessage: message => controls.closeMessages.push(message)};
     window.pywebview = {api: {
-      get_state: async () => ({documents: [structuredClone(document)], jobs: [job], active: null, settings,
+      get_state: async () => ({documents: [structuredClone(document)], jobs: [job], active: null, settings, welcome_version: 1,
         model: {state: 'ready', percent: 100, message: 'Fixture only', voices: ['af_heart', 'bf_emma']},
         storage: 'Synthetic fixture', performance: null, cache: {count: 0, bytes: 0, limit_mb: 256}}),
       get_document: async () => structuredClone(document),
@@ -86,8 +86,6 @@ async function fixture(t, width = 1280) {
     }};
   });
   await page.goto(origin);
-  await page.getByRole('dialog', {name: 'Microsoft services & privacy', exact: true})
-    .getByRole('button', {name: 'Continue', exact: true}).click();
   if (width <= 1090) await page.getByRole('button', {name: 'Toggle shelf', exact: true}).click();
   await reading(page).click();
   await page.locator('.reading-article').waitFor();

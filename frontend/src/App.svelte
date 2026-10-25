@@ -13,6 +13,8 @@
   import brandIcon from './assets/violilt.png';
   import PerformanceSettings from './PerformanceSettings.svelte';
   import MicrosoftNotice from './MicrosoftNotice.svelte';
+  import Welcome from './Welcome.svelte';
+  import VoiceSetup from './VoiceSetup.svelte';
   import { primeAudio, StreamPlayer } from './stream-player';
 
   let api = $state.raw<API>(null!);
@@ -35,8 +37,13 @@
   let error = $state('');
   let dismissedRecoveryCount = $state(0);
   let help = $state(false);
-  // Re-display for every window, including existing libraries and upgrades.
-  let microsoftNotice = $state(true);
+  let microsoftNotice = $state(false);
+  let welcome = $state(false);
+  let welcomeSaving = $state(false);
+  let welcomeError = $state('');
+  let welcomeTrigger: HTMLButtonElement | undefined;
+  let modelSetupPending = $state(false);
+  let modelSetupError = $state('');
   let removal = $state<{ id: string; title: string; kind: 'document' | 'recording' } | null>(null);
   let deleteAudio = $state(false);
   let fileMenu = $state<FileMenu | null>(null);
@@ -246,7 +253,7 @@
   function requestNativeClose(event: Event) {
     const id = (event as CustomEvent<{ id?: unknown }>).detail?.id;
     if (closeRequest || typeof id !== 'string' || !/^[A-Za-z0-9]{1,64}$/.test(id)) return;
-    microsoftNotice = false; help = false; removal = null; fileMenu = null; voiceMenu = false;
+    microsoftNotice = false; welcome = false; help = false; removal = null; fileMenu = null; voiceMenu = false;
     closeRequest = id;
     void saveBeforeClose();
   }
@@ -254,6 +261,38 @@
     ++prepareVersion;
     streamPlayer?.preferences(settings.buffer_mode, playbackSpeed, volume);
     await act(async () => { await api.save_settings({ ...settings }); await review(); await refresh(); });
+  }
+  async function setupVoices(method: 'download' | 'import') {
+    if (!ready || preview || modelSetupPending || (method === 'download' && engineReady) || appState?.model.state === 'downloading') return;
+    modelSetupPending = true; modelSetupError = '';
+    try {
+      const model = method === 'download' ? await withTimeout(api.setup_model()) : await api.import_model();
+      if (model && appState) appState = { ...appState, model };
+      await refresh(true);
+    } catch (e) { modelSetupError = e instanceof Error ? e.message : String(e); }
+    finally { modelSetupPending = false; }
+  }
+  function openWelcome() {
+    const focused = window.document.activeElement;
+    welcomeTrigger = focused instanceof HTMLButtonElement ? focused : undefined;
+    help = false; welcomeError = ''; welcome = true;
+  }
+  async function finishWelcome(destination: 'home' | 'studio' | 'close', remember = true) {
+    if (welcomeSaving) return;
+    welcomeSaving = true; welcomeError = '';
+    try {
+      if (remember && (appState?.welcome_version || 0) < 1) {
+        if (await withTimeout(api.complete_welcome()) !== true) throw new Error('Your welcome preference could not be saved. Retry, or continue for this session.');
+        if (appState) appState = { ...appState, welcome_version: 1 };
+      }
+      welcome = false;
+      if (destination === 'studio') { if (!appState?.documents.length) await newDocument(); else showStudio(); }
+      else if (destination === 'home') await showHome();
+      await tick();
+      const target = welcomeTrigger?.isConnected && welcomeTrigger.getClientRects().length ? welcomeTrigger : window.document.querySelector<HTMLButtonElement>('.brand');
+      target?.focus();
+    } catch (e) { welcomeError = e instanceof Error ? e.message : String(e); }
+    finally { welcomeSaving = false; }
   }
   async function performanceAction(name: 'test' | 'stop' | 'warm' | 'release' | 'clear') {
     await act(async () => {
@@ -396,7 +435,7 @@
     void restorePopupFocus(voiceFocus || shelfFocus, () => !voiceMenu && !shelf, !!shelfFocus);
   }
   function keyboard(event: KeyboardEvent) {
-    if (microsoftNotice) {
+    if (microsoftNotice || welcome) {
       if ((event.ctrlKey || event.metaKey) && ['o', 's'].includes(event.key)) event.preventDefault();
       return; // Let the native dialog handle Tab, Enter, Space and Escape.
     }
@@ -431,6 +470,7 @@
       failuresSeen = new Set(state.jobs.filter(job => job.state === 'failed').map(job => job.id));
       if (!preview) postCloseMessage({ type: 'violilt:close-ready' });
       ready = true;
+      welcome = (state.welcome_version || 0) < 1;
       const available = state.jobs.filter(job => !job.preview && (job.state === 'completed' || (job.available_duration || 0) > 0));
       const latest = [...available].filter(job => job.position > 0 && job.position < (job.duration || job.available_duration || 0) - 2).sort((a, b) => (b.last_listened || b.created) - (a.last_listened || a.created))[0] || available[0];
       if (latest) selectRecording(latest);
@@ -459,7 +499,7 @@
 <svelte:window onkeydown={keyboard} />
 
 <div class:dark class="app-shell" data-palette={settings.palette}>
-  <FileDrop enabled={ready && !closeRequest && !microsoftNotice} importFiles={importDroppedFiles} />
+  <FileDrop enabled={ready && !closeRequest && !microsoftNotice && !welcome} importFiles={importDroppedFiles} />
   <aside bind:this={shelfPanel} class:opened={shelf} class="sidebar">
     <button class="brand" onclick={showHome} disabled={!ready} aria-label="Violilt home"><img class="brand-icon" src={brandIcon} alt="" /><span class="brand-name">Violilt<span>YOUR WORDS, OUT LOUD</span></span></button>
     <div class="sidebar-rule"></div>
@@ -498,7 +538,7 @@
         {:else}<LoaderCircle size={23} class="spin" /><p>Opening your library…</p>{/if}
       </div>
     {:else if page === 'home'}
-      <Home {openFileMenu} documents={appState?.documents || []} jobs={appState?.jobs || []} generating={!!active || testing} openDocument={selectDocument} {importDocument} {newDocument} listen={(job) => selectRecording(job, true)} {exportAudio} {continueJob} showLibrary={() => page = 'library'} {showStudio} voiceName={(id) => voiceDetails[id]?.name || id.split('_').slice(1).join(' ')} />
+      <Home {openFileMenu} documents={appState?.documents || []} jobs={appState?.jobs || []} model={appState?.model} setupPending={modelSetupPending} setupError={modelSetupError} setup={setupVoices} {preview} generating={!!active || testing} openDocument={selectDocument} {importDocument} {newDocument} listen={(job) => selectRecording(job, true)} {exportAudio} {continueJob} showLibrary={() => page = 'library'} {showStudio} voiceName={(id) => voiceDetails[id]?.name || id.split('_').slice(1).join(' ')} />
     {:else if page === 'studio'}
       <div class="studio-layout">
         <main class="reading-workspace">
@@ -578,7 +618,8 @@
       </main>
     {:else}
       <main class="settings-page"><div class="page-heading"><div><span class="eyebrow">MAKE YOURSELF AT HOME</span><h1>The little details<span>.</span></h1><p>Your voice, your space, your pace.</p></div></div>
-        <section class="settings-card"><div class="settings-title"><AudioLines size={23} strokeWidth={1.4} /><div><h2>Your local voice engine</h2><p>Download once. Read with it whenever you like.</p></div><span class:ready={engineReady} class="status-dot"></span></div><div class="model-detail"><div><strong>{engineReady ? 'Your voice is ready.' : appState?.model.state === 'downloading' ? 'Making room for your voice…' : 'A voice for every good page.'}</strong><p>{appState?.model.message}</p></div><span class="model-size">KOKORO<br /><strong>~120 MB</strong></span></div>{#if appState?.model.state === 'downloading'}<div class="progress-track"><span style:width={`${appState.model.percent}%`}></span></div>{/if}<div class="settings-actions"><button class="primary-button" disabled={engineReady || appState?.model.state === 'downloading' || preview} onclick={() => act(async () => { await api.setup_model(); await refresh(); })}>{#if engineReady}<Check size={17} /> Ready for local reading{:else}<Download size={17} /> Download voice engine{/if}</button><button class="secondary-button" disabled={!!active || appState?.model.state === 'downloading' || preview} onclick={() => act(async () => { await api.import_model(); await refresh(); })}><FolderOpen size={16} /> Use existing files</button></div><p class="settings-hint">Model files come from the Kokoro-ONNX project. Your documents are processed on this device.</p></section>
+        <section class="settings-card"><VoiceSetup model={appState?.model} pending={modelSetupPending} disabled={!!active || testing} error={modelSetupError} setup={setupVoices} {preview} /></section>
+        <section class="settings-card"><div class="settings-title"><CircleHelp size={22} strokeWidth={1.4} /><div><h2>Getting started &amp; privacy</h2><p>A little guidance, whenever you need it.</p></div></div><div class="settings-actions"><button class="secondary-button" onclick={openWelcome}>Welcome &amp; quick guide</button><button class="secondary-button" onclick={() => microsoftNotice = true}>Microsoft services &amp; privacy</button></div></section>
         <PerformanceSettings bind:settings performance={appState?.performance || null} cache={appState?.cache || {count:0,bytes:0,limit_mb:256}} busy={!!active || testing || appState?.performance?.warmup.state === 'loading'} ready={!!engineReady && !preview} onchange={changeSettings} action={performanceAction} />
         <section class="settings-card"><div class="settings-title"><Sun size={22} strokeWidth={1.4} /><div><h2>A space that feels like yours</h2><p>Choose your palette, then the light you like to read in.</p></div></div><div class="palette-choices" role="group" aria-label="Theme palette">
           {#each [{id: 'violilt', name: 'Violilt', description: 'Ivory, lilac & soft sage', colors: ['#F7F5EF', '#202726', '#7C83C9', '#A8C3B6']}, {id: 'classic', name: 'Classic', description: 'Warm paper, copper & sage', colors: ['#F7F5EF', '#252B27', '#B75C36', '#DBE3D5']}] as palette}
@@ -600,8 +641,11 @@
     <audio bind:this={audio} preload="metadata" src={selectedJob && !streaming ? `/media/${selectedJob.id}.wav` : undefined} onloadedmetadata={loadedAudio} ontimeupdate={timeUpdate} onplay={() => { if (!streaming) playing = true; }} onpause={() => { if (!streaming) { playing = false; if (selectedJob) void api.save_position(selectedJob.id, position); } }} onended={() => { if (!streaming) playing = false; }} onerror={() => { if (selectedJob && !streaming) error = 'This recording could not be opened. Check that its audio file is still available.'; }}></audio>
   </div>
   {#if toast}<div class="toast" role="status"><Check size={17} />{toast}<button title="Dismiss notification" onclick={() => toast = ''}><X size={15} /></button></div>{/if}
-  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Violilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Violilt is your local reading room. Bring Markdown, TXT or PDF, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import document <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Narration processes your documents on this device. Microsoft's WebView2 runtime also handles security and diagnostic information.</p><button class="secondary-button" onclick={() => microsoftNotice = true}>Microsoft services &amp; privacy</button></dialog>
+  <dialog bind:this={helpDialog} class="about-modal" aria-labelledby="about-title" onclose={() => help = false} oncancel={() => help = false}><button class="modal-close" title="Close" onclick={() => help = false}><X size={20} /></button><img class="about-brand" src={brandIcon} alt="Violilt" /><span class="eyebrow">YOUR WORDS, OUT LOUD</span><h2 id="about-title">A little less rushing.<br /><em>A little more listening.</em></h2><p>Violilt is your local reading room. Bring Markdown, TXT or PDF, find a voice, and take your words with you.</p><div class="keyboard-list"><span>Import document <kbd>Ctrl O</kbd></span><span>Save working copy <kbd>Ctrl S</kbd></span><span>Find in document <kbd>Ctrl F</kbd></span><span>Play / pause <kbd>Space</kbd></span></div><p class="about-note">Narration processes your documents on this device. Microsoft's WebView2 runtime also handles security and diagnostic information.</p><button class="secondary-button" onclick={openWelcome}>Welcome &amp; quick guide</button><button class="secondary-button" onclick={() => microsoftNotice = true}>Microsoft services &amp; privacy</button></dialog>
 
+  <Welcome bind:open={welcome} {api} model={appState?.model} {preview} disabled={!!active || testing}
+    setupPending={modelSetupPending} setupError={modelSetupError} saving={welcomeSaving} error={welcomeError}
+    setup={setupVoices} finish={finishWelcome} />
   <MicrosoftNotice bind:open={microsoftNotice} {api} />
   {#if fileMenu}
     {#key fileMenu}<FileContextMenu menu={fileMenu} canDelete={!busy && (fileMenu.item.kind === 'document' || ['completed', 'cancelled', 'failed', 'interrupted'].includes(fileMenu.item.state || ''))} close={() => fileMenu = null} remove={requestFileRemoval} reveal={revealFile} />{/key}

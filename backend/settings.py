@@ -5,6 +5,8 @@ import json
 import math
 import re
 
+WELCOME_VERSION = 1
+
 
 def defaults():
     from .performance import DEFAULTS
@@ -68,10 +70,14 @@ def validate_settings(values, *, internal=False, voices=None):
     from .performance import validate
     if not isinstance(values, dict):
         raise ValueError('Settings must be an object.')
-    allowed = set(defaults()) | ({'benchmark_result'} if internal else set())
+    allowed = set(defaults()) | ({'benchmark_result', 'welcome_version'} if internal else set())
     if values.keys() - allowed:
         raise ValueError('Unknown settings field.')
     result = values.copy()
+    if 'welcome_version' in result:
+        version = result['welcome_version']
+        if type(version) is not int or not 0 <= version <= WELCOME_VERSION:
+            raise ValueError('Invalid saved welcome version.')
     for key, choices in {'theme': {'light', 'dark', 'system'}, 'palette': {'violilt', 'classic'}}.items():
         if key in result and (not isinstance(result[key], str) or result[key] not in choices):
             raise ValueError(f'Unknown {key} setting.')

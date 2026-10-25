@@ -11,8 +11,8 @@ export type DocumentSummary = Omit<Document, 'markdown'> & { words?: number };
 export type ImportBatch = { documents: Document[]; errors: { name: string; message: string }[] };
 export type Job = { id: string; title: string; document_id: string; voice: string; speed: number; words: number; preview: boolean; state: string; completed: number; total: number; duration: number; position: number; message: string; created: number; last_listened?: number; available_duration?: number; engine?: Configuration; throughput?: number; cache_hits?: number; first_audio_seconds?: number; can_resume?: boolean; resume_message?: string; pronunciation_warnings?: string[]; unread_count?: number };
 export type Prepared = { title: string; text: string; words: number; chunks: { text: string; pause: number; block: number }[]; omissions: { code_blocks: number; metadata: number }; unread_count?: number };
-export type Model = { state: string; percent: number; message: string; voices: string[] };
-export type State = { documents: DocumentSummary[]; jobs: Job[]; active: Job | null; model: Model; settings: Settings; storage: string; performance: Performance | null; cache: Cache; recovery?: { count: number; message: string } };
+export type Model = { state: string; percent: number; message: string; voices: string[]; download_bytes?: number };
+export type State = { documents: DocumentSummary[]; jobs: Job[]; active: Job | null; model: Model; settings: Settings; storage: string; performance: Performance | null; cache: Cache; welcome_version?: number; recovery?: { count: number; message: string } };
 export type API = {
   get_state(): Promise<State>;
   get_stream(id: string): Promise<Stream>;
@@ -40,6 +40,7 @@ export type API = {
   export_recording(id: string): Promise<string | null>;
   setup_model(): Promise<Model>;
   import_model(): Promise<Model | null>;
+  complete_welcome(): Promise<boolean>;
   open_microsoft_privacy(reference: 'privacy-statement' | 'smartscreen'): Promise<boolean>;
 };
 
@@ -81,9 +82,10 @@ export async function getAPI(): Promise<{ api: API; preview: boolean }> {
   // Only used for frontend development and visual verification. No simulated speech.
   let doc: Document = { id: 'preview-document', title: 'The art of paying attention', markdown: sampleText, created: Date.now() / 1000 };
   let settings: Settings = { ...defaultSettings };
+  let welcomeVersion = 0;
   const unavailable = async (): Promise<never> => { throw new Error('Open the desktop app to use local speech and file dialogs.'); };
   const api: API = {
-    get_state: async () => ({ documents: [doc], jobs: [], active: null, model: { state: 'missing', percent: 0, message: 'Open the desktop app to set up your voice engine.', voices: [] }, settings, storage: 'Desktop app storage', performance: null, cache: {count: 0, bytes: 0, limit_mb: 256} }),
+    get_state: async () => ({ documents: [doc], jobs: [], active: null, model: { state: 'missing', percent: 0, message: 'Open the desktop app to set up your voice engine.', voices: [], download_bytes: 120575669 }, settings, welcome_version: welcomeVersion, storage: 'Desktop app storage', performance: null, cache: {count: 0, bytes: 0, limit_mb: 256} }),
     get_stream: unavailable, start_benchmark: unavailable, stop_benchmark: unavailable, warm_engine: unavailable, release_engine: unavailable, clear_cache: unavailable,
     get_document: async () => doc,
     save_document: async (_id, text) => (doc = { ...doc, markdown: text, title: text.match(/^#\s+(.+)$/m)?.[1] || 'Untitled reading' }),
@@ -96,6 +98,7 @@ export async function getAPI(): Promise<{ api: API; preview: boolean }> {
     generate: unavailable, preview_voice: unavailable, cancel_generation: unavailable, resume_job: unavailable,
     save_position: async () => true, export_recording: unavailable, setup_model: unavailable, import_model: unavailable,
     open_microsoft_privacy: unavailable,
+    complete_welcome: async () => { welcomeVersion = 1; return true; },
   };
   return { api, preview: true };
 }

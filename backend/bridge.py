@@ -16,7 +16,7 @@ from .documents import plain_text_markdown, prepare
 from .jobs import public_job
 from .limits import MAX_FILE_BATCH, MAX_MARKDOWN_BYTES
 from .pdf_import import MAX_PDF_BYTES, extract_pdf_text
-from .settings import validate_settings
+from .settings import WELCOME_VERSION, validate_settings
 from .windows_shell import select_file
 
 DOCUMENT_SUFFIXES = {'.md', '.markdown', '.txt', '.pdf'}
@@ -48,13 +48,22 @@ class Bridge:
                 if latest['state'] == 'completed':
                     latest = latest | {'state': 'assembling', 'message': pending['message']}
                 readings = [latest] + [job for job in readings if job['id'] != latest['id']]
+        settings = self._store.settings()
+        welcome_version = settings.pop('welcome_version', 0)
         return {"documents": documents, "jobs": [public_job(job) for job in readings],
-                "active": self._jobs.state(), "model": self._models.status(), "settings": self._store.settings(),
+                "active": self._jobs.state(), "model": self._models.status(), "settings": settings,
+                "welcome_version": welcome_version,
                 "storage": str(self._store.root), "performance": self._jobs.performance_state(),
                 "cache": self._jobs.cache_state(), "recovery": recovery}
 
     def get_stream(self, key):
         return self._jobs.stream(key)
+
+    def complete_welcome(self):
+        # Presentation history is separate from public privacy preferences.
+        with self._lock:
+            self._store.save_settings({'welcome_version': WELCOME_VERSION})
+        return True
 
     def open_microsoft_privacy(self, reference):
         # The bridge accepts reference IDs, never caller-provided URLs.
@@ -223,7 +232,7 @@ class Bridge:
         with self._lock:
             if not isinstance(settings, dict):
                 raise ValueError('Settings must be an object.')
-            settings = {key: value for key, value in settings.items() if key != 'benchmark_result'}
+            settings = {key: value for key, value in settings.items() if key not in {'benchmark_result', 'welcome_version'}}
             voices = None
             if self._models is not None:
                 model = self._models.status()

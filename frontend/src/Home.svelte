@@ -1,9 +1,12 @@
 <script lang="ts">
   import { ArrowRight, BookOpen, Download, FileText, FolderOpen, Headphones, Play, Plus, RotateCcw } from '@lucide/svelte';
   import { fileContext, type OpenFileMenu } from './context-menu';
-  import type { DocumentSummary, Job } from './api';
-  let { openFileMenu, documents, jobs, generating, openDocument, importDocument, newDocument, listen, exportAudio, continueJob, showLibrary, showStudio, voiceName }: {
+  import type { DocumentSummary, Job, Model } from './api';
+  import VoiceSetup from './VoiceSetup.svelte';
+  let { openFileMenu, documents, jobs, model, setupPending, setupError, setup, preview, generating, openDocument, importDocument, newDocument, listen, exportAudio, continueJob, showLibrary, showStudio, voiceName }: {
     openFileMenu: OpenFileMenu; documents: DocumentSummary[]; jobs: Job[]; generating: boolean;
+    model: Model | undefined; setupPending: boolean; setupError: string; preview: boolean;
+    setup: (method: 'download' | 'import') => Promise<void>;
     openDocument: (id: string) => void; importDocument: () => void; newDocument: () => void;
     listen: (job: Job) => void; exportAudio: (job: Job) => void; continueJob: (job: Job) => void;
     showLibrary: () => void; showStudio: () => void; voiceName: (id: string) => string;
@@ -21,6 +24,7 @@
 
 <main class="home-page">
   <div class="home-heading"><div><span class="eyebrow">YOUR WORDS, WAITING FOR YOU</span><h1>A little space<br />for <em>listening.</em></h1><p>Pick up a reading. Return to a familiar voice.</p></div><div class="home-totals"><span><strong>{saved.length}</strong> saved {saved.length === 1 ? 'recording' : 'recordings'}</span><span><strong>{minutes}</strong> minutes on your shelf</span></div></div>
+  {#if model?.state !== 'ready'}<div class="home-voice-setup"><VoiceSetup {model} pending={setupPending} disabled={generating} error={setupError} {setup} {preview} /></div>{/if}
   <div class="home-top-grid">
     <section use:fileContext={{ item: featured ? { ...featured, kind: 'recording' } : null, open: openFileMenu }} class="listen-card" aria-label={resume ? 'Continue listening' : 'Your next listen'}>
       <div class="listen-art" aria-hidden="true">{#each [18, 34, 50, 30, 64, 44, 72, 38, 56, 26, 42, 20] as height}<span style:height={`${height}px`}></span>{/each}</div>
@@ -40,6 +44,7 @@
 
 <style>
   .home-page { flex: 1; min-height: 0; overflow: auto; padding: 32px clamp(24px, 3.7vw, 58px) 40px; scrollbar-width: thin; }
+  .home-voice-setup { padding: 22px 24px; margin-bottom: 25px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; }
   .home-heading { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 27px; gap: 24px; }
   .home-heading h1 { font: 46px/1.1 Georgia, serif; letter-spacing: -1.7px; margin: 13px 0 12px; }
   .home-heading h1 em { color: var(--accent); font-weight: normal; }

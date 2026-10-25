@@ -53,7 +53,8 @@ class Models:
 
     def status(self):
         with self.lock:
-            return self.progress.copy() | {"voices": self.voices.copy(), 'gpu_error': self.gpu_error}
+            return self.progress.copy() | {"voices": self.voices.copy(), 'gpu_error': self.gpu_error,
+                                           'download_bytes': sum(APPROVED[name][0] for name in FILES)}
 
     def download(self):
         with self.lock:

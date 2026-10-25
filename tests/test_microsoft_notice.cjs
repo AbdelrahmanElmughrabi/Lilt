@@ -83,7 +83,7 @@ async function fixture(t, options = {}) {
       get_state: async () => {
         if (controls.failState) throw new Error('Synthetic connection failure.');
         return {documents:[document],jobs:[job],active:null,settings,storage:'Synthetic fixture',
-          performance:null,cache:{count:0,bytes:0,limit_mb:256},
+          performance:null,cache:{count:0,bytes:0,limit_mb:256},welcome_version:1,
           model:{state:'ready',percent:100,message:'Fixture only',voices:['af_heart','bf_emma']}};
       },
       get_document: async () => structuredClone(document),
@@ -109,6 +109,7 @@ async function fixture(t, options = {}) {
   }, options);
   await page.goto(origin);
   await page.waitForFunction(() => window.noticeFixture && document.querySelector('.app-shell'));
+  await reopen(page);
   return page;
 }
 const notice = page => page.getByRole('dialog', {name:'Microsoft services & privacy',exact:true});
@@ -118,24 +119,31 @@ async function observe(page, name, values) {
   await page.screenshot({path:path.join(evidence,name+'.png')});
 }
 async function reopen(page) {
-  await page.getByRole('button',{name:'About Violilt',exact:true}).click();
+  if (!await page.locator('dialog[aria-labelledby="about-title"][open]').count()) {
+    const trigger = page.getByRole('button',{name:'About Violilt',exact:true});
+    const toggle = page.getByRole('button',{name:'Toggle shelf',exact:true});
+    if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+    await trigger.click();
+  }
   await page.getByRole('button',{name:'Microsoft services & privacy',exact:true}).click();
   await notice(page).waitFor();
 }
 async function edit(page) {
   await notice(page).getByRole('button',{name:'Continue',exact:true}).click();
+  if (await page.locator('dialog[aria-labelledby="about-title"][open]').count()) await page.keyboard.press('Escape');
   await page.locator('.document-list button').filter({hasText:'Synthetic reading'}).click();
   await page.getByRole('button',{name:'Edit',exact:true}).click();
   await page.clock.install(); await page.clock.pauseAt(new Date());
 }
 
-for (const existing of [false,true]) test(`notice delivered on launch and reload with ${existing ? 'existing' : 'initial'} settings`, async t => {
+for (const existing of [false,true]) test(`notice remains available from About with ${existing ? 'existing' : 'initial'} settings`, async t => {
   const page = await fixture(t,{existing});
   await notice(page).waitFor();
   const copy = await notice(page).innerText();
-  assert.match(copy,/Microsoft Defender SmartScreen, which collects and sends your information to Microsoft/);
+  assert.match(copy,/Microsoft Defender SmartScreen/);
+  assert.match(copy,/collects and sends your information to Microsoft/);
   assert.match(copy,/required diagnostic data/);
-  assert.match(copy,/Optional diagnostic data is controlled by Windows Settings/);
+  assert.match(copy,/Windows controls optional diagnostic data/);
   assert.match(copy,/does not change diagnostic settings or give consent/);
   for (const [i,url] of Object.values(links).entries()) assert.equal(await notice(page).locator('a').nth(i).getAttribute('href'),url);
   assert.equal(await notice(page).evaluate(el => el.open),true);
@@ -143,8 +151,11 @@ for (const existing of [false,true]) test(`notice delivered on launch and reload
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.microsoft-notice').evaluate(el=>el.open),false);
   assert.deepEqual(await page.evaluate(()=>({writes:window.noticeFixture.settingsWrites,saves:window.noticeFixture.saves})),{writes:[],saves:[]});
-  await page.reload(); await notice(page).waitFor();
-  assert.equal(await notice(page).evaluate(el=>el.open),true,'No stored acknowledgement may suppress next launch');
+  await page.reload();
+  await page.waitForFunction(() => window.noticeFixture && document.querySelector('.app-shell'));
+  assert.equal(await page.locator('dialog[open]').count(),0,'Returning users enter the app directly');
+  await reopen(page);
+  assert.equal(await notice(page).evaluate(el=>el.open),true,'The full notice remains accessible');
 });
 
 test('persistent About route restores focus through native Escape and link Tab order', async t => {
@@ -204,6 +215,7 @@ test('notice remains usable during startup failure and service retry', async t =
   await notice(page).getByRole('alert').waitFor();
   assert.match(await notice(page).getByRole('alert').innerText(),/desktop service is not connected/);
   await page.keyboard.press('Escape');
+  if (await page.locator('dialog[aria-labelledby="about-title"][open]').count()) await page.keyboard.press('Escape');
   await page.evaluate(()=>window.noticeFixture.failState=false);
   await page.getByRole('button',{name:'Retry connection',exact:true}).click();
   await page.waitForFunction(()=>window.noticeFixture.closeMessages.some(m=>m.type==='violilt:close-ready'));
@@ -260,5 +272,7 @@ test('notice remains within a small viewport with scrollable copy and visible Co
   const box=await notice(page).boundingBox(); assert(box && box.x>=0 && box.y>=0 && box.x+box.width<=640 && box.y+box.height<=480);
   await notice(page).getByRole('button',{name:'Continue',exact:true}).scrollIntoViewIfNeeded();
   await observe(page,'small-viewport',{box,scroll:await notice(page).evaluate(el=>({height:el.clientHeight,total:el.scrollHeight}))});
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.microsoft-notice[open]').count(),0);
   await page.keyboard.press('Escape'); assert.equal(await page.locator('dialog[open]').count(),0);
 });
