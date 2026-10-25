@@ -127,8 +127,17 @@ available snapshot. On 25 October the publisher cancelled further work on the
 listed technical/licensing-check item for this batch. No VRAM investigation,
 license acquisition/acceptance or source-delivery closure was performed here;
 existing release requirements remain recorded without being marked complete.
-The publisher is building the publisher website and will supply identity, contact
-and public-policy/support details when ready.
+The publisher is building velourvolute.com. Provisional publisher/app/privacy/
+support URLs are now wired into About and Settings from a single fixed backend
+mapping; the policy path is /violilt/privacypolicy, interpreting the appended
+“policy” in the publisher message. The site is not deployed or verified. Final
+publisher/Partner Center identity, contact and public-policy facts remain open.
+See [the supplied publisher details and test targets](publisher-release-details.md).
+The link batch passed seven focused backend boundary checks and twelve built-UI
+cases, including opener failures, Microsoft-reference regression, modal keyboard/
+save behavior and small-window reachability. A new isolated frontend check/build
+passed with zero errors/warnings and all 25 inputs matched live source. These
+results do not attest deployed websites or installed packages.
 
 The later accepted UI polish is now committed separately, with all eight final
 source/test paths and the compiled assets preserved. A fresh final combined run

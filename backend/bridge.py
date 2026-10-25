@@ -24,6 +24,12 @@ MICROSOFT_PRIVACY_LINKS = {
     'privacy-statement': 'https://privacy.microsoft.com/privacystatement',
     'smartscreen': 'https://learn.microsoft.com/en-us/legal/microsoft-edge/privacy#smartscreen',
 }
+PUBLISHER_LINKS = {
+    'publisher': 'https://velourvolute.com',
+    'app': 'https://velourvolute.com/violilt',
+    'privacy': 'https://velourvolute.com/violilt/privacypolicy',
+    'support': 'https://velourvolute.com/violilt/support',
+}
 
 
 class Bridge:
@@ -52,7 +58,7 @@ class Bridge:
         welcome_version = settings.pop('welcome_version', 0)
         return {"documents": documents, "jobs": [public_job(job) for job in readings],
                 "active": self._jobs.state(), "model": self._models.status(), "settings": settings,
-                "welcome_version": welcome_version,
+                "welcome_version": welcome_version, "publisher_links": dict(PUBLISHER_LINKS),
                 "storage": str(self._store.root), "performance": self._jobs.performance_state(),
                 "cache": self._jobs.cache_state(), "recovery": recovery}
 
@@ -73,6 +79,16 @@ class Bridge:
             os.startfile(MICROSOFT_PRIVACY_LINKS[reference])
         except OSError as exc:
             raise RuntimeError('The browser could not be opened. Retry, or copy the address shown in the notice into your browser.') from exc
+        return True
+
+    def open_publisher_link(self, reference):
+        # Only fixed references can leave the trusted application page.
+        if type(reference) is not str or reference not in PUBLISHER_LINKS:
+            raise ValueError('Choose a publisher link from About or Settings.')
+        try:
+            os.startfile(PUBLISHER_LINKS[reference])
+        except OSError as exc:
+            raise RuntimeError('The browser could not be opened. Retry, or copy the address into your browser.') from exc
         return True
 
     def start_benchmark(self):

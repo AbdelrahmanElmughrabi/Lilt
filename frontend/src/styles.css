@@ -262,6 +262,7 @@ input[type='range'] { accent-color: var(--accent); height: 3px; cursor: pointer;
 .toast > svg { color: var(--toast-check); }
 .about-modal { position: fixed; margin: auto; width: 440px; max-width: 90vw; background: var(--paper); padding: 40px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); box-shadow: 0 15px 70px #0003; }
 .about-modal::backdrop { background: var(--backdrop); backdrop-filter: blur(5px); }
+.about-modal[aria-labelledby='about-title'] { max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; }
 .delete-audio { display: flex; align-items: center; gap: 9px; margin: 20px 0; font-size: 12px; }
 .delete-audio input { accent-color: var(--accent); }
 .removal-modal .settings-actions { margin-top: 24px; justify-content: flex-end; }

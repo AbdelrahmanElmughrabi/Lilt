@@ -13,6 +13,12 @@ const links = {
   'privacy-statement': 'https://privacy.microsoft.com/privacystatement',
   smartscreen: 'https://learn.microsoft.com/en-us/legal/microsoft-edge/privacy#smartscreen',
 };
+const publisherLinks = {
+  publisher: 'https://velourvolute.com',
+  app: 'https://velourvolute.com/violilt',
+  privacy: 'https://velourvolute.com/violilt/privacypolicy',
+  support: 'https://velourvolute.com/violilt/support',
+};
 let browser, server, origin;
 before(async () => {
   assert(fs.existsSync(path.join(assets, 'index.html')), 'Built assets are required');
@@ -66,7 +72,7 @@ async function fixture(t, options = {}) {
     assert.deepEqual(errors, [], 'Browser errors cannot count as success');
     assert.deepEqual(requests, [], 'Notice must not navigate/fetch external links');
   });
-  await page.addInitScript(options => {
+  await page.addInitScript(({options, publisherLinks}) => {
     const settings = options.existing ? {palette:'classic',theme:'dark',voice:'bf_emma',speed:1.25,
       auto_listen:false,processing_device:'cpu',cache_enabled:false} : {};
     const document = {id:'reading',title:'Synthetic reading',markdown:'Original fixture text.',created:1};
@@ -74,7 +80,8 @@ async function fixture(t, options = {}) {
       words:3,preview:false,state:'completed',completed:1,total:1,duration:10,position:0,message:'',created:1};
     const controls = window.noticeFixture = {settings, document, saves:[], settingsWrites:[], opened:[],
       closeMessages:[], playCalls:0, imports:0, failLink:false, falseLink:false, holdLink:false,
-      holdSave:false, failSave:false, failState:!!options.failState};
+      holdSave:false, failSave:false, failState:!!options.failState,
+      publisherOpened:[],failPublisher:false,falsePublisher:false};
     HTMLMediaElement.prototype.play = function () { controls.playCalls++; return Promise.resolve(); };
     HTMLMediaElement.prototype.pause = function () {};
     window.chrome ||= {};
@@ -83,7 +90,7 @@ async function fixture(t, options = {}) {
       get_state: async () => {
         if (controls.failState) throw new Error('Synthetic connection failure.');
         return {documents:[document],jobs:[job],active:null,settings,storage:'Synthetic fixture',
-          performance:null,cache:{count:0,bytes:0,limit_mb:256},welcome_version:1,
+          performance:null,cache:{count:0,bytes:0,limit_mb:256},welcome_version:1,publisher_links:publisherLinks,
           model:{state:'ready',percent:100,message:'Fixture only',voices:['af_heart','bf_emma']}};
       },
       get_document: async () => structuredClone(document),
@@ -105,8 +112,13 @@ async function fixture(t, options = {}) {
         if (controls.failLink) throw new Error('Synthetic browser failure. Retry or copy the address.');
         return !controls.falseLink;
       },
+      open_publisher_link: async reference => {
+        controls.publisherOpened.push(reference);
+        if (controls.failPublisher) throw new Error('Synthetic publisher browser failure. Retry or copy the address.');
+        return !controls.falsePublisher;
+      },
     }};
-  }, options);
+  }, {options, publisherLinks});
   await page.goto(origin);
   await page.waitForFunction(() => window.noticeFixture && document.querySelector('.app-shell'));
   await reopen(page);
@@ -275,4 +287,61 @@ test('notice remains within a small viewport with scrollable copy and visible Co
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.microsoft-notice[open]').count(),0);
   await page.keyboard.press('Escape'); assert.equal(await page.locator('dialog[open]').count(),0);
+});
+
+test('publisher links in About and Settings use exact addresses and fixed opener references', async t => {
+  const page=await fixture(t);
+  await notice(page).getByRole('button',{name:'Continue',exact:true}).click();
+  const about=page.locator('dialog[aria-labelledby="about-title"][open]');
+  const references=[['app','Violilt website'],['privacy','Privacy policy'],['support','Support'],['publisher','Publisher website']];
+  for (const [reference,label] of references) {
+    const link=about.getByRole('link',{name:label,exact:true});
+    assert.equal(await link.getAttribute('href'),publisherLinks[reference]);
+    await link.focus(); await page.keyboard.press('Enter');
+  }
+  assert.deepEqual(await page.evaluate(()=>window.noticeFixture.publisherOpened),['app','privacy','support','publisher']);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  for (const [reference,label] of references) {
+    const link=page.locator('.settings-page .publisher-links').getByRole('link',{name:label,exact:true});
+    assert.equal(await link.getAttribute('href'),publisherLinks[reference]);
+    await link.click();
+  }
+  assert.deepEqual(await page.evaluate(()=>window.noticeFixture.publisherOpened),['app','privacy','support','publisher','app','privacy','support','publisher']);
+  assert.deepEqual(await page.evaluate(()=>({writes:window.noticeFixture.settingsWrites,saves:window.noticeFixture.saves,play:window.noticeFixture.playCalls})),{writes:[],saves:[],play:0});
+  assert.equal(page.url(),origin+'/'); assert.equal(page.context().pages().length,1);
+  await observe(page,'publisher-links-settings',{links:publisherLinks});
+});
+
+test('publisher opener failure and false result show a copyable address and allow retry', async t => {
+  const page=await fixture(t);
+  await notice(page).getByRole('button',{name:'Continue',exact:true}).click();
+  const about=page.locator('dialog[aria-labelledby="about-title"][open]');
+  const link=about.getByRole('link',{name:'Privacy policy',exact:true});
+  await page.evaluate(()=>window.noticeFixture.failPublisher=true);
+  await link.click();
+  const error=about.locator('.publisher-link-error'); await error.waitFor();
+  assert.match(await error.innerText(),/Synthetic publisher browser failure/);
+  assert((await error.innerText()).includes(publisherLinks.privacy));
+  await page.evaluate(()=>{window.noticeFixture.failPublisher=false;window.noticeFixture.falsePublisher=true;});
+  await link.click(); await page.waitForFunction(()=>document.querySelector('.publisher-link-error')?.textContent.includes('browser could not be opened'));
+  await page.evaluate(()=>window.noticeFixture.falsePublisher=false);
+  await link.click(); await error.waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>window.noticeFixture.publisherOpened),['privacy','privacy','privacy']);
+  assert.equal(page.url(),origin+'/'); assert.equal(page.context().pages().length,1);
+});
+
+test('publisher links remain reachable in the small About dialog without releasing modal shortcuts', async t => {
+  const page=await fixture(t,{viewport:{width:640,height:480}});
+  await notice(page).getByRole('button',{name:'Continue',exact:true}).click();
+  const about=page.locator('dialog[aria-labelledby="about-title"][open]');
+  const box=await about.boundingBox(); assert(box && box.x>=0 && box.y>=0 && box.x+box.width<=640 && box.y+box.height<=480);
+  const link=about.getByRole('link',{name:'Publisher website',exact:true});
+  for (let step=0;step<24 && !await link.evaluate(el=>document.activeElement===el);step++) await page.keyboard.press('Tab');
+  const focus=await link.evaluate(el=>({focused:document.activeElement===el,visible:el.matches(':focus-visible'),outline:parseFloat(getComputedStyle(el).outlineWidth),box:el.getBoundingClientRect().toJSON()}));
+  assert(focus.focused && focus.visible && focus.outline>=2); assert(focus.box.top>=0 && focus.box.bottom<=480);
+  await page.keyboard.press('Control+o'); await page.keyboard.press('Control+s'); await page.keyboard.press('Space');
+  assert.deepEqual(await page.evaluate(()=>({imports:window.noticeFixture.imports,saves:window.noticeFixture.saves,play:window.noticeFixture.playCalls})),{imports:0,saves:[],play:0});
+  await observe(page,'publisher-links-small-about',focus);
+  await page.keyboard.press('Escape'); assert.equal(await about.count(),0);
 });

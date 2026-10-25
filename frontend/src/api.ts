@@ -12,7 +12,9 @@ export type ImportBatch = { documents: Document[]; errors: { name: string; messa
 export type Job = { id: string; title: string; document_id: string; voice: string; speed: number; words: number; preview: boolean; state: string; completed: number; total: number; duration: number; position: number; message: string; created: number; last_listened?: number; available_duration?: number; engine?: Configuration; throughput?: number; cache_hits?: number; first_audio_seconds?: number; can_resume?: boolean; resume_message?: string; pronunciation_warnings?: string[]; unread_count?: number };
 export type Prepared = { title: string; text: string; words: number; chunks: { text: string; pause: number; block: number }[]; omissions: { code_blocks: number; metadata: number }; unread_count?: number };
 export type Model = { state: string; percent: number; message: string; voices: string[]; download_bytes?: number };
-export type State = { documents: DocumentSummary[]; jobs: Job[]; active: Job | null; model: Model; settings: Settings; storage: string; performance: Performance | null; cache: Cache; welcome_version?: number; recovery?: { count: number; message: string } };
+export type PublisherReference = 'publisher' | 'app' | 'privacy' | 'support';
+export type PublisherLinks = Record<PublisherReference, string>;
+export type State = { documents: DocumentSummary[]; jobs: Job[]; active: Job | null; model: Model; settings: Settings; storage: string; performance: Performance | null; cache: Cache; welcome_version?: number; publisher_links?: PublisherLinks; recovery?: { count: number; message: string } };
 export type API = {
   get_state(): Promise<State>;
   get_stream(id: string): Promise<Stream>;
@@ -42,6 +44,7 @@ export type API = {
   import_model(): Promise<Model | null>;
   complete_welcome(): Promise<boolean>;
   open_microsoft_privacy(reference: 'privacy-statement' | 'smartscreen'): Promise<boolean>;
+  open_publisher_link(reference: PublisherReference): Promise<boolean>;
 };
 
 declare global { interface Window { pywebview?: { api: API } } }
@@ -97,7 +100,7 @@ export async function getAPI(): Promise<{ api: API; preview: boolean }> {
     save_settings: async value => (settings = value),
     generate: unavailable, preview_voice: unavailable, cancel_generation: unavailable, resume_job: unavailable,
     save_position: async () => true, export_recording: unavailable, setup_model: unavailable, import_model: unavailable,
-    open_microsoft_privacy: unavailable,
+    open_microsoft_privacy: unavailable, open_publisher_link: unavailable,
     complete_welcome: async () => { welcomeVersion = 1; return true; },
   };
   return { api, preview: true };

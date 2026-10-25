@@ -19,6 +19,7 @@ NATIVE_METHODS = {
     'preview_voice': (2, 3), 'cancel_generation': (0, 0), 'resume_job': (1, 1),
     'save_position': (2, 2), 'export_recording': (1, 1), 'setup_model': (0, 0),
     'import_model': (0, 0), 'open_microsoft_privacy': (1, 1), 'complete_welcome': (0, 0),
+    'open_publisher_link': (1, 1),
 }
 MAX_NATIVE_MESSAGE_BYTES = 8 * 1024 * 1024
 
