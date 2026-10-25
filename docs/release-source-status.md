@@ -1,6 +1,6 @@
 # Violilt source checkpoint and release status
 
-Updated 24 October 2026. This is the current concise source/release record. Dated
+Updated 25 October 2026. This is the current concise source/release record. Dated
 handoff entries and investigation reports retain their original snapshot scope.
 Local commits record completed work; they do not independently approve a release.
 
@@ -10,9 +10,10 @@ Local commits record completed work; they do not independently approve a release
 | --- | --- | --- |
 | R-01/R-02 | Normal-close work and all three returned R-02 corrections have independent source acceptance. The 24 October reconciliation found the existing 23 October final verdict applicable to d04b077, including the later reviewed R-05 overlap. | Accepted scope is the three returned corrections and affected durable-save/normal-close boundary. The first R-11 delta is separately accepted; the newer notice and subsequent keyboard changes retain their own review scopes. Final-package checks belong to the later campaign. |
 | R-03 | Independent source review accepts the bounded PCM/audio/runtime/sanitizer work, scoped Expat architecture/trusted-caller/private-warning dispositions, cleanup deferral and recorded supplier-identity correspondences at 59147fa. Earlier GPU-fixture acceptance remains. | N2's exact CPU/GPU ONNX-wheel protobuf revision/patch-and-consumer exclusions remain unproved. Other exact-source/authority facts retain their named R-04/supplier owners. No broad source audit or unchanged-suite rerun is justified. Broader native-consumer and actual final payload/installed evidence remain open. |
-| R-04 | B1 is applied and independently accepted, including C1/C2 correction material. All ten live files match the accepted proposal; the independent offline collector check preserved 177 notice files and added eight (185 total). Original sealed reports/matrix remain preserved with corrections adopted in a private overlay. | Precise model/voice, covered-source delivery, native-source, vendor authority, practical LGPL replacement and publisher facts remain separate. B1 notice/collector acceptance is not final redistribution clearance. No further unchanged B1 execution is requested. |
-| R-05 | Earlier diagnostics/startup/cleanup/logging/export/retention source passes remain. The all-user Microsoft notice/opener milestone now has independent source PASS: nine UI cases and four Python methods, exit 0. It provides a persistent About route and two fixed-ID external links. | The later R-11 App keyboard/focus delta is separately accepted; the other six notice source/test inputs remain byte-identical. Publisher/contact/hosting/public policy facts and actual native diagnostics, installed protection, retention and lifecycle remain for the shared final-package campaign. No zero-traffic, complete-suppression, encryption or secure-erasure claim follows. |
-| R-11 keyboard/focus | The two-fix checkpoint 59147fa retains independent source PASS (7+3 cases). The About/removal shortcut and voice-popup/narrow-shelf focus correction also now has independent source PASS: one complete final 18-case run, exit 0 with no failures/skips/cancellations and unchanged selected inputs. | The author's earlier 17+1 results remain separately qualified. The finite semantic disposition identifies one remaining narrow proposed source batch: current/pressed/expanded state for specified existing controls and names for three existing recording context-action focus targets. No implementation or acceptance of that future batch is claimed. Redundant labels/progress polish are deferred; save/warmup speech, hardware/performance, screen-reader, contrast/scaling and installed/final-package evidence remain open. |
+| R-04 | B1/C1/C2 and later closure dispositions retain their accepted scopes. The consolidated independent review accepts the exact frozen 27-file native-audio/Eigen integration and 191 companion files, with no source correction. Five guarded independent methods passed; a reviewer record-order assumption was corrected separately. On 25 October, all 27 accepted files were applied with exact before/after hashes and Eigen was adopted offline, preserving the six original record values/archives and appending one canonical record. Eleven focused live-source/fixture checks passed. The source checkpoint is recorded in abc9474c5d4a. Microsoft has a conditional publisher-grant route; NVIDIA's exact alternate has an accepted bounded retained-family inference. | Newer welcome/privacy/R-11 source, tests and assets and the shared index were preserved. The 191 companion files remain a frozen candidate for later actual package collection. Actual Microsoft licensing/recipient agreement, NVIDIA terms and deferred-load/alternate-companion validation, applicable publisher input rights, practical LGPL replacement and actual final-package/source delivery remain open. No full R-04 redistribution clearance is claimed. |
+| R-05 | Earlier diagnostics/startup/cleanup/logging/export/retention source passes remain. The earlier all-user Microsoft notice/opener checkpoint has independent 9 UI + 4 Python source PASS. The user's later welcome request supersedes its every-window presentation; the fixed-ID opener and persistent full disclosure remain. | Historical passes retain their exact checkpoint scope. New welcome/notice presentation has its own local validation below. Publisher/contact/hosting/public policy facts and actual native diagnostics, installed protection, retention and lifecycle remain for the shared final-package campaign. No zero-traffic, complete-suppression, encryption or secure-erasure claim follows. |
+| R-11 keyboard/focus | The two-fix checkpoint 59147fa retains independent source PASS (7+3 cases). The About/removal shortcut and voice-popup/narrow-shelf focus correction has independent source PASS (one complete final 18-case run). The final S01-S05/C01 state/context batch now also has independent source PASS: eight cases, exit 0, no failures/skips/cancellations; eleven metadata insertions preserve all script/style/handler bytes. | The reviewed state/context changes and focused test are recorded in 9ba38f082e5c; later welcome fixture updates are recorded separately in dc2d0ae71022. Earlier 17+1 author results remain separately qualified. C01 adds explicit concise group identity; the fresh baseline already had descendant-derived names. Redundant labels/progress polish are deferred; save/warmup speech, hardware/performance, screen-reader, contrast/scaling and installed/final-package evidence remain open. |
+| First-use welcome and model setup | User-requested welcome replaces the automatic legal dialog. It offers an optional guide, compact Microsoft disclosure, explicit one-click voice download with size/progress/retry, existing-file import and exploration before setup. Completion persists separately from public preferences; Settings/About reopen the guide/disclosure. Five backend and 26 distinct built-UI cases passed across focused runs/retries; the final canonical build has zero errors/warnings. | This is local implementation verification, not a new independent or installed-package verdict. No actual model download, speech/inference or EXE/MSIX build/install ran. Existing models skip downloading; the setup download provides the CPU model/voices. NVIDIA runtime/model preparation and the shared final campaign remain separate. |
 
 Local evidence: [R-01/R-02 acceptance reconciliation](../.tmp/r01-r02-independent-20261024-85ba1516/reconciliation.md)
 and [R-11 independent verdict](../.tmp/r11-independent-20261024-f7fd2f62/REVIEW.md).
@@ -24,10 +25,28 @@ New returns: [R-04 B1 independent acceptance](../.tmp/r04-b1-independent-accepta
 and [R-11 modal/focus implementation](../.tmp/r11-modal-focus-20261024-0a904423/REPORT.md).
 The [independent R-11 modal/focus PASS](../.tmp/r11-independent-20261024-c72b103f/REVIEW.md)
 accepts the final 18-case fixture and source delta.
-The [finite remaining semantic disposition](../.tmp/r11-semantic-disposition-20261024-68214a5e/DISPOSITION.md)
-records current source locations, actual impacts, bounded proposed acceptance and
-the distinction between necessary source corrections, deferred improvements and
-final native/screen-reader observations. It is a proposal, not implementation acceptance.
+The [finite semantic disposition](../.tmp/r11-semantic-disposition-20261024-68214a5e/DISPOSITION.md)
+retains its historical proposal scope. Its necessary S01-S05/C01 changes are now
+implemented in the [state/context batch](../.tmp/r11-state-context-20261024-4adeedf2/REPORT.md)
+and have [independent eight-case source acceptance](../.tmp/r11-state-independent-20261024-58e6b1a9/REVIEW.md).
+The author baseline failed eight unchanged assertions; the final canonical build
+had zero errors/warnings. The independent reviewer verified exact source/assets
+and continuity without rebuilding or rerunning prior suites. Deferred improvements
+and final native/screen-reader observations remain separate.
+R-04's [independent closure review](../.tmp/r04-independent-closure-20261024-61b3a9d8/REVIEW.md)
+and [adopted dispositions](../.tmp/r04-coordinator-closure-20261024-c74a1f86/ACCEPTED-DISPOSITIONS.md)
+record the later accepted scope. The [consolidated R-04 handoff](../.tmp/r04-coordinator-closure-20261024-c74a1f86/combined-02/REPORT.md)
+pins the frozen source/material candidate, initial harness failures and focused
+results, and finite supplier/final-delivery gates.
+The [completed consolidated independent R-04 verdict](../.tmp/r04-final-independent-20261024-8c72f4a1/REVIEW.md)
+now accepts that exact frozen integration. Its earlier usage-limit interruption
+is historical. The [live R-04 application/check report](../.tmp/r04-live-integration-20261025-693e0ac4/REPORT.md)
+records the exact 27-file promotion, guarded offline Eigen cache adoption and
+eleven focused checks on 25 October. Newer welcome/privacy/R-11 work and assets,
+user-owned `docs/.flowstate.toml` and the shared index were preserved. Actual
+package/source delivery and release fulfillment remain open.
+The subsequent user-requested [welcome/setup change record](../.tmp/welcome-setup-20261024-8d3f5a21/REPORT.md)
+preserves the frozen candidate and records its own changed source and verification.
 Coordinator source/asset reconciliation is preserved in
 [the current wave record](../.tmp/release-reconciliation-20261024-87d05f3b/source-reconciliation.json).
 The R-11 keyboard/focus checkpoint's preserved baseline reproduced
@@ -61,6 +80,9 @@ than reconstructing invented intermediate history. Earlier commits are unchanged
 | R04-01 | ebd3c0148619 | Eight supplemental notice inputs and collector mapping; 177 prior notices preserved, 185 total; scoped B1/C1/C2 independent acceptance. |
 | R05-03 | 25aa67c91f41 | Every-window Microsoft notice, persistent About route and two fixed-ID references; independent 9 UI + 4 Python source pass. App bytes are the preserved exact R-05 accepted state. |
 | R11-02 | d94770047a3a | About/removal shortcut confinement and appropriate voice-popup/hidden-shelf focus restoration; complete independent final 18-case pass. |
+| R11-03 | 9ba38f082e5c | Current-document/shelf/view/preset/theme state and named recording groups; reviewed snapshots and independent eight-case source acceptance. |
+| R04-02 | abc9474c5d4a | Accepted 27-file PCM/native-audio/Eigen integration plus the frozen model-attribution document; scoped independent acceptance and eleven live-source checks retained. |
+| Welcome/setup | dc2d0ae71022 | First-use welcome, optional guide, explicit voice download/import, persistent disclosure and approved compact privacy copy; five backend, 26 distinct UI cases and later two privacy checks retained within their recorded scopes. |
 
 The initial organization contains one R-03 code/test commit, two R-05 implementation commits, three
 R-02 correction commits and one organization commit. R-04 and R-05 retention
@@ -82,10 +104,31 @@ normalization were checked; no functional suite, inference, frontend/package bui
 or installation was repeated solely for committing. Detailed commit records remain
 in [.tmp/release-commits-20261024-a590dce7](../.tmp/release-commits-20261024-a590dce7/state.json).
 
+The 25 October checkpoint adds those three source commits and the current
+documentation/polish-plan commit. Reviewed R11 snapshots were staged directly in
+the index; the later welcome commit records their actual subsequent delta. All
+46 final source/test/material paths match the preserved working implementation
+after Git line-ending normalization. Product and compiled-asset bytes remain
+unchanged. Staged path/identity, Python AST, JavaScript and JSON syntax checks
+passed. R11, welcome and documentation whitespace checks passed; the exact
+accepted upstream Eigen patches retain their known whitespace findings. No
+functional suite, build, inference or installation was repeated just for commits.
+Per-commit trees and final preservation are recorded in
+[the checkpoint record](../.tmp/release-checkpoint-commits-20261025-ae84d620/state.json).
+
+The publisher reports roughly 1 GB of VRAM remaining after the first close. That
+observation is unresolved and is not attributed to the voice worker by the
+available snapshot. The focused follow-up and proposed Settings-only polish are
+recorded in [the UI polish plan](ui-polish-plan.md). Neither a shutdown fix nor
+visual changes are included in this checkpoint.
+
 ## Remaining sequence
 
-1. Complete the narrowly proposed R-11 state/context-identity source batch and
-   independent acceptance. Settle the precise material R-03 N2/R-04 decisions
+1. Review the bounded Settings polish proposal before implementation. The R-11,
+   R-04 and welcome source checkpoints are committed. Any implemented polish
+   needs its affected UI checks and the final normal CPU/NVIDIA app-flow pass;
+   the first-close VRAM observation remains a separate focused runtime check.
+   Settle the precise material R-03 N2/R-04 decisions
    and fulfillment dependencies; finalize required R-05 public-policy/contact/
    hosting facts and integration. Reuse existing accepted work. Unknown supplier
    or publisher facts remain explicit; no optional feature expansion or new
