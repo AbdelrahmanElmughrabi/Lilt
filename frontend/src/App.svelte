@@ -546,7 +546,7 @@
           <DocumentFind content={searchContent} revision={`${document?.id}:${tab}:${tab === 'spoken' ? prepared?.text : document?.markdown}`} enabled={!!document} />
           <div class="document-scroll">
             {#if document}
-              <div class="reading-meta"><span><FileText size={13} /> READING</span><span class="meta-dot">·</span><span>{pendingSaves ? 'Saving changes…' : dirty ? 'Unsaved changes' : 'Saved to your shelf'}</span></div>
+              <div class="reading-meta"><span><FileText size={13} /> Reading</span><span class="meta-dot">·</span><span class="save-state" class:save-pending={pendingSaves || dirty}>{pendingSaves ? 'Saving changes…' : dirty ? 'Unsaved changes' : 'Saved to your shelf'}</span></div>
               {#if document.source?.toLowerCase().endsWith('.pdf')}<div class="omission-note" role="note">PDF import includes selectable text only. Images and scanned pages are not included. Review the text and reading order before generating.</div>{/if}
               {#if tab === 'edit'}
                 <div class="editor-heading"><h1>Your words.<br /><em>Your way.</em></h1><p>Write or paste Markdown. Your working copy saves automatically.</p></div>
@@ -569,30 +569,28 @@
         </main>
 
         <aside class="voice-panel"><div class="voice-controls">
-          <div class="panel-heading"><span class="eyebrow">GIVE YOUR WORDS A VOICE</span><SlidersHorizontal size={16} strokeWidth={1.4} /></div>
-          <h2>Find your rhythm.</h2>
-          <p class="panel-intro">A voice that feels right.<br />A pace that feels like you.</p>
-          <div class="voice-art" aria-hidden="true"><div class="orb-rings"><span></span><span></span><span></span><span></span></div><div class="art-caption">a little warmth<br />in every word.</div><span class="art-number">01 / VOICE</span></div>
-          <div class="voice-selector-wrap"><button bind:this={voiceTrigger} class:expanded={voiceMenu} class="voice-selector" onclick={() => voiceMenu = !voiceMenu} aria-expanded={voiceMenu}><div><small>YOUR NARRATOR</small><strong>{voice.name}</strong><span>{voice.accent}</span></div><ChevronDown size={17} /></button>
+          <div class="panel-heading"><h2>Voice &amp; narration</h2><div class="voice-art" aria-hidden="true"><div class="orb-rings"><span></span><span></span><span></span><span></span></div></div></div>
+          <div class="voice-selector-wrap"><button bind:this={voiceTrigger} class:expanded={voiceMenu} class="voice-selector" onclick={() => voiceMenu = !voiceMenu} aria-expanded={voiceMenu}><div><small>Voice</small><strong>{voice.name}</strong><span>{voice.accent}</span></div><ChevronDown size={17} /></button>
             {#if voiceMenu}<div bind:this={voicePopup} class="voice-menu">{#each voices as item}<button class:selected={item === settings.voice} onclick={() => { settings.voice = item; closeVoiceMenu(); void changeSettings(); }}><span>{voiceDetails[item]?.name || item.split('_').slice(1).join(' ')}<small>{item.startsWith('b') ? 'British' : 'American'} · {item.includes('m_') ? 'Male' : 'Female'}</small></span>{#if item === settings.voice}<Check size={16} />{/if}</button>{/each}</div>{/if}
           </div>
-          <button class="preview-voice" onclick={voicePreview} disabled={!!active || testing || busy}><Play size={13} fill="currentColor" /> Listen to a sample <span>{active?.preview ? 'Preparing…' : '≈ 8 sec'}</span></button>
-          <div class="control-group"><div class="control-label"><span>Narration speed</span><strong>{settings.speed.toFixed(1)}<small>×</small></strong></div><input type="range" min="0.5" max="2" step="0.1" aria-label="Narration speed" bind:value={settings.speed} onchange={changeSettings} /><div class="range-labels"><span>A little slower</span><span>A little quicker</span></div></div>
-          <div class="reading-options"><span class="control-label">THE LITTLE DETAILS</span><label class="toggle-row"><span>Read code blocks<small>Included only when you want them</small></span><input type="checkbox" bind:checked={settings.include_code} onchange={changeSettings} /><span class="toggle-track"></span></label><label class="pause-control"><span>Space between paragraphs</span><select aria-label="Paragraph pause" bind:value={settings.paragraph_pause} onchange={changeSettings}><option value={0.15}>Short</option><option value={0.3}>Natural</option><option value={0.6}>Unhurried</option></select></label></div>
-          <div class="processing-control"><div><span>PROCESSING PACE</span><button onclick={() => page = 'settings'}>Tune it <ArrowUpRight size={12} /></button></div><div class="compact-presets">{#each ['quiet', 'balanced', 'fast', 'custom'] as mode}<button class:selected={settings.performance_mode === mode} aria-pressed={settings.performance_mode === mode} onclick={() => { settings.performance_mode = mode as Settings['performance_mode']; void changeSettings(); }}>{mode.charAt(0).toUpperCase()+mode.slice(1)}</button>{/each}</div><p class="processing-caption">{active?.engine?.label || appState?.performance?.configuration.label || 'CPU'} · {active?.engine?.threads || appState?.performance?.configuration.threads || 4} threads{active ? ' · Changes apply to the next reading' : ' · Listen while the rest is prepared'}</p></div>
+          <button class="preview-voice" onclick={voicePreview} disabled={!!active || testing || busy}><Play size={13} fill="currentColor" /> Listen to a sample <span>{active?.preview ? (active.state === 'preparing' ? 'Preparing…' : active.state === 'assembling' ? 'Saving…' : active.state === 'cancelling' ? 'Stopping…' : 'Generating…') : '≈ 8 sec'}</span></button>
+          <div class="control-group"><div class="control-label"><span>Narration speed</span><strong>{settings.speed.toFixed(1)}<small>×</small></strong></div><input type="range" min="0.5" max="2" step="0.1" aria-label="Narration speed" bind:value={settings.speed} onchange={changeSettings} /><div class="range-labels"><span>Slower</span><span>Quicker</span></div></div>
+          <div class="reading-options"><span class="control-label">Reading options</span><label class="toggle-row"><span>Read code blocks<small>Include code in the narration</small></span><input type="checkbox" bind:checked={settings.include_code} onchange={changeSettings} /><span class="toggle-track"></span></label><label class="pause-control"><span>Paragraph pause</span><select aria-label="Paragraph pause" bind:value={settings.paragraph_pause} onchange={changeSettings}><option value={0.15}>Short</option><option value={0.3}>Natural</option><option value={0.6}>Unhurried</option></select></label></div>
+          <div class="processing-control"><div><span>Processing</span><button aria-label="Processing settings" onclick={() => page = 'settings'}>Settings <ArrowUpRight size={12} /></button></div><div class="compact-presets">{#each ['quiet', 'balanced', 'fast', 'custom'] as mode}<button class:selected={settings.performance_mode === mode} aria-pressed={settings.performance_mode === mode} onclick={() => { settings.performance_mode = mode as Settings['performance_mode']; void changeSettings(); }}>{mode.charAt(0).toUpperCase()+mode.slice(1)}</button>{/each}</div><p class="processing-caption">{active?.engine?.label || appState?.performance?.configuration.label || 'CPU'} · {active?.engine?.threads || appState?.performance?.configuration.threads || 4} threads{active ? ' · Changes apply to the next reading' : ''}</p></div>
           </div><div class="generation-area">
             {#if active}
               {@const usingGpu = ['CUDAExecutionProvider', 'DmlExecutionProvider'].includes(active.engine?.provider || '')}
               <div class="generation-progress" role="status">
                 <div><span>{active.state === 'preparing' ? 'Preparing your reading…' : active.state === 'assembling' ? 'Saving recording…' : active.state === 'cancelling' ? 'Stopping generation…' : 'Generating audio…'}</span><strong>{Math.round(active.completed / Math.max(1, active.total) * 100)}%</strong></div>
                 <div class="progress-track"><span style:width={`${active.completed / Math.max(1, active.total) * 100}%`}></span></div>
+                {#if active.total > 0}<p class="section-progress">{active.completed} of {active.total} sections complete</p>{/if}
                 <p>{active.message}</p>
                 {#if active.unread_count}<p class="settings-hint" title={`${appState?.storage}/jobs/${active.id}/unread.txt`}>{active.unread_count} symbol{active.unread_count === 1 ? '' : 's'} omitted from speech. Details saved in unread.txt.</p>{/if}
                 {#each active.pronunciation_warnings || [] as warning}<p class="settings-hint">{warning}</p>{/each}
+                {#if (active.available_duration || 0) > 0}<p class="ready-audio"><Headphones size={15} /><span><strong>{formatTime(active.available_duration || 0)} of audio ready</strong><small>{selectedJob?.id === active.id ? 'Listen using the player below.' : 'Completed sections are available.'}</small></span></p>{/if}
                 <div class="live-metrics">
                   {#if active.state === 'generating'}<span>Model loaded</span>{/if}
                   {#if active.throughput}<span><strong>{active.throughput.toFixed(1)}×</strong> generation</span>{/if}
-                  {#if (active.available_duration || 0) > 0}<span><strong>{formatTime(active.available_duration || 0)}</strong> ready</span>{/if}
                   {#if active.first_audio_seconds != null}<span>First audio <strong>{active.first_audio_seconds.toFixed(1)}s</strong></span>{/if}
                   {#if active.cache_hits}<span>{active.cache_hits} reused</span>{/if}
                 </div>
@@ -607,7 +605,8 @@
                 {/if}
               </div>
               <button class="secondary-button" onclick={() => act(async () => { await api.cancel_generation(); await refresh(); })} disabled={active.state === 'cancelling'}><Square size={13} /> {active.state === 'cancelling' ? 'Stopping after this section…' : 'Stop generation'}</button>
-            {:else}<div class="generation-summary"><span>Your next listen</span><strong>~{estimate} <small>min</small></strong></div><button class="primary-button generate-button" onclick={generate} disabled={busy || testing || !words}>{#if startingGeneration}<LoaderCircle size={18} class="spin" /> Preparing your reading…{:else}<Headphones size={18} /> {engineReady ? 'Create your audio' : 'Set up & start listening'} <ArrowRight size={17} />{/if}</button><p class="generation-footnote">{engineReady ? 'Listen as it arrives. Saved to your library.' : 'One free model download. Then local speech.'}</p>{/if}
+              <p class="generation-footnote">Stops after the current section.</p>
+            {:else}<div class="generation-summary"><span>Estimated audio</span><strong>~{estimate} <small>min</small></strong></div><button class="primary-button generate-button" onclick={generate} disabled={busy || testing || !words}>{#if startingGeneration}<LoaderCircle size={18} class="spin" /> Preparing your reading…{:else}<Headphones size={18} /> {engineReady ? 'Create your audio' : 'Set up & start listening'} <ArrowRight size={17} />{/if}</button><p class="generation-footnote">{engineReady ? 'Saved to Recordings when complete.' : 'One free model download. Then local speech.'}</p>{/if}
           </div>
         </aside>
       </div>

@@ -64,7 +64,7 @@ async function fixture(t) {
       get_state: async () => {
         if (controls.failState) throw new Error('Disposable refresh failure; document storage is healthy.');
         if (controls.holdState) await new Promise(resolve => controls.releaseState = resolve);
-        return {documents: structuredClone(documents), jobs: [], active: null,
+        return {documents: structuredClone(documents), jobs: [], active: null, welcome_version: 1,
         model: {state: 'ready', percent: 100, message: 'Fixture only', voices: ['af_heart']},
         settings, storage: 'Disposable fixture', performance: null, cache: controls.cache || {count: 0, bytes: 0, limit_mb: 256}};
       },

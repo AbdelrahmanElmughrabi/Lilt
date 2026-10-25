@@ -488,3 +488,98 @@ kbd { font: 9px 'Segoe UI', sans-serif; color: var(--ink); border: 1px solid var
 .loading-screen h2 { font: 27px Georgia, serif; color: var(--ink); margin: 10px 0 0; }
 .loading-screen .startup-message { max-width: 430px; line-height: 1.8; margin: 0; text-align: center; }
 .loading-screen .primary-button { margin-top: 8px; }
+
+/* Reading room: keep control sizing and feedback local to the studio. */
+.studio-layout .document-toolbar { gap: 16px; }
+.studio-layout .document-toolbar > .eyebrow { font-size: 10px; line-height: 1.5; letter-spacing: 1px; }
+.studio-layout .document-tabs { gap: 4px; padding: 4px; flex-shrink: 0; }
+.studio-layout .document-tabs > button { min-height: 36px; padding: 8px 10px; font-size: 13px; gap: 7px; }
+.studio-layout .document-tabs > button.active { color: var(--ink); background: var(--surface-alt); box-shadow: inset 0 -2px var(--accent); }
+.studio-layout .reading-meta { flex-wrap: wrap; font-size: 12px; line-height: 1.6; gap: 6px; }
+.studio-layout .reading-meta > span:first-child { font-size: 12px; letter-spacing: 0; }
+.studio-layout .save-state { color: var(--prose); }
+.studio-layout .save-state.save-pending { color: var(--ink); font-weight: 500; }
+.studio-layout .voice-panel { width: 324px; }
+.studio-layout .voice-controls { padding: 24px; }
+.studio-layout .panel-heading { gap: 12px; margin-bottom: 16px; }
+.studio-layout .voice-panel h2 { font: 24px/1.25 Georgia, serif; letter-spacing: -.5px; margin: 0; color: var(--ink); }
+.studio-layout .voice-art { width: 38px; min-height: 38px; flex: 0 0 38px; border-radius: 50%; }
+.studio-layout .orb-rings { width: 54px; height: 54px; top: -7px; right: -7px; }
+.studio-layout .orb-rings > span:nth-child(2) { inset: 4px; }
+.studio-layout .orb-rings > span:nth-child(3) { inset: 8px; }
+.studio-layout .orb-rings > span:nth-child(4) { inset: 12px; }
+.studio-layout .voice-selector-wrap { margin-top: 0; }
+.studio-layout .voice-selector { padding: 10px 14px; }
+.studio-layout .voice-selector small { font-size: 13px; line-height: 1.5; letter-spacing: 0; color: var(--prose); }
+.studio-layout .voice-selector strong { margin-top: 4px; font-size: 24px; }
+.studio-layout .voice-selector span { font-size: 12px; line-height: 1.5; color: var(--prose); margin-top: 4px; }
+.studio-layout .voice-menu { max-height: 240px; }
+.studio-layout .voice-menu button { min-height: 48px; font-size: 14px; }
+.studio-layout .voice-menu button small { font-size: 12px; line-height: 1.5; color: var(--prose); }
+.studio-layout .preview-voice { width: 100%; flex-wrap: wrap; min-height: 40px; padding: 10px 2px 4px; font-size: 13px; line-height: 1.5; text-align: left; }
+.studio-layout .preview-voice > span { font-size: 12px; color: var(--prose); }
+.studio-layout .control-group { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.studio-layout .control-label { font-size: 14px; line-height: 1.5; gap: 12px; color: var(--ink); letter-spacing: 0; }
+.studio-layout .control-label > strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+.studio-layout .control-label > strong small { font-size: 12px; }
+.studio-layout input[type='range'] { margin: 16px 0 12px; }
+.studio-layout .range-labels { font-size: 12px; line-height: 1.5; color: var(--prose); }
+.studio-layout .reading-options { margin-top: 16px; padding-top: 16px; }
+.studio-layout .toggle-row { font-size: 14px; line-height: 1.5; gap: 16px; margin-top: 14px; min-height: 32px; }
+.studio-layout .toggle-row > span:first-child { min-width: 0; }
+.studio-layout .toggle-row small { font-size: 12px; line-height: 1.5; color: var(--prose); margin-top: 4px; }
+.studio-layout .toggle-track { width: 36px; height: 22px; flex-shrink: 0; transition: background-color .15s; }
+.studio-layout .toggle-track::after { width: 16px; height: 16px; }
+.studio-layout .toggle-row input { width: 40px; height: 32px; }
+.studio-layout .toggle-row input:checked + .toggle-track::after { transform: translateX(14px); }
+.studio-layout .pause-control { margin-top: 16px; gap: 12px; flex-wrap: wrap; font-size: 13px; line-height: 1.5; }
+.studio-layout .pause-control select { font-size: 13px; padding: 8px; min-height: 36px; max-width: 100%; color: var(--ink); }
+.studio-layout .processing-control { margin-top: 16px; padding-top: 16px; }
+.studio-layout .processing-control > div:first-child { font-size: 14px; line-height: 1.5; gap: 12px; }
+.studio-layout .processing-control > div:first-child button { font-size: 12px; min-height: 32px; display: inline-flex; align-items: center; gap: 4px; }
+.studio-layout .compact-presets { display: flex; flex-wrap: wrap; gap: 6px; overflow: visible; border: 0; margin-top: 10px; }
+.studio-layout .compact-presets button { flex: 1 0 20%; min-width: max-content; min-height: 36px; padding: 8px 6px; border: 1px solid var(--line-strong); border-radius: 5px; font-size: 13px; line-height: 1.5; }
+.studio-layout .compact-presets button.selected { border-color: var(--ink); }
+.studio-layout .processing-caption { font-size: 12px; line-height: 1.6; color: var(--prose); margin: 8px 0 0; }
+.studio-layout .generation-area { padding: 18px 24px; max-height: 55%; overflow: auto; scrollbar-width: thin; }
+.studio-layout .generation-summary { padding-bottom: 14px; gap: 12px; }
+.studio-layout .generation-summary > span { font-size: 13px; line-height: 1.5; color: var(--prose); }
+.studio-layout .generation-summary strong { font-size: 24px; white-space: nowrap; }
+.studio-layout .generation-summary strong small { font-size: 12px; }
+.studio-layout .generation-area :is(.primary-button, .secondary-button) { font-size: 13px; min-height: 44px; line-height: 1.5; padding: 12px; }
+.studio-layout .generate-button { gap: 8px; }
+.studio-layout .generate-button svg { flex-shrink: 0; }
+.studio-layout .generation-footnote { font-size: 12px; line-height: 1.6; color: var(--prose); margin: 10px 0 0; }
+.studio-layout .generation-progress > div:first-child { font-size: 14px; line-height: 1.5; gap: 12px; }
+.studio-layout .generation-progress > div:first-child > strong { font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.studio-layout .progress-track { height: 4px; margin: 12px 0; }
+.studio-layout .progress-track > span { transition: width .15s; }
+.studio-layout .generation-progress p { font-size: 12px; line-height: 1.6; color: var(--prose); margin: 10px 0; overflow-wrap: anywhere; }
+.studio-layout .generation-progress .section-progress { margin: 0; }
+.studio-layout .generation-progress .ready-audio { display: flex; align-items: flex-start; gap: 8px; padding: 10px; background: var(--surface-alt); border-radius: 5px; }
+.studio-layout .ready-audio svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+.studio-layout .ready-audio strong { font-weight: 600; }
+.studio-layout .ready-audio small { display: block; font-size: 12px; margin-top: 4px; }
+.studio-layout .live-metrics { font-size: 12px; line-height: 1.6; color: var(--muted); }
+.studio-layout .hardware-usage > summary { font-size: 12px; line-height: 1.6; padding: 4px 0; }
+.studio-layout .hardware-usage > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 2px; }
+.studio-layout :is(button, select) { transition: background-color .15s, color .15s, border-color .15s, opacity .15s; }
+.studio-layout button:active:not(:disabled) { transform: translateY(1px); }
+.studio-layout :is(button, select):disabled { opacity: .55; cursor: default; }
+.studio-layout .compact-presets button:hover:not(.selected), .studio-layout .voice-selector:hover { background: var(--surface-alt); border-color: var(--accent); }
+@media (max-height: 800px) and (min-width: 761px) {
+  .studio-layout .voice-controls { padding-top: 18px; padding-bottom: 18px; }
+  .studio-layout .panel-heading { margin-bottom: 16px; }
+  .studio-layout .voice-art { display: none; }
+  .studio-layout .generation-area { padding-top: 14px; padding-bottom: 14px; }
+}
+@media (max-width: 1280px) and (min-width: 761px) {
+  .studio-layout .voice-panel { width: 308px; }
+  .studio-layout .document-toolbar { padding-left: 24px; padding-right: 24px; flex-wrap: wrap; align-content: center; padding-top: 10px; padding-bottom: 10px; }
+}
+@media (max-width: 760px) {
+  .studio-layout .voice-panel { width: 100%; }
+  .studio-layout .voice-controls { padding: 24px; }
+  .studio-layout .generation-area { max-height: none; overflow: visible; }
+  .studio-layout .document-toolbar { padding: 16px 24px; }
+}
