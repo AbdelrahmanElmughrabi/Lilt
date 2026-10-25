@@ -632,10 +632,33 @@
       </main>
     {/if}
 
-    <footer class:has-audio={!!selectedJob} class="player-bar">
-      <div class="player-track"><div class="track-icon"><AudioLines size={23} strokeWidth={1.5} /></div><div><strong>{selectedJob?.title || 'Your next listen is waiting.'}</strong><span>{selectedJob ? `${voiceDetails[selectedJob.voice]?.name || selectedJob.voice} · ${selectedJob.preview ? 'Voice preview' : buffering ? 'Waiting for the next words…' : streaming && selectedJob.state !== 'completed' ? `${formatTime(ahead)} buffered ahead` : 'Your recording'}` : 'Choose a voice. Bring your words to life.'}</span>{#if selectedJob?.unread_count}<span title={`${appState?.storage}/jobs/${selectedJob.id}/unread.txt`}>{selectedJob.unread_count} symbol{selectedJob.unread_count === 1 ? '' : 's'} omitted from speech · unread.txt</span>{/if}</div></div>
-      <div class="player-center"><div class="player-buttons"><button title="Back 10 seconds" disabled={!selectedJob} onclick={() => seek(position - 10)}><SkipBack size={16} fill="currentColor" /></button><button class="play-button" title={playing || wanted ? 'Pause' : 'Play'} data-buffering={buffering} disabled={!selectedJob} onclick={togglePlay}>{#if buffering}<LoaderCircle size={18} class="spin" />{:else if playing}<Pause size={18} fill="currentColor" />{:else}<Play size={18} fill="currentColor" />{/if}</button><button title="Forward 10 seconds" disabled={!selectedJob} onclick={() => seek(position + 10)}><SkipForward size={16} fill="currentColor" /></button></div><div class="player-timeline"><span>{formatTime(position)}</span><input aria-label="Seek audio" type="range" min="0" max={duration || 1} step="0.1" value={position} oninput={(e) => seek(Number(e.currentTarget.value))} disabled={!selectedJob} /><span>{selectedJob ? formatTime(duration) : '-:-'}</span></div></div>
-      <div class="player-extra"><button class="playback-rate" disabled={!selectedJob} title="Playback speed" onclick={changePlayback}>{playbackSpeed}×</button><Volume2 size={17} /><input type="range" aria-label="Volume" min="0" max="1" step="0.05" bind:value={volume} oninput={changeVolume} /><button class="export-button" disabled={!selectedJob || selectedJob.state !== 'completed'} onclick={() => exportAudio()} title="Export recording"><Download size={18} /></button></div>
+    <footer class:has-audio={!!selectedJob} class="player-bar" aria-label="Audio player">
+      <div class="player-track">
+        <div class="track-icon" aria-hidden="true"><AudioLines size={23} strokeWidth={1.5} /></div>
+        <div class="track-details">
+          <strong title={selectedJob?.title || 'Your next listen is waiting.'}>{selectedJob?.title || 'Your next listen is waiting.'}</strong>
+          <span class="track-meta">{#if selectedJob}{voiceDetails[selectedJob.voice]?.name || selectedJob.voice} · {#if selectedJob.preview}Voice preview · {/if}{buffering ? 'Buffering…' : playing ? 'Playing' : 'Paused'}{:else}Choose a voice. Bring your words to life.{/if}</span>
+          {#if selectedJob && streaming && selectedJob.state !== 'completed'}<span class="stream-status">{formatTime(ahead)} decoded ahead</span>{/if}
+          {#if selectedJob?.unread_count}<span class="track-warning" title={`${appState?.storage}/jobs/${selectedJob.id}/unread.txt`}>{selectedJob.unread_count} symbol{selectedJob.unread_count === 1 ? '' : 's'} omitted from speech · unread.txt</span>{/if}
+        </div>
+      </div>
+      <div class="player-center">
+        <div class="player-buttons">
+          <button title="Back 10 seconds" aria-label="Back 10 seconds" disabled={!selectedJob} onclick={() => seek(position - 10)}><SkipBack size={16} fill="currentColor" /><span aria-hidden="true">10</span></button>
+          <button class="play-button" title={playing || wanted ? 'Pause' : 'Play'} aria-label={playing || wanted ? 'Pause' : 'Play'} data-buffering={buffering} disabled={!selectedJob} onclick={togglePlay}>{#if playing || wanted}<Pause size={20} fill="currentColor" />{:else}<Play size={20} fill="currentColor" />{/if}</button>
+          <button title="Forward 10 seconds" aria-label="Forward 10 seconds" disabled={!selectedJob} onclick={() => seek(position + 10)}><span aria-hidden="true">10</span><SkipForward size={16} fill="currentColor" /></button>
+        </div>
+        <div class="player-timeline">
+          <span class="player-time" title="Elapsed time">{formatTime(position)}</span>
+          <input aria-label="Seek audio" aria-valuetext={`${formatTime(position)} of ${formatTime(duration)} ${streaming && selectedJob?.state !== 'completed' ? 'available audio' : 'total'}`} type="range" min="0" max={duration || 1} step="0.1" value={position} oninput={(e) => seek(Number(e.currentTarget.value))} disabled={!selectedJob} />
+          <span class="player-duration"><span>{selectedJob ? formatTime(duration) : '–:––'}</span><small>{streaming && selectedJob?.state !== 'completed' ? 'Available' : 'Total'}</small></span>
+        </div>
+      </div>
+      <div class="player-extra">
+        <button class="playback-rate" disabled={!selectedJob} title="Playback speed" aria-label={`Playback speed, ${playbackSpeed} times`} onclick={changePlayback}><span>Speed</span><strong>{playbackSpeed}×</strong></button>
+        <div class="player-volume"><Volume2 size={18} aria-hidden="true" /><input type="range" aria-label="Volume" aria-valuetext={`${Math.round(volume * 100)} percent`} min="0" max="1" step="0.05" bind:value={volume} oninput={changeVolume} /></div>
+        <button class="export-button" disabled={!selectedJob || selectedJob.state !== 'completed'} onclick={() => exportAudio()} aria-label="Export recording" title={selectedJob?.state === 'completed' ? 'Export recording' : 'Export is available when the recording is complete'}><Download size={18} /><span>Export</span></button>
+      </div>
     </footer>
     <audio bind:this={audio} preload="metadata" src={selectedJob && !streaming ? `/media/${selectedJob.id}.wav` : undefined} onloadedmetadata={loadedAudio} ontimeupdate={timeUpdate} onplay={() => { if (!streaming) playing = true; }} onpause={() => { if (!streaming) { playing = false; if (selectedJob) void api.save_position(selectedJob.id, position); } }} onended={() => { if (!streaming) playing = false; }} onerror={() => { if (selectedJob && !streaming) error = 'This recording could not be opened. Check that its audio file is still available.'; }}></audio>
   </div>
