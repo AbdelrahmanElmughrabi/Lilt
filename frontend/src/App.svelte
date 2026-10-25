@@ -569,7 +569,7 @@
         </main>
 
         <aside class="voice-panel"><div class="voice-controls">
-          <div class="panel-heading"><h2>Voice &amp; narration</h2><div class="voice-art" aria-hidden="true"><div class="orb-rings"><span></span><span></span><span></span><span></span></div></div></div>
+          <div class="panel-heading"><h2>Voice &amp; narration</h2><span class="voice-heading-accent" aria-hidden="true"><AudioLines size={18} strokeWidth={1.5} /></span></div>
           <div class="voice-selector-wrap"><button bind:this={voiceTrigger} class:expanded={voiceMenu} class="voice-selector" onclick={() => voiceMenu = !voiceMenu} aria-expanded={voiceMenu}><div><small>Voice</small><strong>{voice.name}</strong><span>{voice.accent}</span></div><ChevronDown size={17} /></button>
             {#if voiceMenu}<div bind:this={voicePopup} class="voice-menu">{#each voices as item}<button class:selected={item === settings.voice} onclick={() => { settings.voice = item; closeVoiceMenu(); void changeSettings(); }}><span>{voiceDetails[item]?.name || item.split('_').slice(1).join(' ')}<small>{item.startsWith('b') ? 'British' : 'American'} · {item.includes('m_') ? 'Male' : 'Female'}</small></span>{#if item === settings.voice}<Check size={16} />{/if}</button>{/each}</div>{/if}
           </div>

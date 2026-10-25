@@ -503,11 +503,7 @@ kbd { font: 9px 'Segoe UI', sans-serif; color: var(--ink); border: 1px solid var
 .studio-layout .voice-controls { padding: 24px; }
 .studio-layout .panel-heading { gap: 12px; margin-bottom: 16px; }
 .studio-layout .voice-panel h2 { font: 24px/1.25 Georgia, serif; letter-spacing: -.5px; margin: 0; color: var(--ink); }
-.studio-layout .voice-art { width: 38px; min-height: 38px; flex: 0 0 38px; border-radius: 50%; }
-.studio-layout .orb-rings { width: 54px; height: 54px; top: -7px; right: -7px; }
-.studio-layout .orb-rings > span:nth-child(2) { inset: 4px; }
-.studio-layout .orb-rings > span:nth-child(3) { inset: 8px; }
-.studio-layout .orb-rings > span:nth-child(4) { inset: 12px; }
+.studio-layout .voice-heading-accent { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex: 0 0 38px; color: var(--accent); }
 .studio-layout .voice-selector-wrap { margin-top: 0; }
 .studio-layout .voice-selector { padding: 10px 14px; }
 .studio-layout .voice-selector small { font-size: 13px; line-height: 1.5; letter-spacing: 0; color: var(--prose); }
@@ -570,7 +566,7 @@ kbd { font: 9px 'Segoe UI', sans-serif; color: var(--ink); border: 1px solid var
 @media (max-height: 800px) and (min-width: 761px) {
   .studio-layout .voice-controls { padding-top: 18px; padding-bottom: 18px; }
   .studio-layout .panel-heading { margin-bottom: 16px; }
-  .studio-layout .voice-art { display: none; }
+  .studio-layout .voice-heading-accent { display: none; }
   .studio-layout .generation-area { padding-top: 14px; padding-bottom: 14px; }
 }
 @media (max-width: 1280px) and (min-width: 761px) {
@@ -579,6 +575,7 @@ kbd { font: 9px 'Segoe UI', sans-serif; color: var(--ink); border: 1px solid var
 }
 @media (max-width: 760px) {
   .studio-layout .voice-panel { width: 100%; }
+  .studio-layout .voice-heading-accent { display: none; }
   .studio-layout .voice-controls { padding: 24px; }
   .studio-layout .generation-area { max-height: none; overflow: visible; }
   .studio-layout .document-toolbar { padding: 16px 24px; }
