@@ -21,7 +21,7 @@ binaries += collect_dynamic_libs('clr_loader')
 for package in ('misaki', 'spacy', 'thinc', 'regex', 'addict', 'numpy', 'en-core-web-sm', 'num2words', 'pypdf'):
     datas += copy_metadata(package)
 
-excludes = ['tools', 'tests', 'kokoro_onnx', 'phonemizer', 'phonemizer_fork', 'espeakng_loader',
+excludes = ['soundfile', '_soundfile', '_soundfile_data', 'tools', 'tests', 'kokoro_onnx', 'phonemizer', 'phonemizer_fork', 'espeakng_loader',
             'misaki.espeak', 'misaki.cutlet', 'misaki.he', 'misaki.ja', 'misaki.ko',
             'misaki.vi', 'misaki.zh', 'misaki.zh_frontend', 'misaki.g2pkc',
             'misaki.vi_cleaner', 'misaki.zh_normalization',

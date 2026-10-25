@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import numpy as np
-import soundfile as sf
+from backend.pcm_audio import audio_info, write_pcm16
 
 from backend.cache import section_key
 from backend.documents import prepare
@@ -74,7 +74,7 @@ class UnreadReportTests(unittest.TestCase):
                 for j in (first, second)]
         self.assertEqual(keys[0], keys[1])
         first_audio = self.report(first).parent / 'section-000000.wav'
-        sf.write(first_audio, np.full(1000, .1), 24000, subtype='PCM_16')
+        write_pcm16(first_audio, np.full(1000, .1), 24000)
         self.jobs.cache.put(keys[0], first_audio)
         self.assertTrue(self.jobs.cache.fetch(keys[1], self.report(second).parent / 'section-000000.wav'))
         self.assertIn('🦊', self.report(first).read_text(encoding='utf-8'))

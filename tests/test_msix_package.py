@@ -27,7 +27,7 @@ class MsixPackageTests(unittest.TestCase):
             path.write_bytes(b'fixture')
         for name in ('misaki/data/us_gold.json', 'misaki/data/us_silver.json',
                      'misaki/data/gb_gold.json', 'misaki/data/gb_silver.json',
-                     'num2words/__init__.py', '_soundfile_data/libsndfile_x64.dll'):
+                     'num2words/__init__.py'):
             path = self.payload / '_internal' / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'fixture')
@@ -77,7 +77,8 @@ class MsixPackageTests(unittest.TestCase):
     def write_executable(self, modules=None):
         inputs = self.root / 'archive-inputs'
         inputs.mkdir(exist_ok=True)
-        modules = modules or {'backend.speech': 'from backend.kokoro_engine import Kokoro\n'}
+        modules = modules or {'backend.speech': 'from backend.kokoro_engine import Kokoro\n',
+                              'backend.pcm_audio': 'def write_pcm16(destination, samples, samplerate=24000): pass\n'}
         entries, code = [], {}
         for name, source in modules.items():
             path = inputs / (name + '.py')
@@ -254,6 +255,29 @@ class MsixPackageTests(unittest.TestCase):
         for version in ('0.1.0.0', '1.0.0.1', '1.0.0', '../1.0.0.0', '65536.0.0.0', '01.0.0.0'):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 package_version(version)
+
+
+    def test_removed_native_audio_is_rejected_but_legal_text_is_allowed(self):
+        legal = self.payload/'third-party/native/libsndfile-historical-LICENSE.txt'
+        legal.parent.mkdir(parents=True, exist_ok=True)
+        legal.write_text('Preserved historical notice')
+        self.assertEqual(audit(self.payload, write_report=False)['violations'], [])
+        for relative in ('_internal/other/libsndfile_x64.dll', 'third-party/native/libsndfile_x64.dll'):
+            with self.subTest(relative=relative):
+                rogue = self.payload/relative
+                rogue.parent.mkdir(parents=True, exist_ok=True)
+                rogue.write_bytes(b'inert forbidden native fixture')
+                try:
+                    result = audit(self.payload, write_report=False)
+                    self.assertTrue(any('Removed SoundFile/libsndfile runtime file' in v for v in result['violations']))
+                finally:
+                    rogue.unlink()
+
+    def test_generated_pcm_writer_code_is_required(self):
+        self.write_executable({'backend.speech': 'pass\n'})
+        result = audit(self.payload, write_report=False)
+        self.assertFalse(result['generated_pcm16_writer_present'])
+        self.assertTrue(any('Required generated PCM16 writer missing' in v for v in result['violations']))
 
 
 if __name__ == '__main__':

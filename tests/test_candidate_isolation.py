@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-import soundfile as sf
+from backend.pcm_audio import audio_info, write_pcm16
 
 from backend.cache import SectionCache
 from backend.storage import Store, data_directory
@@ -64,7 +64,7 @@ class CandidateIsolationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / 'section-000000.wav'
-            sf.write(source, np.zeros(1000), 24000, subtype='PCM_16')
+            write_pcm16(source, np.zeros(1000), 24000)
             notices = ['An unfamiliar word was spelled aloud.']
             SectionCache.write_warnings(source, notices)
             cache = SectionCache(root / 'cache')
@@ -82,7 +82,7 @@ class CandidateIsolationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source, copy = root / 'source.wav', root / 'copy.wav'
-            sf.write(source, np.zeros(1000), 24000, subtype='PCM_16')
+            write_pcm16(source, np.zeros(1000), 24000)
             SectionCache.write_warnings(copy, ['Stale notice'])
             cache = SectionCache(root / 'cache')
             key = 'b' * 64
@@ -94,7 +94,7 @@ class CandidateIsolationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / 'source.wav'
-            sf.write(source, np.zeros(1000), 24000, subtype='PCM_16')
+            write_pcm16(source, np.zeros(1000), 24000)
             notices = ['Some words outside the pronunciation dictionary were spelled out.']
             SectionCache.write_warnings(source, notices)
             cache = SectionCache(root / 'cache')

@@ -53,7 +53,6 @@ rich==15.0.0
 setuptools==84.0.0
 shellingham==1.5.4
 smart_open==8.0.2
-soundfile==0.13.1
 spacy==3.8.16
 spacy-legacy==3.0.12
 spacy-loggers==1.0.5

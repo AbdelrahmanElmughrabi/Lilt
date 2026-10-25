@@ -159,3 +159,50 @@ def copy_pcm(source, destination):
     with open_pcm(source) as reader, Path(destination).open('wb') as output:
         while block := reader.read(BLOCK_BYTES):
             output.write(block)
+
+
+def write_pcm16(destination, samples, samplerate=RATE):
+    """Write generated mono PCM to a caller-owned staging path.
+
+    Input validation finishes before opening the destination. Publication and
+    warning-sidecar ordering remain with the caller; I/O errors can leave an
+    incomplete staging file, never a published replacement.
+    """
+    import numpy as np
+    import wave
+
+    invalid = 'The speech engine returned an invalid audio section.'
+    if (samplerate != RATE or not isinstance(samples, np.ndarray)
+            or samples.dtype.name not in {'float32', 'float64', 'int16', 'int32'}
+            or samples.ndim not in (1, 2)
+            or (samples.ndim == 2 and samples.shape[1] != 1)):
+        raise ValueError(invalid)
+    data = samples if samples.ndim == 1 else samples[:, 0]
+    frames = len(data)
+    if not 0 < frames <= MAX_AUDIO_BYTES // 2:
+        raise ValueError(invalid)
+    block_frames = BLOCK_BYTES // 2
+    # Do not allocate a full-section finite mask or converted copy. Reject even
+    # a late invalid value before touching an existing destination/staging file.
+    for start in range(0, frames, block_frames):
+        if not np.isfinite(data[start:start + block_frames]).all():
+            raise ValueError(invalid)
+    with wave.open(str(destination), 'wb') as output:
+        output.setparams((1, 2, RATE, frames, 'NONE', 'not compressed'))
+        for start in range(0, frames, block_frames):
+            block = data[start:start + block_frames]
+            if block.dtype.kind == 'f':
+                # Match libsndfile's clipping-enabled normalized f/d2les path:
+                # round at signed-32 precision, then take its high 16 bits.
+                # rint is nearest/even; rint(sample * 32768) would differ.
+                work = np.clip(block, -1.0, 1.0)
+                work *= 2147483648.0
+                np.rint(work, out=work)
+                pcm = work.astype(np.int64)
+                pcm >>= 16
+                np.clip(pcm, -32768, 32767, out=pcm)
+            elif block.dtype.itemsize == 4:
+                pcm = block >> 16
+            else:
+                pcm = block
+            output.writeframesraw(pcm.astype('<i2', copy=False).tobytes())

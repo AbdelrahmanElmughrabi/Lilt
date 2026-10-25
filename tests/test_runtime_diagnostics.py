@@ -209,7 +209,7 @@ class RuntimeDiagnosticsTests(unittest.TestCase):
             activation.assert_called_once_with('verified-fixture-directory')
             self.assertLess(fixture.ledger.index('activate'), fixture.ledger.index('import:gpu-fixture'))
             self.assertLess(fixture.ledger.index('control:gpu-fixture'), fixture.ledger.index('dependency:numpy'))
-            self.assertLess(fixture.ledger.index('control:gpu-fixture'), fixture.ledger.index('dependency:soundfile'))
+            self.assertNotIn('dependency:soundfile', fixture.ledger)
             fixture.ort.InferenceSession.assert_not_called()
 
     def test_worker_without_addon_retains_selected_cpu_module(self):

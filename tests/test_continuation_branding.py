@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
-import soundfile as sf
+from backend.pcm_audio import audio_info, write_pcm16
 
 from backend.cache import section_key
 from backend.documents import prepare
@@ -73,7 +73,7 @@ class ContinuationBrandingTests(unittest.TestCase):
         directory = Path(command['directory'])
         directory.mkdir()
         audio = directory / 'section-000000.wav'
-        sf.write(audio, np.full(2400, .1), 24000, subtype='PCM_16')
+        write_pcm16(audio, np.full(2400, .1), 24000)
         job['sections'], job['available_duration'] = published_sections(job, directory)
         job.update(state=state, completed=1, position=.05)
         self.store.put('jobs', job)
@@ -127,7 +127,7 @@ class ContinuationBrandingTests(unittest.TestCase):
                 self.assertEqual(audio.read_bytes(), audio_before)
                 self.assertEqual(job, before)
                 self.assertEqual(self.store.get('jobs', job['id']), before)
-                self.assertGreater(sf.info(audio.parent / 'recording.wav').frames, sf.info(audio).frames)
+                self.assertGreater(audio_info(audio.parent / 'recording.wav').frames, audio_info(audio).frames)
 
     def test_new_readings_reuse_the_pre_rebrand_speech_cache(self):
         old, audio, _ = self.saved_reading('lilt')

@@ -1,0 +1,4 @@
+# Optional developer sample/integration tools only; never a production input.
+# Current tests and production writing do not require this package. Installing
+# it in a developer environment does not override packaging exclusions/audit.
+soundfile==0.13.1

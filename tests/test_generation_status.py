@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
-import soundfile as sf
+from backend.pcm_audio import audio_info, write_pcm16
 
 from backend.speech import speech_worker
 
@@ -92,7 +92,7 @@ class GenerationStatusTests(unittest.TestCase):
         directory = Path(command['directory'])
         directory.mkdir()
         section = directory / 'section-000000.wav'
-        sf.write(section, np.full(2400, .1), 24000, subtype='PCM_16')
+        write_pcm16(section, np.full(2400, .1), 24000)
         before = section.read_bytes()
         load = self.run_worker(command)
         load.assert_not_called()

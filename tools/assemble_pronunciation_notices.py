@@ -51,10 +51,91 @@ def fetch(url: str, destination: Path, expected_sha256: str | None = None) -> di
             'upstream_sha256_verified': bool(expected_sha256)}
 
 
+EIGEN_COMPONENT = 'onnxruntime-eigen'
+
+
+def eigen_source_spec() -> dict:
+    spec_path = ROOT / 'thirdparty/ort-eigen/source.json'
+    if not spec_path.is_file():
+        raise ValueError('Required Eigen source specification is missing.')
+    spec = json.loads(spec_path.read_text(encoding='utf-8'))
+    for item in [spec['archive'], *spec['support_files']]:
+        for field in ('filename', 'cache_filename'):
+            name = item[field]
+            if not name or Path(name).name != name or '/' in name or '\\' in name:
+                raise ValueError('Eigen source filenames must be plain basenames.')
+    return spec
+
+
+def check_eigen_material(path: Path, item: dict, *, archive: bool = False) -> None:
+    if not path.is_file() or path.stat().st_size != item['bytes'] or sha256(path) != item['sha256']:
+        raise ValueError(f'Eigen source material missing or changed: {item["filename"]}')
+    if archive:
+        with path.open('rb') as stream:
+            actual_sha1 = hashlib.file_digest(stream, 'sha1').hexdigest()
+        if actual_sha1 != item['upstream_sha1']:
+            raise ValueError('Eigen archive differs from the upstream declared SHA-1.')
+
+
+def eigen_source_record(spec: dict) -> dict:
+    archive = spec['archive']
+    return {
+        'component': EIGEN_COMPONENT, 'version': spec['source_revision'],
+        'filename': archive['cache_filename'], 'url': archive['url'],
+        'bytes': archive['bytes'], 'sha256': archive['sha256'],
+        'sha1': archive['upstream_sha1'],
+        # SHA-256 is a reviewed local capture pin, not an upstream-published digest.
+        'upstream_sha256_verified': False, 'upstream_sha1_verified': True,
+        'sha256_provenance': spec['sha256_provenance'],
+        'runtime_tags': spec['runtime_tags'], 'association_limit': spec['association_limit'],
+        'output_directory': 'onnxruntime-eigen', 'patch_order': spec['patch_order'],
+        'support_files': spec['support_files'], 'official_release_texts': spec['official_release_texts'],
+    }
+
+
+def prepare_eigen_source() -> dict:
+    spec = eigen_source_spec()
+    support_root = ROOT / 'thirdparty/ort-eigen'
+    for item in spec['support_files']:
+        check_eigen_material(support_root / item['filename'], item)
+    archive = spec['archive']
+    # fetch() reports bool(expected_sha256). Do not propagate that generic flag:
+    # this expected SHA-256 is locally recorded; only SHA-1 was upstream-declared.
+    fetch(archive['url'], SOURCE_CACHE / archive['cache_filename'], archive['sha256'])
+    check_eigen_material(SOURCE_CACHE / archive['cache_filename'], archive, archive=True)
+    SOURCE_CACHE.mkdir(parents=True, exist_ok=True)
+    for item in spec['support_files']:
+        target = SOURCE_CACHE / item['cache_filename']
+        if target.exists():
+            check_eigen_material(target, item)
+        else:
+            shutil.copyfile(support_root / item['filename'], target)
+            check_eigen_material(target, item)
+    return eigen_source_record(spec)
+
+
+def collect_eigen_source(output: Path, sources: list[dict]) -> None:
+    spec = eigen_source_spec()
+    expected = eigen_source_record(spec)
+    records = [item for item in sources if item.get('component') == EIGEN_COMPONENT]
+    if len(records) != 1 or records[0] != expected:
+        raise ValueError('Required Eigen source record missing or differs from the reviewed specification; prepare sources before packaging.')
+    materials = [spec['archive'], *spec['support_files']]
+    for index, item in enumerate(materials):
+        check_eigen_material(SOURCE_CACHE / item['cache_filename'], item, archive=index == 0)
+    destination = output / 'sources/onnxruntime-eigen'
+    destination.mkdir(parents=True, exist_ok=True)
+    for item in materials:
+        target = destination / item['filename']
+        shutil.copyfile(SOURCE_CACHE / item['cache_filename'], target)
+        check_eigen_material(target, item)
+    (destination / 'source-manifest.json').write_text(json.dumps(expected, indent=2), encoding='utf-8')
+
+
 def prepare_sources() -> list[dict]:
     SOURCE_CACHE.mkdir(parents=True, exist_ok=True)
     sources = []
-    for name in ('num2words', 'certifi', 'tqdm', 'soundfile', 'proxy_tools'):
+    for name in ('num2words', 'certifi', 'tqdm', 'proxy_tools'):
         version = metadata.version(name)
         url = f'https://pypi.org/pypi/{name}/{version}/json'
         request = urllib.request.Request(url, headers={'User-Agent': 'Violilt-Pronunciation-Evaluation/1'})
@@ -63,11 +144,16 @@ def prepare_sources() -> list[dict]:
         artifact = next(item for item in release['urls'] if item['packagetype'] == 'sdist')
         item = fetch(artifact['url'], SOURCE_CACHE / artifact['filename'], artifact['digests']['sha256'])
         sources.append(item | {'component': name, 'version': version, 'metadata_url': url})
-    # This is upstream library source for review. It is not asserted to reproduce
-    # SoundFile's exact embedded codecs/DLL until its build chain is verified.
-    sources.append(fetch('https://codeload.github.com/libsndfile/libsndfile/tar.gz/refs/tags/1.2.2',
-                         SOURCE_CACHE / 'libsndfile-1.2.2.tar.gz') |
-                   {'component': 'libsndfile', 'version': '1.2.2', 'exact_dll_build_verified': False})
+    # Keep already cached legacy review materials; never fetch a removed native
+    # dependency or require its installed metadata. Do not delete prior evidence.
+    previous = SOURCE_CACHE / 'source-manifest.json'
+    for item in json.loads(previous.read_text(encoding='utf-8')) if previous.is_file() else []:
+        if item['component'] in {'soundfile', 'libsndfile'}:
+            source = SOURCE_CACHE / item['filename']
+            if not source.is_file() or sha256(source) != item['sha256']:
+                raise ValueError('Retained legacy audio source archive is missing or changed.')
+            sources.append(item)
+    sources.append(prepare_eigen_source())
     (SOURCE_CACHE / 'source-manifest.json').write_text(json.dumps(sources, indent=2), encoding='utf-8')
     return sources
 
@@ -179,27 +265,15 @@ def assemble(output: Path, frontend_directory: Path | None = None) -> dict:
         else:
             missing.append(f'Missing additional notice evidence: {label}.')
     shutil.copyfile(ROOT / 'thirdparty/PRONUNCIATION-CANDIDATE.md', output / 'README.md')
-    (output / 'MODEL-ATTRIBUTIONS.md').write_text(
-        '# Model/data attribution and provenance status\n\n'
-        'Kokoro-82M by hexgrad: Apache-2.0. https://huggingface.co/hexgrad/Kokoro-82M\n'
-        'ONNX conversion/artifacts supplied through the kokoro-onnx release chain: '
-        'https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.0\n'
-        'The Violilt inference adapter is derived from the MIT kokoro-onnx 0.6.1 wrapper; '
-        'it removes the eSpeak/Phonemizer stage and consumes English Misaki phonemes.\n'
-        'Misaki 0.9.4 English dictionaries: declared Apache-2.0 coverage in the package; '
-        'independent dictionary provenance review remains open. https://github.com/hexgrad/misaki\n'
-        'spaCy en_core_web_sm 3.8.0: MIT model; model package notices are retained in python/. '
-        'https://github.com/explosion/spacy-models/releases/tag/en_core_web_sm-3.8.0\n\n'
-        'Local packaged model SHA-256 values appear in package-audit.json. They identify '
-        'the exact local bytes and do not by themselves establish upstream authenticity. '
-        'Exact converted weight/voice provenance and applicable modification/NOTICE '
-        'mapping remain release gates. The whole distributed voice file is in scope.\n', encoding='utf-8')
 
     sources = []
     source_manifest = SOURCE_CACHE / 'source-manifest.json'
     if source_manifest.is_file():
         sources = json.loads(source_manifest.read_text(encoding='utf-8'))
+        collect_eigen_source(output, sources)
         for item in sources:
+            if item.get('component') == EIGEN_COMPONENT:
+                continue  # Complete archive/support files are copied to their nested source folder.
             source = SOURCE_CACHE / item['filename']
             if not source.is_file() or sha256(source) != item['sha256']:
                 raise ValueError(f'Prepared source archive missing or changed: {item["filename"]}')
@@ -208,28 +282,23 @@ def assemble(output: Path, frontend_directory: Path | None = None) -> dict:
             shutil.copyfile(source, destination)
         shutil.copyfile(source_manifest, output / 'sources/source-manifest.json')
     else:
+        collect_eigen_source(output, [])  # Required covered source fails explicitly when not prepared.
         missing.append('Source archives not prepared; run with --download-sources before redistribution.')
-    source_readme = output / 'SOURCE-RIGHTS.md'
-    source_readme.write_text(
-        '# Component source and replacement rights\n\n'
-        'num2words source remains under its LGPL terms. certifi/tqdm covered source '
-        'remains under the applicable MPL terms (tqdm also has MIT contributions). '
-        'Matching unmodified upstream source archives and notices are supplied in sources/. '
-        'External runtime Python source is in _internal/num2words, _internal/certifi and '
-        '_internal/tqdm when these components are collected. Recipients may inspect, '
-        'modify and replace these components under their own licenses. No Violilt terms '
-        'may restrict those component rights. Compatible replacements must retain '
-        'the relevant public interfaces.\n\n'
-        'libsndfile is an external replaceable DLL in _internal/_soundfile_data/. '
-        'Supplied upstream libsndfile and SoundFile source archives are review '
-        'materials; exact DLL build/embedded codec source remains unresolved. '
-        'Replacement testing and full matching LGPL source/build arrangement are '
-        'required before external release. These source rights concern third-party '
-        'components; independent Violilt application files remain separate.\n', encoding='utf-8')
+    # Versioned source/attribution inputs are reviewed beside the collector.
+    # Their truthful development limits and full notices must survive packaging.
+    component_documents = {
+        'MODEL-ATTRIBUTIONS.md': ROOT / 'thirdparty/MODEL-ATTRIBUTIONS.md',
+        'SOURCE-RIGHTS.md': ROOT / 'thirdparty/COMPONENT-SOURCE.md',
+    }
+    for label, source in component_documents.items():
+        if source.is_file():
+            shutil.copyfile(source, output / label)
+        else:
+            missing.append(f'Missing component document: {label}.')
     report = {'schema': 1, 'status': 'development evaluation; distribution review pending',
               'packages': packages, 'frontend': frontend, 'source_archives': sources,
               'missing_evidence': missing,
-              'release_gates': ['model/voice/dictionary provenance', 'exact libsndfile DLL/codec build and corresponding source',
+              'release_gates': ['final model/voice/data inclusion and attribution fulfillment', 'actual payload excludes removed SoundFile/libsndfile runtime',
                                 'Microsoft native runtime redistribution authority', 'optional NVIDIA exact artifact/EULA mapping',
                                 'complete native/vendor inspection and eventual EULA rights']}
     report['files'] = [{'path': path.relative_to(output).as_posix(), 'sha256': sha256(path), 'bytes': path.stat().st_size}

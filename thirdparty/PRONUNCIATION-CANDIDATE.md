@@ -15,27 +15,30 @@ kokoro-onnx wrapper. Their applicable license texts and notices must remain with
 distributed copies. Only English Misaki dictionaries are collected.
 
 num2words 0.5.14 is LGPL. Its unchanged source is collected as external `.py`
-files in `_internal/num2words`, outside the executable archive, so recipients can
-replace it with a compatible modified version. A matching upstream source archive
+files in `_internal/num2words`, outside the executable archive. A usable section-6(b)
+arrangement with interface-compatible modified libraries still requires final
+validation; external placement alone is insufficient for a protected MSIX. A matching upstream source archive
 and its license are supplied under `third-party/sources`. certifi and tqdm contain
 MPL-covered code; their covered source and license texts are supplied there too,
 and external Python source is retained when collected. These component licenses
 do not turn independent Violilt files into open-source files.
 
-SoundFile's bundled libsndfile DLL is an external dynamic library at
-`_internal/_soundfile_data/libsndfile_x64.dll`; it can be replaced by a compatible
-DLL. Its LGPL terms permit modification and debugging of those modifications.
-Any eventual Violilt EULA must preserve the recipient's corresponding LGPL/MPL
-rights. Upstream libsndfile source is supplied for review, but exact DLL build and
-embedded codec source/provenance arrangements still require completion before
-distribution. Replacing source or DLLs must be tested with the candidate app.
+Generated sections use NumPy and the standard-library PCM16 WAV writer.
+The actual candidate must exclude SoundFile/libsndfile runtime modules and native
+binaries even when optional developer tools still have SoundFile installed.
+Historical notices/source materials are preserved; they do not authorize an old
+payload containing the DLL. Any reintroduction requires exact native source,
+rights and practical replacement review. Existing num2words LGPL and certifi/tqdm
+MPL obligations and eventual application exceptions remain separate.
 
 Review gates before any external release:
 
-- Complete exact Kokoro ONNX conversion, voice-vector and dictionary provenance,
-  including the entire distributed voice artifact and applicable modification notices.
-- Verify the exact libsndfile DLL build, included codecs, matching corresponding
-  source/build materials and replacement behavior.
+- Reconcile the exact final Kokoro model/whole-voice and selected dictionary
+  bytes with the accompanying MODEL-ATTRIBUTIONS.md, complete license texts and
+  applicable modification/attribution notices. Retain the recorded supplier chain
+  without asserting an independently reproduced conversion recipe.
+- Verify actual absence of removed SoundFile/libsndfile runtime modules and
+  binaries, and preserve applicable historical notice/source evidence.
 - Review actual package native/vendored contents and complete applicable notices;
   a permissive top-level package label does not cover every artifact automatically.
 - Establish redistribution authority for Microsoft VC/UCRT/API-set runtime DLLs.
@@ -53,3 +56,7 @@ Primary references: [Misaki](https://github.com/hexgrad/misaki),
 [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx),
 [libsndfile licensing](https://libsndfile.github.io/libsndfile/#licensing),
 [MPL source obligations](https://www.mozilla.org/en-US/MPL/2.0/FAQ/).
+
+Accompanying-source paths and license rights are detailed in `SOURCE-RIGHTS.md`;
+model/voice/data identities and acknowledgements are in `MODEL-ATTRIBUTIONS.md`.
+These documents remain development-candidate records, not final release clearance.

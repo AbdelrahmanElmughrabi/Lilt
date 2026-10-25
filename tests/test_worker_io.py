@@ -1,5 +1,6 @@
 """Worker storage boundaries with synthetic audio and a fake inference engine."""
 import queue
+import sys
 import tempfile
 import threading
 import unittest
@@ -9,7 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
-import soundfile as sf
+from backend.pcm_audio import audio_info, write_pcm16
 
 from backend.speech import speech_worker
 
@@ -88,7 +89,7 @@ class WorkerIOTests(unittest.TestCase):
         directory = self.root / 'reading'
         directory.mkdir()
         section = directory / 'section-000000.wav'
-        sf.write(section, np.full(2400, .1), 24000, subtype='PCM_16')
+        write_pcm16(section, np.full(2400, .1), 24000)
         before = section.read_bytes()
         open_wave = wave.open
 
@@ -109,18 +110,10 @@ class WorkerIOTests(unittest.TestCase):
         command['job']['chunks'] = [{'text':'Saved section.', 'pause':.025}, {'text':'New section.', 'pause':0}]
         directory = self.root / 'reading'; directory.mkdir()
         section = directory / 'section-000000.wav'
-        sf.write(section, np.full(2400, .1), 24000, subtype='PCM_16')
+        write_pcm16(section, np.full(2400, .1), 24000)
         with wave.open(str(section), 'rb') as original:
             samples = original.readframes(2400)
-        soundfile = sf.SoundFile
-
-        def output_only(file, *args, **kwargs):
-            mode = kwargs.get('mode', args[0] if args else 'r')
-            self.assertTrue(mode.startswith('w'), 'A stored section reached native decoding')
-            return soundfile(file, *args, **kwargs)
-
-        with patch('soundfile.SoundFile', side_effect=output_only), \
-             patch('soundfile.info', side_effect=AssertionError('Native metadata inspection forbidden')):
+        with patch.dict(sys.modules, {'soundfile': None, '_soundfile': None}):
             self.run_worker(command)
         self.assertEqual(self.last()['state'], 'completed')
         self.assertEqual(self.engine.create.call_count, 1)
@@ -134,11 +127,11 @@ class WorkerIOTests(unittest.TestCase):
         command = self.command(cache=False)
         directory = self.root / 'reading'; directory.mkdir()
         section = directory / 'section-000000.wav'
-        sf.write(section, np.zeros(120), 24000, format='AIFF', subtype='PCM_16')
+        section.write_bytes(b'FORM' + (20).to_bytes(4, 'big') + b'AIFF' + bytes(16))
         before = section.read_bytes()
         recording = directory / 'recording.wav'
         recording.write_bytes(before)
-        with patch('soundfile.info', side_effect=AssertionError('Native inspection forbidden')):
+        with patch.dict(sys.modules, {'soundfile': None, '_soundfile': None}):
             self.run_worker(command)
         self.assertEqual(self.last()['state'], 'completed')
         retained = list(directory.glob('section-000000.wav.unreadable-*'))
@@ -149,6 +142,22 @@ class WorkerIOTests(unittest.TestCase):
         self.assertEqual(len(retained_recordings), 1)
         self.assertEqual(retained_recordings[0].read_bytes(), before)
         self.assertTrue(recording.read_bytes().startswith(b'RIFF'))
+
+
+    def test_writer_failure_cannot_publish_audio_or_warning(self):
+        with patch('backend.pcm_audio.write_pcm16', side_effect=OSError('synthetic writer failure')), \
+             patch('backend.cache.SectionCache.write_warnings') as notices:
+            self.run_worker(self.command(cache=False))
+        self.assertEqual(self.last()['state'], 'failed')
+        notices.assert_not_called()
+        self.assertFalse((self.root/'reading/section-000000.wav').exists())
+
+    def test_warning_failure_keeps_complete_audio_unpublished(self):
+        with patch('backend.cache.SectionCache.write_warnings', side_effect=OSError('synthetic warning failure')):
+            self.run_worker(self.command(cache=False))
+        self.assertEqual(self.last()['state'], 'failed')
+        self.assertFalse((self.root/'reading/section-000000.wav').exists())
+        self.assertIsNotNone(audio_info(self.root/'reading/section-000000.part'))
 
 
 if __name__ == '__main__':

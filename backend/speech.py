@@ -25,9 +25,8 @@ def speech_worker(commands, events, cancel, runtime_directory=None, diagnostics_
         diagnostics_failed.set()
         return
     import numpy as np
-    import soundfile as sf
     from .cache import SectionCache, audio_info, section_key
-    from .pcm_audio import MAX_AUDIO_BYTES, RATE, open_pcm
+    from .pcm_audio import MAX_AUDIO_BYTES, RATE, open_pcm, write_pcm16
     from .performance import create_engine
     from .pronunciation import pronunciation_compatible, pronunciation_identity
 
@@ -158,10 +157,8 @@ def speech_worker(commands, events, cancel, runtime_directory=None, diagnostics_
                     samples, rate = voice_engine.create(chunk['text'], voice=job['voice'], speed=job['speed'],
                                                         lang='en-gb' if job['voice'].startswith('b') else 'en-us')
                     section_warnings = list(getattr(voice_engine, 'last_pronunciation_warnings', []))
-                    if not len(samples) or rate != 24000 or not np.all(np.isfinite(samples)):
-                        raise ValueError('The speech engine returned an invalid audio section.')
                     temporary = path.with_suffix('.part')
-                    sf.write(temporary, samples, rate, format='WAV', subtype='PCM_16')
+                    write_pcm16(temporary, samples, rate)
                     SectionCache.write_warnings(path, section_warnings)
                     temporary.replace(path)
                     info = audio_info(path)

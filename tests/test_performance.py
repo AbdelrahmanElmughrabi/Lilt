@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
-import soundfile as sf
+from backend.pcm_audio import audio_info, write_pcm16
 
 from backend.cache import SectionCache, section_key
 from backend.documents import prepare
@@ -63,7 +63,7 @@ class PerformanceTests(unittest.TestCase):
 
     def test_cache_evicts_oldest_and_clear_retains_recording(self):
         source = self.root / 'recording.wav'
-        sf.write(source, np.zeros(2400), 24000, subtype='PCM_16')
+        write_pcm16(source, np.zeros(2400), 24000)
         cache = SectionCache(self.root / 'cache')
         cache.limit = source.stat().st_size + 10
         first, second = 'a' * 64, 'b' * 64
@@ -101,8 +101,8 @@ class PerformanceTests(unittest.TestCase):
 
     def test_timeline_uses_exact_samples_and_stops_at_gap(self):
         chunks = [{'text': 'one', 'pause': 0.3333333}, {'text': 'two', 'pause': 0.6}, {'text': 'three', 'pause': 1}]
-        sf.write(self.root / 'section-000000.wav', np.zeros(12345), 24000, subtype='PCM_16')
-        sf.write(self.root / 'section-000002.wav', np.zeros(1000), 24000, subtype='PCM_16')
+        write_pcm16(self.root / 'section-000000.wav', np.zeros(12345), 24000)
+        write_pcm16(self.root / 'section-000002.wav', np.zeros(1000), 24000)
         sections, available = published_sections({'chunks': chunks}, self.root)
         self.assertEqual(len(sections), 1)
         self.assertAlmostEqual(available * 24000, 12345 + int(0.3333333 * 24000))
@@ -177,7 +177,7 @@ class PerformanceTests(unittest.TestCase):
         directory = store.root / 'jobs' / job['id']
         directory.mkdir()
         audio = directory / 'section-000000.wav'
-        sf.write(audio, np.zeros(2400), 24000, subtype='PCM_16')
+        write_pcm16(audio, np.zeros(2400), 24000)
         job['sections'], job['available_duration'] = published_sections(job, directory)
         job.update(state='interrupted', completed=len(job['sections']), position=.05)
         store.put('jobs', job)

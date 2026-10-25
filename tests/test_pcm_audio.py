@@ -1,6 +1,7 @@
 """Stored PCM boundary: no native codec input and no unbounded inspection."""
 import io
 import os
+import sys
 import struct
 import tempfile
 import unittest
@@ -50,7 +51,7 @@ class PCMTests(unittest.TestCase):
     def assert_invalid(self, body):
         self.write(body)
         before = self.path.read_bytes()
-        with patch('soundfile.info', side_effect=AssertionError('Native inspection forbidden')):
+        with patch.dict(sys.modules, {'soundfile': None, '_soundfile': None}):
             self.assertIsNone(audio_info(self.path))
             with self.assertRaises(ValueError):
                 with open_pcm(self.path):
@@ -59,8 +60,7 @@ class PCMTests(unittest.TestCase):
 
     def test_standard_pcm_has_exact_info_and_canonical_bytes_without_native_calls(self):
         self.write(pcm())
-        with patch('soundfile.info', side_effect=AssertionError('Native inspection forbidden')), \
-             patch('soundfile.SoundFile', side_effect=AssertionError('Native decoding forbidden')):
+        with patch.dict(sys.modules, {'soundfile': None, '_soundfile': None}):
             info = audio_info(self.path)
             self.assertEqual((info.frames, info.channels, info.samplerate, info.subtype), (3, 1, 24000, 'PCM_16'))
             self.assertEqual(info.duration, 3 / 24000)
