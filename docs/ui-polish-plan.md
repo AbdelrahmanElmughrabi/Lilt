@@ -1,8 +1,13 @@
 # UI polish proposal and checkpoint commits
 
-25 October 2026. The publisher authorized the four local checkpoint commits.
-The three source commits below are complete; this documentation records that
-checkpoint. UI polish remains a proposal awaiting a separate decision to proceed.
+25 October 2026. The initial four local checkpoint commits below preceded the
+subsequently authorized and publisher-accepted UI polish. Settings is recorded in
+`d10396ba4944`, reading room in `a79eaee9b62c`, player in `03d50acdab1c`, and
+the later waveform amendment in `47fb00ae110e`. The original proposal below
+retains its design/verification scope; implementation is complete. Final combined
+verification passed 24 UI cases with no failures/skips. The matching zero-error/
+warning Svelte check and production build were reused. See
+`.tmp/ui-polish-commits-20261025-f83a6d2b/REPORT.md` for reconciliation and limits.
 Existing release requirements remain separate.
 
 ## Checkpoint commit record
@@ -36,6 +41,12 @@ The final committed/live comparison and per-commit staged trees are recorded in
 `.tmp/release-checkpoint-commits-20261025-ae84d620/state.json`.
 
 ## Separate observation: VRAM after the first close
+
+Current disposition: the publisher cancelled further work on the technical/
+licensing-check item in this batch. This observation remains unresolved; the
+procedure below is retained as a possible later check, not current authorization
+to run it. The publisher is building the website and will provide public details
+later. No site, policy, runtime or licensing operation is included here.
 
 The publisher reports approximately 1 GB of VRAM remaining after the first app
 close, although the app appears to exit normally; the first-close distinction is

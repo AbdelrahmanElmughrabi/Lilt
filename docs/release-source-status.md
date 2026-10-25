@@ -14,6 +14,7 @@ Local commits record completed work; they do not independently approve a release
 | R-05 | Earlier diagnostics/startup/cleanup/logging/export/retention source passes remain. The earlier all-user Microsoft notice/opener checkpoint has independent 9 UI + 4 Python source PASS. The user's later welcome request supersedes its every-window presentation; the fixed-ID opener and persistent full disclosure remain. | Historical passes retain their exact checkpoint scope. New welcome/notice presentation has its own local validation below. Publisher/contact/hosting/public policy facts and actual native diagnostics, installed protection, retention and lifecycle remain for the shared final-package campaign. No zero-traffic, complete-suppression, encryption or secure-erasure claim follows. |
 | R-11 keyboard/focus | The two-fix checkpoint 59147fa retains independent source PASS (7+3 cases). The About/removal shortcut and voice-popup/narrow-shelf focus correction has independent source PASS (one complete final 18-case run). The final S01-S05/C01 state/context batch now also has independent source PASS: eight cases, exit 0, no failures/skips/cancellations; eleven metadata insertions preserve all script/style/handler bytes. | The reviewed state/context changes and focused test are recorded in 9ba38f082e5c; later welcome fixture updates are recorded separately in dc2d0ae71022. Earlier 17+1 author results remain separately qualified. C01 adds explicit concise group identity; the fresh baseline already had descendant-derived names. Redundant labels/progress polish are deferred; save/warmup speech, hardware/performance, screen-reader, contrast/scaling and installed/final-package evidence remain open. |
 | First-use welcome and model setup | User-requested welcome replaces the automatic legal dialog. It offers an optional guide, compact Microsoft disclosure, explicit one-click voice download with size/progress/retry, existing-file import and exploration before setup. Completion persists separately from public preferences; Settings/About reopen the guide/disclosure. Five backend and 26 distinct built-UI cases passed across focused runs/retries; the final canonical build has zero errors/warnings. | This is local implementation verification, not a new independent or installed-package verdict. No actual model download, speech/inference or EXE/MSIX build/install ran. Existing models skip downloading; the setup download provides the CPU model/voices. NVIDIA runtime/model preparation and the shared final campaign remain separate. |
+| UI polish | Publisher-accepted Settings, reading-room, player and waveform-header changes are recorded in d10396ba4944, a79eaee9b62c, 03d50acdab1c and 47fb00ae110e. The coordinator verified the final 24 frontend inputs/assets against the zero-error/warning check/build and ran all 24 cases in four focused UI files: all passed, no failures/skips. Existing application handlers and playback engine remain unchanged. | Browser fixtures cover the combined UI, palettes/layouts, controls, feedback and keyboard behavior. Prior disposable native smoke retains its scope. Real narration, alternate Windows DPI/assistive technology and actual final-package evidence remain separate. No new UI work is scheduled. |
 
 Local evidence: [R-01/R-02 acceptance reconciliation](../.tmp/r01-r02-independent-20261024-85ba1516/reconciliation.md)
 and [R-11 independent verdict](../.tmp/r11-independent-20261024-f7fd2f62/REVIEW.md).
@@ -83,6 +84,10 @@ than reconstructing invented intermediate history. Earlier commits are unchanged
 | R11-03 | 9ba38f082e5c | Current-document/shelf/view/preset/theme state and named recording groups; reviewed snapshots and independent eight-case source acceptance. |
 | R04-02 | abc9474c5d4a | Accepted 27-file PCM/native-audio/Eigen integration plus the frozen model-attribution document; scoped independent acceptance and eleven live-source checks retained. |
 | Welcome/setup | dc2d0ae71022 | First-use welcome, optional guide, explicit voice download/import, persistent disclosure and approved compact privacy copy; five backend, 26 distinct UI cases and later two privacy checks retained within their recorded scopes. |
+| Settings polish | d10396ba4944 | Clear groups, readable controls, current memory feedback and focused Settings fixture. |
+| Reading polish | a79eaee9b62c | Readable narration controls, genuine generation states, popup reachability and affected reading/editor fixture. |
+| Player polish | 03d50acdab1c | Playback targets/timing/status, accessible ranges and compact layout; player fixture. |
+| Voice heading | 47fb00ae110e | Approved thin theme-accent waveform replaces the decorative orb; handlers/layout slot preserved. |
 
 The initial organization contains one R-03 code/test commit, two R-05 implementation commits, three
 R-02 correction commits and one organization commit. R-04 and R-05 retention
@@ -118,21 +123,38 @@ Per-commit trees and final preservation are recorded in
 
 The publisher reports roughly 1 GB of VRAM remaining after the first close. That
 observation is unresolved and is not attributed to the voice worker by the
-available snapshot. The focused follow-up and proposed Settings-only polish are
-recorded in [the UI polish plan](ui-polish-plan.md). Neither a shutdown fix nor
-visual changes are included in this checkpoint.
+available snapshot. On 25 October the publisher cancelled further work on the
+listed technical/licensing-check item for this batch. No VRAM investigation,
+license acquisition/acceptance or source-delivery closure was performed here;
+existing release requirements remain recorded without being marked complete.
+The publisher is building the publisher website and will supply identity, contact
+and public-policy/support details when ready.
+
+The later accepted UI polish is now committed separately, with all eight final
+source/test paths and the compiled assets preserved. A fresh final combined run
+passed 24 focused UI cases, no failures/cancellations/skips, including the three
+visual matrices. Source/asset comparisons and staged JavaScript syntax/whitespace
+checks passed; the matching final Svelte/type check and production build were
+reused instead of rebuilt solely for commits. The initial log-summary helper
+expected a different Node reporter and hit a console-encoding error after the
+tests exited 0; the corrected summary uses the preserved raw output, with no
+product change or test rerun. See the
+[combined UI checkpoint report](../.tmp/ui-polish-commits-20261025-f83a6d2b/REPORT.md)
+and [commit/preservation record](../.tmp/ui-polish-commits-20261025-f83a6d2b/state.json).
+The publisher reported the current application experience satisfactory. This
+records UI acceptance, not independent review, hardware coverage or release
+clearance.
 
 ## Remaining sequence
 
-1. Review the bounded Settings polish proposal before implementation. The R-11,
-   R-04 and welcome source checkpoints are committed. Any implemented polish
-   needs its affected UI checks and the final normal CPU/NVIDIA app-flow pass;
-   the first-close VRAM observation remains a separate focused runtime check.
-   Settle the precise material R-03 N2/R-04 decisions
-   and fulfillment dependencies; finalize required R-05 public-policy/contact/
-   hosting facts and integration. Reuse existing accepted work. Unknown supplier
-   or publisher facts remain explicit; no optional feature expansion or new
-   broad audit follows from them.
+1. Accepted UI polish and final focused reconciliation are committed. The
+   publisher is building the website; integrate the final publisher/package
+   identity, support/contact and hosted privacy/policy facts when supplied. The
+   publisher cancelled additional technical/licensing investigation in this
+   batch. Existing R-03 N2/R-04 material and fulfillment gaps remain explicit
+   release requirements; no clearance is inferred from deferring that work.
+   Real CPU/NVIDIA app-flow coverage retains its actual observed scope and is
+   not replaced by the synthetic UI campaign. Reuse valid existing results.
 2. Freeze reviewed source, dependencies, models/assets and production identity.
    R-06 produces fresh inventoried/hashed EXE/MSIX outputs when separately directed.
    Existing historical packages predate the current source.
