@@ -15,7 +15,8 @@ Local commits record completed work; they do not independently approve a release
 | R-11 keyboard/focus | The two-fix checkpoint 59147fa retains independent source PASS (7+3 cases). The About/removal shortcut and voice-popup/narrow-shelf focus correction has independent source PASS (one complete final 18-case run). The final S01-S05/C01 state/context batch now also has independent source PASS: eight cases, exit 0, no failures/skips/cancellations; eleven metadata insertions preserve all script/style/handler bytes. | The reviewed state/context changes and focused test are recorded in 9ba38f082e5c; later welcome fixture updates are recorded separately in dc2d0ae71022. Earlier 17+1 author results remain separately qualified. C01 adds explicit concise group identity; the fresh baseline already had descendant-derived names. Redundant labels/progress polish are deferred; save/warmup speech, hardware/performance, screen-reader, contrast/scaling and installed/final-package evidence remain open. |
 | First-use welcome and model setup | User-requested welcome replaces the automatic legal dialog. It offers an optional guide, compact Microsoft disclosure, explicit one-click voice download with size/progress/retry, existing-file import and exploration before setup. Completion persists separately from public preferences; Settings/About reopen the guide/disclosure. Five backend and 26 distinct built-UI cases passed across focused runs/retries; the final canonical build has zero errors/warnings. | This is local implementation verification, not a new independent or installed-package verdict. No actual model download, speech/inference or EXE/MSIX build/install ran. Existing models skip downloading; the setup download provides the CPU model/voices. NVIDIA runtime/model preparation and the shared final campaign remain separate. |
 | UI polish | Publisher-accepted Settings, reading-room, player and waveform-header changes are recorded in d10396ba4944, a79eaee9b62c, 03d50acdab1c and 47fb00ae110e. The coordinator verified the final 24 frontend inputs/assets against the zero-error/warning check/build and ran all 24 cases in four focused UI files: all passed, no failures/skips. Existing application handlers and playback engine remain unchanged. | Browser fixtures cover the combined UI, palettes/layouts, controls, feedback and keyboard behavior. Prior disposable native smoke retains its scope. Real narration, alternate Windows DPI/assistive technology and actual final-package evidence remain separate. No new UI work is scheduled. |
-| Device-test package 1.0.4.0 | Fresh CPU/NVIDIA x64 payload and unsigned MSIX built from 7ce6a21afd7a, including publisher links and the accepted polish. Runtime/model checks, actual payload audit, Microsoft SDK packing and all 1,179 mapped archive file size/SHA-256 comparisons passed. The package is 2,257,234,789 bytes and includes the complete Eigen delivery. | Compatibility-only identity/profile; not installed or run on other devices. PyInstaller warnings, first host/module failure and verifier URI-name correction are preserved. Actual CPU/NVIDIA/MX, installed lifecycle/update and final Store identity/clearance remain separate. |
+| Device-test package 1.0.4.0 | Fresh CPU/NVIDIA x64 payload and unsigned MSIX built from 7ce6a21afd7a, including publisher links and the accepted polish. Runtime/model checks, actual payload audit, Microsoft SDK packing and all 1,179 mapped archive file size/SHA-256 comparisons passed. The package is 2,257,234,789 bytes and includes the complete Eigen delivery. The publisher's subsequent install failed with 0x80073D2B: unsigned executable activations are prohibited. | The unsigned MSIX handoff is superseded; static archive verification did not establish installability. The publisher authorized a classic unsigned EXE test installer using the existing payload. PyInstaller warnings and earlier operational evidence are preserved. Actual CPU/NVIDIA/MX, installed lifecycle/update and final Store identity/clearance remain separate. |
+| Classic device-test installer 1.0.4.0 | A single unsigned 1,692,601,318-byte EXE wraps the existing payload without rebuilding the app. All 1,175 input and installed payload files matched size/SHA-256. Local silent install/uninstall both returned 0; Start-menu targets, HKCU registration, unchecked desktop task and removal passed. User-added file and external library metadata were preserved. | Private per-user test identity, retaining the evaluation data profile. No app launch, inference, interactive wizard or other-device test is claimed. Windows protection can warn/block unsigned apps. WebView2 must be available. No certificate/trust/security-setting change or new production clearance. |
 
 Local evidence: [R-01/R-02 acceptance reconciliation](../.tmp/r01-r02-independent-20261024-85ba1516/reconciliation.md)
 and [R-11 independent verdict](../.tmp/r11-independent-20261024-f7fd2f62/REVIEW.md).
@@ -155,16 +156,35 @@ The publisher reported the current application experience satisfactory. This
 records UI acceptance, not independent review, hardware coverage or release
 clearance.
 
-A fresh private Windows 11 x64 test package is ready for the publisher's device
-campaign: [Violilt-MsixCompatibility-1.0.4.0-x64.msix](../dist/device-test-20261025-1.0.4.0/Violilt-MsixCompatibility-1.0.4.0-x64.msix), with
-[transfer/install instructions](../dist/device-test-20261025-1.0.4.0/README-TEST.md). Built source:
+The earlier private Windows 11 x64 MSIX handoff failed installation and is
+superseded: [Violilt-MsixCompatibility-1.0.4.0-x64.msix](../dist/device-test-20261025-1.0.4.0/Violilt-MsixCompatibility-1.0.4.0-x64.msix).
+Its original instructions and evidence retain their historical scope. Built source:
 `7ce6a21afd7a5f7d8dfe46b3081a11ec3947d764`. Package SHA-256:
 `8a27da0cf563143eedf93df2ee520ebbcee9e6e76ff56035df5a4e56c9cd3ea7`. All 1,179 mapped entries and SDK block-map
 names/sizes match the inventory; current frontend, embedded fixed publisher URLs,
 PCM writer and Eigen ZIP/patches are verified. Source and previous artifacts were
 preserved. No package was installed, executable launched or inference run in this
-batch. Build/check/operational limits are in
+original build batch. The later publisher device attempt returned 0x80073D2B
+(unsigned package cannot include executable activations), ActivityId
+96f2d2fa-64bd-0002-9ac1-f696bd64dd01. Administrator `-AllowUnsigned` did not resolve it.
+Build/check/operational limits are in
 [the device-package report](../.tmp/device-package-20261025-9d34e8c1/REPORT.md).
+
+The replacement private-device handoff is
+[Violilt Test 1.0.4.0 Setup.exe](../dist/test-installer-20261025-1.0.4.0/Violilt-Test-1.0.4.0-x64-Setup.exe),
+with [transfer/test instructions](../dist/test-installer-20261025-1.0.4.0/README-TEST.md).
+SHA-256: `d394631df671490881186abaceaee362f5a0606a2eaab226e70f7ef315f6d14b`.
+It installs for the current user under `%LOCALAPPDATA%\Programs\VioliltTest` and
+creates Start-menu launch/uninstall entries. All models and the optional NVIDIA
+runtime are included. It retains `Violilt-Pronunciation-Evaluation`, shared with
+older evaluation builds but separate from the production library. Uninstall
+keeps the external library. The pinned, signature-verified Inno Setup compiler
+was unpacked in portable mode; no global compiler install was requested.
+The [classic installer report](../.tmp/test-installer-20261025-3f43ae90/REPORT.md)
+records exact continuity, local install/hash/uninstall verification and the
+completed-build host-wrapper interruption. Earlier app test results are reused;
+no unrelated suite or application rebuild was performed. Other-device application
+tests and final production packaging/identity/clearance remain separate.
 
 ## Remaining sequence
 
@@ -179,8 +199,8 @@ batch. Build/check/operational limits are in
 2. Freeze reviewed source, dependencies, models/assets and production identity.
    R-06 produces fresh inventoried/hashed EXE/MSIX outputs when separately directed.
    Historical packages remain unchanged. The separate 1.0.4.0 compatibility
-   test package now covers the current app source for private device testing; it
-   does not replace a final build with the real production identity.
+   MSIX failed installation; the classic test installer uses its existing app
+   source/payload. It does not replace a final build with the real production identity.
 3. Run one coordinated campaign over those exact outputs: R-07 features, R-08
    installed behavior, R-09 lifecycle and applicable R-05/R-11/R-12 assertions.
    Reuse each valid outcome across its owning gates; do not duplicate campaigns.

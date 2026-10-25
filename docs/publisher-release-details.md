@@ -35,19 +35,40 @@ without NVIDIA and machines with NVIDIA, including unspecified MX models. The
 prepared compatibility payload contains CPU plus the optional NVIDIA runtime.
 CPU operation is the baseline on each device; acceleration is checked against
 the actual GPU model/driver rather than promised for every MX-branded device.
-The existing unsigned Windows 11 test-MSIX route requires Administrator
-PowerShell to install executable content. A portable folder build remains an
-option when installation access is unavailable; it does not replace final MSIX
-installation/update testing. The subsequently authorized test-build batch
-created Windows 11 x64 MSIX 1.0.4.0, with every mapped archive entry verified.
-Installation and actual CPU/NVIDIA device tests remain pending.
+The unsigned Windows 11 test-MSIX route failed on the publisher's other device:
+`0x80073D2B`, because an unsigned package cannot include executable activations.
+Administrator PowerShell with `-AllowUnsigned` did not make it installable.
+The earlier static archive checks passed but did not establish installation.
+That MSIX handoff is superseded by the publisher-authorized classic unsigned
+EXE installer route. No certificate or trust-store change is required by that
+route. Actual CPU/NVIDIA device tests and final Store installation/update checks
+remain separate.
 
-Test package: [dist/device-test-20261025-1.0.4.0/Violilt-MsixCompatibility-1.0.4.0-x64.msix](../dist/device-test-20261025-1.0.4.0/Violilt-MsixCompatibility-1.0.4.0-x64.msix).
+Current handoff: [Violilt Test 1.0.4.0 Setup.exe](../dist/test-installer-20261025-1.0.4.0/Violilt-Test-1.0.4.0-x64-Setup.exe),
+1,692,601,318 bytes (1.69 GB). Copy only that EXE to the test device and run its
+normal setup wizard; then open **Violilt Test** from Start. CPU/NVIDIA runtimes,
+models and notices are included. No certificate import or app rebuild was used.
+The installer is unsigned, so Windows protection or managed policy can warn or
+block it. Microsoft Edge WebView2 must be available on the target.
+
+Local silent install and uninstall both returned 0. Every one of the 1,175
+installed payload files matched its recorded size/SHA-256; Start-menu targets,
+HKCU uninstall registration, unchecked desktop shortcut and removal passed.
+Uninstall preserved a user-added file and external app-library file metadata.
+The normal wizard was not driven interactively; no app launch, inference or
+other-device acceptance is claimed. This wrapper retains the existing
+`Violilt-Pronunciation-Evaluation` profile, shared with prior evaluation builds
+and separate from the production library. Uninstall keeps that external library.
+See [transfer/test instructions](../dist/test-installer-20261025-1.0.4.0/README-TEST.md)
+and the [local install/uninstall record](../.tmp/test-installer-20261025-3f43ae90/install-test.json).
+Installer SHA-256: `d394631df671490881186abaceaee362f5a0606a2eaab226e70f7ef315f6d14b`.
+
+Historical failed-install test package: [dist/device-test-20261025-1.0.4.0/Violilt-MsixCompatibility-1.0.4.0-x64.msix](../dist/device-test-20261025-1.0.4.0/Violilt-MsixCompatibility-1.0.4.0-x64.msix).
 Instructions/checksum/inventory are beside it in `dist/device-test-20261025-1.0.4.0`. Source commit:
 `7ce6a21afd7a5f7d8dfe46b3081a11ec3947d764`. SHA-256:
 `8a27da0cf563143eedf93df2ee520ebbcee9e6e76ff56035df5a4e56c9cd3ea7`.
 
-No installation, website publication or account operation was performed. The
-link-recording phase and later package-building phase remain separate in the
-local evidence. Existing release requirements remain as recorded in
+The previous batch performed no installation; the subsequent publisher device
+attempt failed as recorded above. No website publication or account operation
+was performed. Existing release requirements remain as recorded in
 `release-source-status.md`.
