@@ -1,0 +1,10 @@
+{
+  "compatibility_only": true,
+  "identity_name": "Violilt.MsixCompatibilityProbe",
+  "publisher": "CN=Violilt Local MSIX Compatibility, OID.2.25.311729368913984317654407730594956997722=1",
+  "publisher_display_name": "Violilt local testing",
+  "display_name": "Violilt MSIX Compatibility",
+  "description": "Local CPU and NVIDIA GPU compatibility test. Not a Store release.",
+  "data_profile": "Violilt-MSIX-Compatibility",
+  "min_version": "10.0.19041.0"
+}

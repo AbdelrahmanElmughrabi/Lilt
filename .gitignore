@@ -30,7 +30,7 @@ voices-v*.bin
 *.mp3
 *.log
 
-# Build output; keep packaging/Lilt.spec and dependency lockfiles in Git
+# Build output; keep packaging/Violilt.spec and dependency lockfiles in Git
 /build/
 /dist/
 /frontend/dist/
@@ -67,7 +67,7 @@ Desktop.ini
 # Personal plans and notes are maintained in the separate Obsidian vault
 /APP_PLAN.md
 /PERFORMANCE_PLAN.md
-/LILT_BRANDING.md
+/VIOLILT_BRANDING.md
 /*_PLAN.md
 /ROADMAP.md
 /WORK_LOG*.md
@@ -77,3 +77,10 @@ Desktop.ini
 /.obsidian/
 /tools/prepare_vault_handoff.py
 /tools/update_branding_notes.py
+
+# Detailed release-session journals are maintained in the separate Obsidian vault.
+# Local originals remain for sealed review references; tracked history stays tracked.
+/docs/r[0-9][0-9]-*.md
+/docs/diagnostics-*.md
+/docs/release-coordinator-continuation-*.md
+/docs/store-release-continuation-handoff-*.md

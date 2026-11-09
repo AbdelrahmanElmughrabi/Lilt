@@ -1,4 +1,4 @@
-const {chromium} = require(process.env.LILT_PLAYWRIGHT || 'playwright');
+const {chromium} = require(process.env.VIOLILT_PLAYWRIGHT || 'playwright');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -20,19 +20,19 @@ function contrast(a, b) {
   const errors=[]; page.on('pageerror', error => errors.push(error.message));
   const apiState=()=>page.evaluate(()=>window.pywebview.api.get_state());
   await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.getByRole('heading',{name:'Find your rhythm.'}).waitFor({timeout:60000});
-  assert.equal(await page.title(),'Lilt');
+  assert.equal(await page.title(),'Violilt');
   assert.equal(await page.getByText('Interface preview',{exact:true}).count(),0);
   const initial=await apiState();
   const sample=page.getByRole('button',{name:/^The art of paying attention/}).first();
   if (await sample.count()) await sample.click();
-  fs.mkdirSync('artifacts/lilt-branding',{recursive:true});
+  fs.mkdirSync('artifacts/violilt-branding',{recursive:true});
   const variants=[];
   const report={title:await page.title(),initialDocuments:initial.documents.length,initialRecordings:initial.jobs.filter(j=>!j.preview).length,storage:initial.storage,variants};
   try {
     await page.getByRole('button',{name:'Settings',exact:true}).click();
     const group=page.getByRole('group',{name:'Theme palette'});
-    for (const palette of ['lilt','classic']) {
-      await group.getByRole('button',{name:palette==='lilt'?/^Lilt/:/^Classic/}).click();
+    for (const palette of ['violilt','classic']) {
+      await group.getByRole('button',{name:palette==='violilt'?/^Violilt/:/^Classic/}).click();
       for (const appearance of ['light','dark']) {
         await page.getByRole('button',{name:appearance==='light'?/^Daylight/:/^After hours/}).click();
         await until(async()=>{ const s=await apiState();return s.settings.palette===palette&&s.settings.theme===appearance; });
@@ -45,13 +45,13 @@ function contrast(a, b) {
         assert.equal(styles.palette,palette);assert.equal(styles.dark,appearance==='dark');
         assert(contrast(styles.buttonColor,styles.buttonBackground)>=4.5,`Primary button contrast: ${palette} ${appearance}`);
         await page.getByRole('button',{name:'Reading room',exact:true}).click();
-        await page.screenshot({path:`artifacts/lilt-branding/${palette}-${appearance}.png`,animations:'disabled'});
-        assert(!/folio/i.test(await page.locator('body').innerText()));
+        await page.screenshot({path:`artifacts/violilt-branding/${palette}-${appearance}.png`,animations:'disabled'});
+        assert.equal(await page.getByRole('button', {name: 'Violilt home', exact: true}).count(), 1);
         variants.push({palette,appearance,...styles,buttonContrast:contrast(styles.buttonColor,styles.buttonBackground)});
         await page.getByRole('button',{name:'Settings',exact:true}).click();
       }
     }
-    await group.getByRole('button',{name:/^Lilt/}).click();
+    await group.getByRole('button',{name:/^Violilt/}).click();
     await page.getByRole('button',{name:/^Follow your device/}).click();
     for (const colorScheme of ['dark','light']) {
       await page.emulateMedia({colorScheme});
@@ -62,13 +62,13 @@ function contrast(a, b) {
     await until(async()=>(await apiState()).settings.theme==='dark');
     await page.reload();
     await page.getByRole('button',{name:'Reading room',exact:true}).first().click(); await page.getByRole('heading',{name:'Find your rhythm.'}).waitFor({timeout:15000});
-    assert.equal(await page.locator('.app-shell').getAttribute('data-palette'),'lilt');
+    assert.equal(await page.locator('.app-shell').getAttribute('data-palette'),'violilt');
     assert(await page.locator('.app-shell').evaluate(el=>el.classList.contains('dark')));
     report.reloadPersistence=true;
     await page.getByRole('button',{name:'Settings',exact:true}).click();
     await page.getByRole('button',{name:/^Daylight/}).click();
     await page.getByRole('group',{name:'Theme palette'}).scrollIntoViewIfNeeded();
-    await page.screenshot({path:'artifacts/lilt-branding/settings.png',animations:'disabled'});
+    await page.screenshot({path:'artifacts/violilt-branding/settings.png',animations:'disabled'});
     await page.getByRole('button',{name:'Reading room',exact:true}).click();
     const session=await page.context().newCDPSession(page);
     await session.send('Emulation.setDeviceMetricsOverride',{width:1024,height:681,deviceScaleFactor:1,mobile:false});
@@ -76,11 +76,11 @@ function contrast(a, b) {
     const metrics=await page.evaluate(()=>({width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth}));
     assert(metrics.scrollWidth<=metrics.width);assert(box&&box.y+box.height<=metrics.height-80);
     report.minimumWindow=metrics;
-    await page.screenshot({path:'artifacts/lilt-branding/minimum-window.png',animations:'disabled'});
+    await page.screenshot({path:'artifacts/violilt-branding/minimum-window.png',animations:'disabled'});
     await session.send('Emulation.clearDeviceMetricsOverride');await session.detach();
-    await page.getByTitle('About Lilt').click();
-    assert.equal(await page.locator('.about-brand').getAttribute('alt'),'Lilt');
-    await page.screenshot({path:'artifacts/lilt-branding/about.png',animations:'disabled'});
+    await page.getByTitle('About Violilt').click();
+    assert.equal(await page.locator('.about-brand').getAttribute('alt'),'Violilt');
+    await page.screenshot({path:'artifacts/violilt-branding/about.png',animations:'disabled'});
     await page.getByTitle('Close',{exact:true}).click();
     await until(async()=>(await apiState()).performance.warmup.state!=='loading');
     await page.getByRole('button',{name:'Listen to a sample',exact:false}).click();
@@ -99,14 +99,14 @@ function contrast(a, b) {
     const position=Number(await page.getByLabel('Seek audio').inputValue());
     assert(position>=Math.min(paused+9.5,preview.duration-.5));
     report.speech={provider:preview.engine.provider,audioSeconds:preview.duration,position,pauseStable:true};
-    await page.screenshot({path:'artifacts/lilt-branding/playback.png',animations:'disabled'});
+    await page.screenshot({path:'artifacts/violilt-branding/playback.png',animations:'disabled'});
     await page.evaluate(id=>window.pywebview.api.remove_recording(id,true),preview.id);
     assert.equal((await apiState()).documents.length,initial.documents.length);
     assert.equal((await apiState()).jobs.filter(j=>!j.preview).length,initial.jobs.filter(j=>!j.preview).length);
     report.existingLibraryRetained=true;
     assert.deepEqual(errors,[]);
     report.pageErrors=errors;report.success=true;
-    fs.writeFileSync('artifacts/lilt-branding/native-check.json',JSON.stringify(report,null,2));
+    fs.writeFileSync('artifacts/violilt-branding/native-check.json',JSON.stringify(report,null,2));
     console.log(JSON.stringify(report));
   } finally {
     await page.evaluate(settings=>window.pywebview.api.save_settings(settings),initial.settings);

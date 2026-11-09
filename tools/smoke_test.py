@@ -31,7 +31,7 @@ if __name__ == '__main__':
     models = Models(root / '.app-data' / 'models')
     jobs = Jobs(store, models)
     try:
-        markdown = '# A first listen\n\nLilt turns your words into a place you can return to.\n\nTake a breath. Make a little room for listening.\n\nEvery section is saved, so a long reading can continue where it stopped.'
+        markdown = '# A first listen\n\nViolilt turns your words into a place you can return to.\n\nTake a breath. Make a little room for listening.\n\nEvery section is saved, so a long reading can continue where it stopped.'
         prepared = prepare(markdown)
         doc = store.document(markdown, prepared['title'])
         started = time.monotonic()

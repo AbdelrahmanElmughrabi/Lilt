@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import mimetypes
+import os
 import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
+
+from .pcm_audio import open_pcm
 
 
 class AppServer:
@@ -58,10 +61,27 @@ class AppServer:
                     content_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
                     if path.suffix == ".js":
                         content_type = "text/javascript"
-                if not path.is_file():
-                    self.send_error(404)
-                    return
-                size = path.stat().st_size
+                self._file(path, content_type, head, bool(media or section))
+
+            def _file(self, path, content_type, head, media):
+                self._response_started = False
+                try:
+                    # Validate and serve one handle. Stored metadata never reaches
+                    # the browser's decoder: media uses a canonical PCM WAV view.
+                    with (open_pcm(path) if media else path.open('rb')) as source:
+                        size = source.size if media else os.fstat(source.fileno()).st_size
+                        self._body(source, size, content_type, head)
+                except (ConnectionResetError, BrokenPipeError):
+                    pass
+                except (OSError, ValueError):
+                    # Before headers this is an unavailable/unsupported recording;
+                    # after headers a changed/truncated file must abort the body.
+                    if getattr(self, '_response_started', False):
+                        self.close_connection = True
+                    else:
+                        self.send_error(404)
+
+            def _body(self, source, size, content_type, head):
                 start, end, status = 0, size - 1, 200
                 requested = self.headers.get("Range")
                 if requested:
@@ -79,6 +99,7 @@ class AppServer:
                         self.end_headers()
                         return
                     status = 206
+                self._response_started = True
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(end - start + 1))
@@ -86,22 +107,21 @@ class AppServer:
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Referrer-Policy", "no-referrer")
+                self.send_header("X-Frame-Options", "DENY")
+                self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
+                self.send_header("Cross-Origin-Resource-Policy", "same-origin")
                 if status == 206:
                     self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
                 self.end_headers()
                 if not head:
-                    try:
-                        with path.open("rb") as audio:
-                            audio.seek(start)
-                            remaining = end - start + 1
-                            while remaining:
-                                block = audio.read(min(65536, remaining))
-                                if not block:
-                                    break
-                                self.wfile.write(block)
-                                remaining -= len(block)
-                    except (ConnectionResetError, BrokenPipeError):
-                        pass
+                    source.seek(start)
+                    remaining = end - start + 1
+                    while remaining:
+                        block = source.read(min(65536, remaining))
+                        if not block:
+                            break
+                        self.wfile.write(block)
+                        remaining -= len(block)
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.httpd.daemon_threads = True

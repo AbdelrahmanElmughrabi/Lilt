@@ -1,0 +1,127 @@
+{
+  "component": "onnxruntime-eigen",
+  "source_revision": "1d8b82b0740839c0de7f1242a3585e3390ff5f33",
+  "runtime_tags": [
+    "1.30.0",
+    "1.24.4"
+  ],
+  "sha256_provenance": "Locally recorded SHA-256 of the immutable archive, additionally matched to upstream-declared SHA-1; not an upstream-published SHA-256",
+  "association_limit": "Normal official release source/patch association; not measured Windows-wheel compilation attestation or R-03 N2 protobuf disposition",
+  "archive": {
+    "filename": "eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip",
+    "cache_filename": "eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip",
+    "url": "https://github.com/eigen-mirror/eigen/archive/1d8b82b0740839c0de7f1242a3585e3390ff5f33/eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip",
+    "bytes": 4075744,
+    "sha256": "6a60d76351f97132669daeeb721d6bf14b008101883ad2d687a3201c5c461eb0",
+    "upstream_sha1": "05b19b49e6fbb91246be711d801160528c135e34"
+  },
+  "patch_order": [
+    "s390x-build.patch",
+    "s390x-build-werror.patch"
+  ],
+  "support_files": [
+    {
+      "filename": "eigen.cmake",
+      "cache_filename": "ort-eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33-eigen.cmake",
+      "bytes": 788,
+      "sha256": "9db439c44f215186d3e8bde7970affd03d8fa911d89cac19adc30ed681ff32a2",
+      "source_urls": [
+        "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/external/eigen.cmake",
+        "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/external/eigen.cmake"
+      ],
+      "digest_provenance": "Locally computed hash of verbatim official release text; not an upstream-published checksum"
+    },
+    {
+      "filename": "s390x-build.patch",
+      "cache_filename": "ort-eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33-s390x-build.patch",
+      "bytes": 17794,
+      "sha256": "6d41f4504f665bc591336c668a1aa16ffc5e0f02fe9c2f9c46c6f5660b54c849",
+      "source_urls": [
+        "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/patches/eigen/s390x-build.patch",
+        "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/patches/eigen/s390x-build.patch"
+      ],
+      "digest_provenance": "Locally computed hash of verbatim official release text; not an upstream-published checksum"
+    },
+    {
+      "filename": "s390x-build-werror.patch",
+      "cache_filename": "ort-eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33-s390x-build-werror.patch",
+      "bytes": 610,
+      "sha256": "a1a7b0ca8382cb00542587b6bc725f59abd59ad5bb491825f7876ad6e344ef0b",
+      "source_urls": [
+        "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/patches/eigen/s390x-build-werror.patch",
+        "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/patches/eigen/s390x-build-werror.patch"
+      ],
+      "digest_provenance": "Locally computed hash of verbatim official release text; not an upstream-published checksum"
+    },
+    {
+      "filename": "README.md",
+      "cache_filename": "ort-eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33-README.md",
+      "bytes": 2178,
+      "sha256": "f1af80f79764d274bb1a232875f10b10bae6f4d00aebc406810b2fde496e2c5a",
+      "source_urls": [],
+      "digest_provenance": "Authored source-access instructions reviewed with this proposal"
+    }
+  ],
+  "official_release_texts": [
+    {
+      "runtime_tag": "1.30.0",
+      "path": "cmake/external/eigen.cmake",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/external/eigen.cmake",
+      "final_url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/external/eigen.cmake",
+      "file": "1.30.0-eigen.cmake",
+      "bytes": 788,
+      "sha256": "9db439c44f215186d3e8bde7970affd03d8fa911d89cac19adc30ed681ff32a2",
+      "status": "saved"
+    },
+    {
+      "runtime_tag": "1.30.0",
+      "path": "cmake/patches/eigen/s390x-build.patch",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/patches/eigen/s390x-build.patch",
+      "final_url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/patches/eigen/s390x-build.patch",
+      "file": "1.30.0-s390x-build.patch",
+      "bytes": 17794,
+      "sha256": "6d41f4504f665bc591336c668a1aa16ffc5e0f02fe9c2f9c46c6f5660b54c849",
+      "status": "saved"
+    },
+    {
+      "runtime_tag": "1.30.0",
+      "path": "cmake/patches/eigen/s390x-build-werror.patch",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/patches/eigen/s390x-build-werror.patch",
+      "final_url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/cmake/patches/eigen/s390x-build-werror.patch",
+      "file": "1.30.0-s390x-build-werror.patch",
+      "bytes": 610,
+      "sha256": "a1a7b0ca8382cb00542587b6bc725f59abd59ad5bb491825f7876ad6e344ef0b",
+      "status": "saved"
+    },
+    {
+      "runtime_tag": "1.24.4",
+      "path": "cmake/external/eigen.cmake",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/external/eigen.cmake",
+      "final_url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/external/eigen.cmake",
+      "file": "1.24.4-eigen.cmake",
+      "bytes": 788,
+      "sha256": "9db439c44f215186d3e8bde7970affd03d8fa911d89cac19adc30ed681ff32a2",
+      "status": "saved"
+    },
+    {
+      "runtime_tag": "1.24.4",
+      "path": "cmake/patches/eigen/s390x-build.patch",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/patches/eigen/s390x-build.patch",
+      "final_url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/patches/eigen/s390x-build.patch",
+      "file": "1.24.4-s390x-build.patch",
+      "bytes": 17794,
+      "sha256": "6d41f4504f665bc591336c668a1aa16ffc5e0f02fe9c2f9c46c6f5660b54c849",
+      "status": "saved"
+    },
+    {
+      "runtime_tag": "1.24.4",
+      "path": "cmake/patches/eigen/s390x-build-werror.patch",
+      "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/patches/eigen/s390x-build-werror.patch",
+      "final_url": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.24.4/cmake/patches/eigen/s390x-build-werror.patch",
+      "file": "1.24.4-s390x-build-werror.patch",
+      "bytes": 610,
+      "sha256": "a1a7b0ca8382cb00542587b6bc725f59abd59ad5bb491825f7876ad6e344ef0b",
+      "status": "saved"
+    }
+  ]
+}

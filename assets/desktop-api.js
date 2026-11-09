@@ -12,7 +12,11 @@ window.pywebview._createApi = function (functions) {
       return new Promise((resolve, reject) => {
         bridge._checkValue(func, resolve, reject, id);
         try {
-          bridge._jsApiCallback(func, args, id);
+          if (func === 'import_dropped_documents' && bridge.platform === 'edgechromium') {
+            window.chrome.webview.postMessageWithAdditionalObjects(
+              { type: 'violilt:file-drop', id }, Array.from(args[0])
+            );
+          } else bridge._jsApiCallback(func, args, id);
         } catch (error) {
           delete bridge._returnValuesCallbacks[func][id];
           reject(error);

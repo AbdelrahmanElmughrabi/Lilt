@@ -2,34 +2,40 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.metadata
 import json
+import math
 import os
 import platform
 import time
 from pathlib import Path
 
 from .devices import gpu_adapters
+from .gpu_usage import GpuUsage
 from .models import FILES, GPU_FILE
+from .pronunciation import pronunciation_identity
+from .runtime_diagnostics import load_onnx_runtime
 
 DEFAULTS = {'performance_mode': 'balanced', 'cpu_threads': 0, 'processing_device': 'auto',
             'gpu_device': -1, 'buffer_mode': 'balanced', 'auto_listen': True,
-            'warm_start': False, 'cache_enabled': True, 'cache_limit_mb': 256}
+            'warm_start': False, 'model_release': 'idle', 'cache_enabled': True, 'cache_limit_mb': 256}
 
 
 def validate(settings):
+    if not isinstance(settings, dict):
+        raise ValueError('Settings must be an object.')
     for key, values in {'performance_mode': {'quiet', 'balanced', 'fast', 'custom'},
                         'processing_device': {'auto', 'cpu', 'gpu'},
-                        'buffer_mode': {'sooner', 'balanced', 'smooth'}}.items():
-        if key in settings and settings[key] not in values:
+                        'buffer_mode': {'sooner', 'balanced', 'smooth'},
+                        'model_release': {'idle', 'immediate', 'keep'}}.items():
+        if key in settings and (not isinstance(settings[key], str) or settings[key] not in values):
             raise ValueError(f'Unknown {key.replace("_", " ")} setting.')
     if 'cpu_threads' in settings:
         value = settings['cpu_threads']
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != value or not 0 <= value <= (os.cpu_count() or 1):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or int(value) != value or not 0 <= value <= (os.cpu_count() or 1):
             raise ValueError('Choose Auto or an available CPU thread count.')
     if 'gpu_device' in settings and (isinstance(settings['gpu_device'], bool) or not isinstance(settings['gpu_device'], int) or settings['gpu_device'] < -1):
         raise ValueError('Unknown GPU device.')
-    if 'cache_limit_mb' in settings and settings['cache_limit_mb'] not in {128, 256, 512}:
+    if 'cache_limit_mb' in settings and (type(settings['cache_limit_mb']) is not int or settings['cache_limit_mb'] not in {128, 256, 512}):
         raise ValueError('Choose a cache limit of 128, 256, or 512 MB.')
     for key in ('auto_listen', 'warm_start', 'cache_enabled'):
         if key in settings and not isinstance(settings[key], bool):
@@ -47,8 +53,16 @@ def model_identity(path):
 
 
 def create_engine(model, voices, config):
-    import onnxruntime as ort
-    from kokoro_onnx import Kokoro
+    from .model_trust import verify_file
+    if Path(model).name not in {FILES[0], GPU_FILE} or Path(voices).name != FILES[1]:
+        raise ValueError('Choose the approved model and voice files.')
+    verify_file(model)
+    verify_file(voices)
+    if config['provider'] == 'CUDAExecutionProvider':
+        from .runtime import load_cuda_libraries
+        load_cuda_libraries()
+    ort = load_onnx_runtime()
+    from .kokoro_engine import Kokoro
     options = ort.SessionOptions()
     options.intra_op_num_threads = int(config['threads'])
     options.add_session_config_entry('session.intra_op.allow_spinning', '1' if config.get('spinning') else '0')
@@ -64,14 +78,6 @@ def create_engine(model, voices, config):
     elif config['provider'] == 'CUDAExecutionProvider':
         if 'CUDAExecutionProvider' not in ort.get_available_providers():
             raise ValueError('The optional NVIDIA runtime is unavailable. Choose CPU.')
-        import sys
-        # cuDNN loads further sublibraries at inference time, beyond ORT's preload.
-        for entry in sys.path:
-            folder = Path(entry) / 'nvidia'
-            if folder.is_dir():
-                bins = [str(path) for path in folder.glob('*/bin') if path.is_dir()]
-                os.environ['PATH'] = os.pathsep.join(bins + [os.environ.get('PATH', '')])
-        ort.preload_dlls(directory='')
         providers = [('CUDAExecutionProvider', {'device_id': str(config.get('cuda_device', 0)),
                       'cudnn_conv_algo_search': 'HEURISTIC', 'do_copy_in_default_stream': '1'}), 'CPUExecutionProvider']
     session = ort.InferenceSession(str(model), sess_options=options, providers=providers)
@@ -84,7 +90,7 @@ def create_engine(model, voices, config):
 class Performance:
     def __init__(self, store, models):
         import psutil
-        import onnxruntime as ort
+        ort = load_onnx_runtime()
         self.store, self.models = store, models
         self.logical = psutil.cpu_count() or 1
         self.physical = psutil.cpu_count(logical=False) or self.logical
@@ -100,14 +106,18 @@ class Performance:
         self._process = None
         self._sampled = 0
         self._usage = None
+        self._gpu_usage = GpuUsage()
         self._identity = None
+        self._pronunciation_identity = None
 
     def identity(self):
-        if self._identity is None:
+        pronunciation = pronunciation_identity()
+        if self._identity is None or pronunciation != self._pronunciation_identity:
             model_files = [(name, (self.models.root / name).stat().st_size, (self.models.root / name).stat().st_mtime_ns)
                            for name in (*FILES, GPU_FILE) if (self.models.root / name).is_file()]
             self._identity = hashlib.sha256(json.dumps([platform.processor(), self.logical, self.physical,
-                self.adapters, self.runtime, self.gpu_runtime, importlib.metadata.version('kokoro-onnx'), model_files], sort_keys=True).encode()).hexdigest()
+                self.adapters, self.runtime, self.gpu_runtime, pronunciation, model_files], sort_keys=True).encode()).hexdigest()
+            self._pronunciation_identity = pronunciation
         return self._identity
 
     def recommendation(self):
@@ -115,7 +125,7 @@ class Performance:
         return result if result and result.get('identity') == self.identity() else None
 
     def gpu_ready(self):
-        return ('CUDAExecutionProvider' in self.providers or 'DmlExecutionProvider' in self.providers) and bool(self.gpu_devices()) and (self.models.root / GPU_FILE).is_file()
+        return ('CUDAExecutionProvider' in self.providers or 'DmlExecutionProvider' in self.providers) and bool(self.gpu_devices()) and self.models.gpu_verified
 
     def gpu_devices(self):
         return [adapter for adapter in self.adapters if 'NVIDIA' in adapter['name']] if 'CUDAExecutionProvider' in self.providers else self.adapters
@@ -177,12 +187,15 @@ class Performance:
             self._usage = None
         return self._usage
 
-    def status(self, process=None):
+    def status(self, process=None, *, engine=None):
         try:
             configuration = self.resolve(self.store.settings())
         except ValueError as error:
             configuration = {'label': 'Unavailable', 'threads': 0, 'message': str(error)}
+        gpu_pid = process.pid if (process and process.is_alive() and engine
+                                 and engine.get('provider') in {'CUDAExecutionProvider', 'DmlExecutionProvider'}) else None
+        gpu_percent = self._gpu_usage.read(gpu_pid)
         return {'logical_processors': self.logical, 'physical_cores': self.physical, 'adapters': self.gpu_devices(),
-                'gpu_ready': self.gpu_ready(), 'gpu_message': 'Optional GPU runtime and model ready.' if self.gpu_ready() else 'GPU needs the optional runtime and GPU model.',
+                'gpu_ready': self.gpu_ready(), 'gpu_message': 'Optional GPU runtime and model ready.' if self.gpu_ready() else (self.models.gpu_error or 'GPU needs the optional runtime and GPU model.'),
                 'benchmark': self.benchmark.copy(), 'warmup': self.warmup.copy(), 'recommendation': self.recommendation(),
-                'configuration': configuration, 'cpu_percent': self.usage(process)}
+                'configuration': configuration, 'cpu_percent': self.usage(process), 'gpu_percent': gpu_percent if gpu_pid else None}

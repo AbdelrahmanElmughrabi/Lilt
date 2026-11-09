@@ -1,1 +1,1 @@
-"""Lilt desktop application."""
+"""Violilt desktop application."""

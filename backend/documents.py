@@ -3,9 +3,27 @@ from __future__ import annotations
 
 import re
 from html.parser import HTMLParser
+from string import punctuation
 from markdown_it import MarkdownIt
 
+from .speech_text import normalize_symbols
+from .limits import markdown_text
+
 DEFAULT_OPTIONS = {"include_code": False, "heading_pause": 0.6, "paragraph_pause": 0.3}
+
+
+def plain_text_markdown(text, format_name='TXT'):
+    """Import literal text into the existing editable Markdown working copy."""
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    text = re.sub(f'([{re.escape(punctuation)}])', r'\\\1', text)
+    # Entities preserve leading whitespace without creating an indented code block.
+    text = re.sub(r'(?m)^[ \t]+(?=\S)',
+                  lambda match: ''.join(f'&#{ord(char)};' for char in match[0]), text)
+    try:
+        return markdown_text(text)
+    except ValueError:
+        raise ValueError(f'This {format_name} file needs more than 2 MB for its editable working copy. '
+                         'Split it into smaller readings.') from None
 
 
 class PlainHTML(HTMLParser):
@@ -85,8 +103,11 @@ def section_text(text, limit=420):
 
 
 def prepare(markdown: str, options: dict | None = None, fallback_title="Untitled reading"):
-    if not isinstance(markdown, str):
-        raise ValueError("The document must contain text.")
+    markdown_text(markdown)
+    if options is not None and not isinstance(options, dict):
+        raise ValueError('Reading options must be an object.')
+    from .settings import validate_settings
+    validate_settings({key: value for key, value in (options or {}).items() if key in DEFAULT_OPTIONS})
     settings = DEFAULT_OPTIONS | {key: value for key, value in (options or {}).items() if key in DEFAULT_OPTIONS}
     for key in ("heading_pause", "paragraph_pause"):
         settings[key] = max(0.0, min(2.0, float(settings[key])))
@@ -133,12 +154,17 @@ def prepare(markdown: str, options: dict | None = None, fallback_title="Untitled
             content = html_text(token.content)
             if content:
                 blocks.append({"kind": "paragraph", "text": content})
+    unread_symbols = []
+    for block in blocks:
+        block['text'], unread = normalize_symbols(block['text'])
+        unread_symbols.extend(unread)
     chunks = []
     for block_index, block in enumerate(blocks):
         sections = section_text(block["text"])
         pause = settings["heading_pause"] if block["kind"] == "heading" else settings["paragraph_pause"]
         for index, text in enumerate(sections):
             chunks.append({"text": text, "block": block_index, "pause": pause if index == len(sections) - 1 else 0.12})
-    spoken = "\n\n".join(block["text"] for block in blocks)
+    spoken = "\n\n".join(block["text"] for block in blocks if block['text'])
     return {"title": title or fallback_title, "text": spoken, "blocks": blocks, "chunks": chunks,
-            "words": len(spoken.split()), "omissions": omissions, "options": settings}
+            "words": len(spoken.split()), "omissions": omissions, "options": settings,
+            "unread_symbols": unread_symbols, "unread_count": len(unread_symbols)}
