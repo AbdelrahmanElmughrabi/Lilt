@@ -3,14 +3,17 @@
   #error PayloadDir must point to the audited Violilt folder.
 #endif
 #ifndef PackageVersion
-  #define PackageVersion "1.0.4.0"
+  #define PackageVersion "0.2.0.0"
+#endif
+#ifndef BetaVersion
+  #define BetaVersion "0.2"
 #endif
 
 [Setup]
 AppId=Violilt.PrivateDeviceTest
-AppName=Violilt Test
+AppName=Violilt Beta
 AppVersion={#PackageVersion}
-AppVerName=Violilt Test {#PackageVersion}
+AppVerName=Violilt Beta v{#BetaVersion}
 AppPublisherURL=https://velourvolute.com/violilt
 AppSupportURL=https://velourvolute.com/violilt/support
 DefaultDirName={localappdata}\Programs\VioliltTest
@@ -19,8 +22,10 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
-OutputBaseFilename=Violilt-Test-{#PackageVersion}-x64-Setup
+OutputBaseFilename=Violilt-Beta-v{#BetaVersion}-x64-Setup
 SetupIconFile=..\..\assets\violilt.ico
+WizardImageFile=wizard-logo.png
+WizardSmallImageFile=..\..\assets\violilt.png
 UninstallDisplayIcon={app}\Violilt.exe
 Compression=lzma2/normal
 SolidCompression=yes
@@ -33,7 +38,7 @@ CloseApplications=no
 RestartApplications=no
 Uninstallable=yes
 UninstallDisplayName=Violilt Test
-VersionInfoDescription=Violilt private device-test installer
+VersionInfoDescription=Violilt Beta installer
 VersionInfoVersion={#PackageVersion}
 SetupLogging=yes
 
@@ -52,7 +57,7 @@ Name: "{group}\Uninstall Violilt Test"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\Violilt Test"; Filename: "{app}\Violilt.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Messages]
-WelcomeLabel2=This installs Violilt Test for your Windows account.%n%nCPU voices, models and the optional NVIDIA runtime are included. Microsoft Edge WebView2 is required.%n%nThis test build uses a separate test library. Uninstalling keeps your documents and recordings.
-FinishedLabel=Violilt Test is installed. Open it from the Start menu when you are ready.
+WelcomeLabel2=This installs Violilt Beta v{#BetaVersion} for your Windows account.%n%nCPU voices, models and the optional NVIDIA runtime are included. Microsoft Edge WebView2 is required.%n%nThis beta uses a separate test library. Uninstalling keeps your documents and recordings.
+FinishedLabel=Violilt Beta is installed. Open Violilt Test from the Start menu when you are ready.
 
 ; No automatic app launch, services, drivers, certificates, associations, or app-data deletion.

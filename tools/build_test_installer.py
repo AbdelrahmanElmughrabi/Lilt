@@ -24,11 +24,12 @@ def main() -> None:
     parser.add_argument('--audit-sha256', required=True)
     parser.add_argument('--compiler', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
-    parser.add_argument('--version', default='1.0.4.0')
+    parser.add_argument('--version', default='0.2.0.0')
     parser.add_argument('--source-commit', required=True)
     args = parser.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+\.\d+', args.version):
         raise ValueError('Use a four-part numeric package version.')
+    beta_version = args.version.removesuffix('.0.0')
     if not re.fullmatch(r'[0-9a-f]{40}', args.source_commit):
         raise ValueError('Pin the app payload source commit.')
     root = Path(__file__).resolve().parents[1]
@@ -80,6 +81,7 @@ def main() -> None:
         'payload_audit_sha256': args.audit_sha256.lower(),
         'data_profile': marker['data_profile'],
         'compiler_sha256': digest(args.compiler), 'recipe_sha256': digest(recipe),
+        'wizard_image_sha256': digest(recipe.with_name('wizard-logo.png')),
         'files': sorted(expected.values(), key=lambda item: item['path']),
     }
     manifest_path = output / 'installer-inventory.json'
@@ -88,6 +90,7 @@ def main() -> None:
         result = subprocess.run([
             str(args.compiler.resolve(strict=True)), '/Qp',
             '/DPayloadDir=' + str(payload), '/DPackageVersion=' + args.version,
+            '/DBetaVersion=' + beta_version,
             '/O' + str(output), str(recipe),
         ], stdout=log, stderr=subprocess.STDOUT, check=False)
     manifest['compiler_exit_code'] = result.returncode
@@ -95,7 +98,7 @@ def main() -> None:
         manifest['status'] = 'compile-failed'
         manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
         raise RuntimeError('Installer compile failed; inspect compiler.log.')
-    installer = output / f'Violilt-Test-{args.version}-x64-Setup.exe'
+    installer = output / f'Violilt-Beta-v{beta_version}-x64-Setup.exe'
     manifest.update(status='built-install-test-pending', installer=installer.name,
                     installer_bytes=installer.stat().st_size, installer_sha256=digest(installer))
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

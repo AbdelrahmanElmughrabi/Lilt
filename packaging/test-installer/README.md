@@ -4,6 +4,9 @@ This creates a classic unsigned EXE installer from an already audited CPU/NVIDIA
 payload. It is separate from production MSIX packaging. No certificate, trust
 import, system service, driver, security-setting change or app rebuild is involved.
 
+Setup displays **Violilt Beta** with the existing Violilt logo on the welcome
+page. The default download filename is `Violilt-Beta-v0.2-x64-Setup.exe`.
+
 The installer supports Windows 11 x64-compatible systems, installs for the current
 user under `%LOCALAPPDATA%\Programs\VioliltTest`, creates Start-menu launch/uninstall
 shortcuts, and offers an unchecked desktop-shortcut option. It never launches the
@@ -37,7 +40,7 @@ python tools/build_test_installer.py `
   --audit-sha256 '5aa16925c6fbb422861c4e1e4bb689cc977baf642bdb827447f56391c8a5edd5' `
   --source-commit '7ce6a21afd7a5f7d8dfe46b3081a11ec3947d764' `
   --output 'dist/test-installer-new' `
-  --version '1.0.4.0'
+  --version '0.2.0.0'
 ```
 
 The builder verifies the complete payload file set and every size/hash, then
