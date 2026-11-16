@@ -71,3 +71,16 @@ These additions are scoped notice inputs. Binary/build correspondence, vendor
 authority, matching covered source, practical replacement and actual final
 payload inclusion remain separate reviews. Runtime/package changes require the
 affected versioned texts and mappings to be reviewed again.
+
+26 October R04 delivery supplements:
+
+- `Microsoft-VC-runtime-NOTICE.txt` is the unchanged three-file notice prepared
+  in the independently accepted individual-publisher route. It identifies the
+  files and does not grant rights or assert actual product-license acceptance.
+- `NVIDIA-CUDA-12.9.2-terms.txt` and `NVIDIA-cuDNN-9.27-terms.txt` preserve the
+  complete readable official-page captures from the accepted R04 supplier
+  evidence, byte for byte. `NVIDIA-nvJitLink-LICENSE.txt` preserves the complete
+  direct NVIDIA redistributable license. These accompany the existing raw wheel
+  licenses rather than replacing them. Exact public references, wheel/version
+  differences and the pending publisher adoption are in `../NVIDIA-TERMS.md`.
+  Source capture paths and identity checks are recorded in the R04 closure ledger.

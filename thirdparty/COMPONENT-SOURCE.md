@@ -28,7 +28,9 @@ num2words 0.5.14 remains LGPL-2.1-or-later. The contemplated compliance route
 uses LGPL 2.1: accompanying library source and notices, with section 6(b)'s
 suitable shared-library mechanism for the applicable combined work. The frozen
 layout selects `_internal/num2words` as external Python source, not frozen PYZ
-code. Compatible library modifications must be usable under the actual provided
+code. The current classic-EXE replacement procedure is in
+`LIBRARY-REPLACEMENT.md`; the protected Store/MSIX arrangement remains separate.
+Compatible library modifications must be usable under the actual provided
 arrangement. The full text is at `native/LGPL-2.1.txt`; retain library-specific
 copyrights and COPYING under `python/` and in the source archive.
 
@@ -84,8 +86,10 @@ that combination requires complete matching source/build/patch materials and an
 actual compatible-library arrangement before distribution. No such source or
 replacement claim is made for an older payload by this retirement proposal.
 
-The num2words LGPL section 6(b) arrangement and final compatible-library behavior
-remain separate; removal of native audio does not settle those requirements.
+The num2words LGPL section 6(b) arrangement, applicable application-term exception
+and future protected-package delivery remain separate; removal of native audio
+does not settle those requirements. See `LIBRARY-REPLACEMENT.md` for the writable
+classic-EXE procedure.
 
 Third-party source rights do not automatically require disclosure of independent
 Violilt files. Model/GPU integrity and package-signature controls remain separate

@@ -15,9 +15,10 @@ kokoro-onnx wrapper. Their applicable license texts and notices must remain with
 distributed copies. Only English Misaki dictionaries are collected.
 
 num2words 0.5.14 is LGPL. Its unchanged source is collected as external `.py`
-files in `_internal/num2words`, outside the executable archive. A usable section-6(b)
-arrangement with interface-compatible modified libraries still requires final
-validation; external placement alone is insufficient for a protected MSIX. A matching upstream source archive
+files in `_internal/num2words`, outside the executable archive. The writable
+classic-EXE arrangement is described in `LIBRARY-REPLACEMENT.md`. A protected
+MSIX still requires its actual companion/replacement arrangement and validation.
+A matching upstream source archive
 and its license are supplied under `third-party/sources`. certifi and tqdm contain
 MPL-covered code; their covered source and license texts are supplied there too,
 and external Python source is retained when collected. These component licenses
@@ -59,4 +60,6 @@ Primary references: [Misaki](https://github.com/hexgrad/misaki),
 
 Accompanying-source paths and license rights are detailed in `SOURCE-RIGHTS.md`;
 model/voice/data identities and acknowledgements are in `MODEL-ATTRIBUTIONS.md`.
+Microsoft runtime identification is at `native/Microsoft-VC-runtime-NOTICE.txt`;
+the NVIDIA supplied/versioned-term schedule is in `NVIDIA-TERMS.md`.
 These documents remain development-candidate records, not final release clearance.

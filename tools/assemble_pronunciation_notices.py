@@ -253,6 +253,10 @@ def assemble(output: Path, frontend_directory: Path | None = None) -> dict:
         'DOMPurify-3.4.17-license-choice.txt': ROOT / 'thirdparty/licenses/DOMPurify-3.4.17-license-choice.txt',
         'WebView2-SDK-LICENSE.txt': ROOT / 'thirdparty/licenses/WebView2-SDK-1.0.3856.49-LICENSE.txt',
         'WebView2-SDK-NOTICE.txt': ROOT / 'thirdparty/licenses/WebView2-SDK-1.0.3856.49-NOTICE.txt',
+        'Microsoft-VC-runtime-NOTICE.txt': ROOT / 'thirdparty/licenses/Microsoft-VC-runtime-NOTICE.txt',
+        'NVIDIA-CUDA-12.9.2-terms.txt': ROOT / 'thirdparty/licenses/NVIDIA-CUDA-12.9.2-terms.txt',
+        'NVIDIA-cuDNN-9.27-terms.txt': ROOT / 'thirdparty/licenses/NVIDIA-cuDNN-9.27-terms.txt',
+        'NVIDIA-nvJitLink-LICENSE.txt': ROOT / 'thirdparty/licenses/NVIDIA-nvJitLink-LICENSE.txt',
         'kokoro-onnx-MIT-LICENSE.txt': ROOT / 'thirdparty/licenses/kokoro-onnx-0.6.1-LICENSE.txt',
         'librosa-trim-NOTICE.txt': ROOT / 'thirdparty/licenses/librosa-trim-NOTICE.txt',
         # Full Apache-2.0 terms are identical; provenance and attribution below are
@@ -289,6 +293,8 @@ def assemble(output: Path, frontend_directory: Path | None = None) -> dict:
     component_documents = {
         'MODEL-ATTRIBUTIONS.md': ROOT / 'thirdparty/MODEL-ATTRIBUTIONS.md',
         'SOURCE-RIGHTS.md': ROOT / 'thirdparty/COMPONENT-SOURCE.md',
+        'LIBRARY-REPLACEMENT.md': ROOT / 'thirdparty/LIBRARY-REPLACEMENT.md',
+        'NVIDIA-TERMS.md': ROOT / 'thirdparty/NVIDIA-TERMS.md',
     }
     for label, source in component_documents.items():
         if source.is_file():
