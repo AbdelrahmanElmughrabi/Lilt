@@ -272,7 +272,7 @@ test('unavailable cache shows its status instead of a successful zero-count scan
     message: 'Reusable audio could not be accessed. Readings can continue; your recordings are kept.'});
   await page.clock.runFor(900);
   await page.getByRole('button', {name: 'Settings', exact: true}).click();
-  const card = page.locator('.performance-card');
+  const card = page.locator('.reusable-card');
   await card.getByRole('status').filter({hasText: 'Reusable audio could not be accessed'}).waitFor();
   assert.equal(await card.getByText('0 passages', {exact: false}).count(), 0);
   assert.equal(await card.getByRole('button', {name: 'Clear reusable audio'}).isDisabled(), true);
