@@ -72,3 +72,19 @@ The previous batch performed no installation; the subsequent publisher device
 attempt failed as recorded above. No website publication or account operation
 was performed. Existing release requirements remain as recorded in
 `release-source-status.md`.
+
+On 26 October 2026, the publisher marked the other-PC testing step complete and
+reported that the application works perfectly. This is publisher-reported
+acceptance of the classic test build. Final Store-identity MSIX installation,
+update and certification retain their separate scope.
+
+The fresh 26 October R04 closure authorization is recorded in the
+[finite closure ledger](release-redistribution-status.md). The publisher confirmed that no
+third-party pictures, logos or copied text were imported into the artwork or
+first-reading sample. Actual Microsoft license acceptance and NVIDIA agreement
+adoption remain unconfirmed; the [publisher action guide](publisher-licensing-actions.md)
+explains the personal steps. Current accompanying-source delivery is verified;
+additional notice/instruction files and a recipient-terms draft are prepared for
+the next adopted distribution. The existing test installer and its hashes are
+unchanged. Website/production identity and final Store certification remain
+separate from this licensing/source closure batch.

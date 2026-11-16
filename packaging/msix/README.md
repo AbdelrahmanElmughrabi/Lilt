@@ -44,12 +44,13 @@ Package assets are resized from the existing Violilt artwork using Windows
 System.Drawing. The Windows minimum build in `compatibility.json` is provisional
 for this experiment, not a declaration of the production app's tested OS support.
 
-The compatibility identity uses Microsoft's explicit unsigned-test publisher OID.
-This keeps it separate from signed/Store identities. On Windows 11 the concrete
-package can be tested without trusting a development certificate. Windows requires
-Administrator PowerShell to install an unsigned package containing executable code;
-this is a local testing requirement, not a customer installation requirement.
-See [Microsoft's unsigned-package guidance](https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package).
+The compatibility identity uses Microsoft's unsigned-test publisher OID and is
+separate from the Store identity. The actual 1.0.4.0 package failed installation
+with `0x80073D2B`: unsigned executable activations were prohibited, including
+with Administrator PowerShell and `-AllowUnsigned`. Do not repeat that route as
+an installation plan. A signed local test needs a separately reviewed identity,
+signing and trust arrangement; the Store signs packages for Store distribution.
+No certificate or trust changes have been made.
 
 After a successful build, inspect installation without changing the machine:
 
@@ -57,16 +58,15 @@ After a successful build, inspect installation without changing the machine:
 & .\tools\install_msix_test.ps1 -PackagePath .\dist\msix-compatibility\Violilt-MsixCompatibility-1.0.1.0-x64.msix -WhatIf
 ```
 
-To install, run the same command without `-WhatIf` from an Administrator PowerShell.
-The helper checks the identity, inventory and package hash before installation. It
-does not change certificate trust, developer mode, firewall policy or loopback
-exemptions. The build itself never installs the package or publishes anything.
-Launch the test app from Start as a standard user after installation.
+The helper's unsigned installation path is retained as historical tooling, not a
+working recommendation. Its `-WhatIf` checks are not an installation. The build
+itself never installs the package or publishes anything.
 
 An unsigned MSIX is a build artifact, not proof of installation or runtime
 compatibility. The remaining deployment checks are:
 
-- Install the concrete test artifact through the explicit local unsigned-test workflow.
+- Establish a viable signed test or Store-delivered installation route and install
+  the concrete package through that route.
 - Launch it as a standard user and verify the actual virtualized data location.
 - Exercise WebView2/native bridge/file drop, CPU and CUDA inference, streaming and
   export, worker cleanup, and missing-runtime/driver behavior.
