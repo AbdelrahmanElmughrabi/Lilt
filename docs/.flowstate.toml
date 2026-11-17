@@ -1,0 +1,5 @@
+# FlowIndex State & Overrides (.flowstate.toml)
+# Managed by FlowIndex. Edits are preserved.
+
+[streams.r11]
+tip = "r11-argon-plan-correction-prompt.md"
