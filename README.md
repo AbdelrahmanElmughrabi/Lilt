@@ -29,12 +29,15 @@ A Svelte interface runs in a pywebview window. A loopback server provides the in
 ```mermaid
 flowchart LR
     UI["Svelte + pywebview"] -- commands --> Bridge["Python bridge"]
-    UI -- "interface and audio" --> Server["Local server"]
+    UI -- "requests interface and audio" --> Server["Local server"]
     Bridge --> Jobs["Job controller"]
+    Bridge -- "documents and settings" --> Database["SQLite library"]
     Jobs <--> Worker["Persistent speech worker"]
+    Jobs -- "job state and progress" --> Database
     Worker <--> Cache["Section cache"]
-    Jobs --> Store["SQLite + audio files"]
-    Server --> Store
+    Worker -- "writes sections and recordings" --> Audio["Local WAV files"]
+    Server -- "checks audio availability" --> Database
+    Server -- "serves audio from" --> Audio
 ```
 
 ## Design decisions
